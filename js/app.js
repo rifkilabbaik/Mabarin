@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.0.0';
+  var APP_VERSION = '1.1.0';
   var STORAGE_KEY = 'mabarin:settings';
   var MODES = window.MABARIN_MODES || [];
   var GAMES = window.MABARIN_GAMES || [];
@@ -471,6 +471,10 @@
     var minTime = 1400;
     var start = Date.now();
 
+    // splash hanya diputar penuh sekali per sesi (mis. tidak lagi saat kembali dari game)
+    var booted = false;
+    try { booted = sessionStorage.getItem('mabarin:booted') === '1'; sessionStorage.setItem('mabarin:booted', '1'); } catch (e) { /* abaikan */ }
+
     var tasks = [];
     if (document.fonts && document.fonts.ready) tasks.push(document.fonts.ready);
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -478,6 +482,7 @@
     }
     var timeout = new Promise(function (r) { setTimeout(r, 4000); });
     Promise.race([Promise.all(tasks), timeout]).then(function () { ready = true; });
+    if (booted) { finishSplash(); return; }
 
     function step() {
       var elapsed = Date.now() - start;

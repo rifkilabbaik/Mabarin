@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Tebak Impostor - Mabarin</title>
+  <meta name="theme-color" content="#3b3f6e">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="../../icons/icon.svg">
+  <link rel="preload" href="../../fonts/lilita-one.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../../fonts/fonts.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ============ LOBI: atur pemain ============ -->
+    <section class="screen is-active" id="s-lobby">
+      <header class="hero">
+        <svg class="hero__art" viewBox="0 0 200 120" aria-hidden="true"><path d="M70 0l30 110L130 0" fill="none" stroke="#fff" stroke-width="22" opacity=".08"/></svg>
+        <div class="hero__bar">
+          <a class="round-btn" href="../../index.html#/mode/party" aria-label="Kembali ke Mabarin" data-sfx>
+            <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <h1 class="hero__title">TEBAK IMPOSTOR</h1>
+          <button class="round-btn" data-go="settings" aria-label="Pengaturan kata">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM12 15.3a3.3 3.3 0 1 1 0-6.6 3.3 3.3 0 0 1 0 6.6z"/></svg>
+          </button>
+        </div>
+        <p class="hero__text">Main bareng sampai 10 teman! Semua dapat kata rahasia, tapi satu orang dapat kata yang berbeda. Beri petunjuk singkat tanpa terlalu jelas, lalu tebak bersama siapa impostornya.</p>
+      </header>
+
+      <main class="lobby__body">
+        <div class="players" id="player-list"><!-- js --></div>
+        <button class="add-player" id="add-player">
+          <span>Tambah Pemain</span>
+          <span class="add-player__plus" aria-hidden="true">+</span>
+        </button>
+        <p class="lobby__hint" id="lobby-hint"></p>
+      </main>
+
+      <footer class="lobby__foot">
+        <button class="btn btn--reset" id="reset-score" hidden>Reset Skor</button>
+        <button class="btn btn--play" id="play">MAIN</button>
+        <button class="help-btn" data-action="help" aria-label="Cara main">?</button>
+      </footer>
+    </section>
+
+    <!-- ============ LIHAT KATA ============ -->
+    <section class="screen screen--reveal" id="s-reveal">
+      <button class="round-btn round-btn--float" data-action="quit" aria-label="Keluar dari ronde">
+        <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="reveal__head">
+        <p class="reveal__for">Kata untuk</p>
+        <h2 class="reveal__name" id="reveal-name">Pemain 1</h2>
+      </div>
+      <button class="reveal__panel" id="reveal-panel" aria-live="polite">
+        <span class="reveal__hidden">
+          <span class="reveal__q">?</span>
+          <span class="reveal__tap">KETUK untuk melihat</span>
+        </span>
+        <span class="reveal__word" id="reveal-word"></span>
+      </button>
+      <div class="reveal__foot">
+        <p class="reveal__pass" id="reveal-pass"></p>
+        <button class="btn btn--dark" id="reveal-next" hidden>SUDAH</button>
+      </div>
+    </section>
+
+    <!-- ============ DISKUSI + RODA ============ -->
+    <section class="screen screen--dark" id="s-discuss">
+      <button class="round-btn round-btn--float" data-action="quit" aria-label="Keluar dari ronde">
+        <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <main class="dark__body">
+        <h2 class="dark__title">DISKUSI!</h2>
+        <p class="dark__text">Putar roda untuk menentukan giliran. Yang terpilih menyebutkan <b>deskripsi singkat</b> tentang kata rahasianya. Jangan terlalu jelas!</p>
+
+        <div class="wheel">
+          <div class="wheel__pointer" aria-hidden="true"></div>
+          <canvas id="wheel-canvas" width="600" height="600" aria-label="Roda giliran"></canvas>
+          <button class="wheel__hub" id="spin" aria-label="Putar roda">PUTAR</button>
+        </div>
+
+        <div class="turn" id="turn" aria-live="polite">
+          <span class="turn__label" id="turn-label">Ketuk PUTAR untuk mulai</span>
+          <span class="turn__name" id="turn-name"></span>
+        </div>
+
+        <ol class="order" id="order"><!-- js --></ol>
+        <button class="btn btn--ghost" id="spin-again" hidden>PUTAR RONDE LAGI</button>
+      </main>
+      <footer class="dark__foot">
+        <button class="btn btn--dark" id="to-vote">LANJUT VOTING</button>
+      </footer>
+    </section>
+
+    <!-- ============ VOTING ============ -->
+    <section class="screen screen--dark" id="s-vote">
+      <button class="round-btn round-btn--float" data-action="quit" aria-label="Keluar dari ronde">
+        <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <main class="dark__body">
+        <h2 class="dark__title">VOTING</h2>
+        <p class="dark__text">Putuskan bersama siapa impostornya</p>
+        <div class="vote-list" id="vote-list"><!-- js --></div>
+      </main>
+      <footer class="dark__foot">
+        <button class="btn btn--dark" id="vote-next" disabled>LANJUT</button>
+      </footer>
+    </section>
+
+    <!-- ============ HASIL ============ -->
+    <section class="screen screen--dark" id="s-result">
+      <main class="dark__body result__body">
+        <div class="result__art">
+          <svg viewBox="0 0 200 170" aria-hidden="true">
+            <circle cx="100" cy="62" r="40" fill="#1f2233"/>
+            <path d="M58 46c-6-24 14-38 36-34 10-10 34-6 40 10 4 10-2 18-8 20-20-6-48-6-68 4z" fill="#1f2233"/>
+            <circle cx="84" cy="62" r="13" fill="#2c3048"/><circle cx="116" cy="62" r="13" fill="#2c3048"/>
+            <rect x="94" y="59" width="12" height="4" fill="#2c3048"/>
+            <ellipse cx="100" cy="88" rx="5" ry="6" fill="#3b3f6e"/>
+            <path d="M30 170c0-40 30-64 70-64s70 24 70 64z" fill="#1f2233"/>
+            <path d="M70 104l-14 0 30 18 14 48 14-48 30-18-14 0-30 18z" fill="#1f2233"/>
+            <path d="M80 108l14 50 6-36z M120 108l-14 50-6-36z" fill="#fff"/>
+          </svg>
+          <div class="stamp" id="stamp">KETAHUAN!</div>
+        </div>
+        <p class="result__verdict" id="verdict"></p>
+        <div class="info-card">
+          <span class="info-card__label">Kata Crew</span>
+          <span class="info-card__value" id="res-crew"></span>
+        </div>
+        <div class="info-card">
+          <span class="info-card__label">Kata Impostor</span>
+          <span class="info-card__value info-card__value--red" id="res-imp-word"></span>
+        </div>
+        <div class="info-card">
+          <span class="info-card__label">Impostor</span>
+          <span class="info-card__value info-card__value--red" id="res-imp"></span>
+        </div>
+        <p class="result__points" id="res-points"></p>
+      </main>
+      <footer class="dark__foot">
+        <button class="btn btn--dark" id="result-next">LANJUT</button>
+      </footer>
+    </section>
+
+    <!-- ============ PENGATURAN KATA ============ -->
+    <section class="screen" id="s-settings">
+      <header class="topbar">
+        <button class="icon-btn" data-go="lobby" aria-label="Kembali">
+          <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h2 class="topbar__title">KATEGORI KATA</h2>
+        <span class="icon-btn" aria-hidden="true"></span>
+      </header>
+      <main class="cat__body">
+        <div class="cat__tools">
+          <span class="cat__count" id="cat-count"></span>
+          <button class="chip" id="cat-all">Pilih semua</button>
+          <button class="chip" id="cat-none">Kosongkan</button>
+        </div>
+        <label class="toggle-row">
+          <span>Tampilkan kategori saat lihat kata</span>
+          <input type="checkbox" class="switch" id="opt-showcat">
+        </label>
+        <div class="cat-list" id="cat-list"><!-- js --></div>
+      </main>
+    </section>
+
+    <!-- ============ MODAL & TOAST ============ -->
+    <div class="modal" id="modal" aria-hidden="true">
+      <div class="modal__card" role="dialog" aria-modal="true">
+        <h3 class="modal__title" id="modal-title"></h3>
+        <div class="modal__text" id="modal-text"></div>
+        <div class="modal__actions" id="modal-actions"></div>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script src="words.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

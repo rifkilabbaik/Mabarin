@@ -1,7 +1,7 @@
 /* MABARIN service worker
  * Naikkan CACHE_VERSION setiap kali ada file yang berubah / game baru ditambahkan,
  * agar pemain otomatis mendapat versi terbaru. */
-var CACHE_VERSION = 'mabarin-v1.0.0';
+var CACHE_VERSION = 'mabarin-v1.1.0';
 
 var PRECACHE = [
   './',
@@ -17,8 +17,14 @@ var PRECACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png'
-  // Tambahkan file game di sini, mis. './games/tap-race/index.html'
+  './icons/apple-touch-icon.png',
+  // Game: Tebak Impostor
+  './games/tebak-impostor/index.html',
+  './games/tebak-impostor/style.css',
+  './games/tebak-impostor/game.js',
+  './games/tebak-impostor/words.js',
+  './games/tebak-impostor/cover.svg'
+  // Tambahkan file game berikutnya di sini
 ];
 
 self.addEventListener('install', function (event) {

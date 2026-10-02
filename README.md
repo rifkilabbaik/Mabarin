@@ -10,6 +10,12 @@ Dibuat sebagai **PWA** (HTML + CSS + JavaScript murni, tanpa build tool), jadi b
 - **Halaman kategori**: daftar game di tiap mode (sementara berisi kartu "Segera Hadir").
 - **Pengaturan**: efek suara, getaran, mode gelap, layar penuh, nama 4 pemain, pasang aplikasi, bagikan, dan reset data.
 
+## Game
+
+| Game | Mode | Pemain |
+| --- | --- | --- |
+| **Tebak Impostor**: semua dapat kata rahasia, satu orang (impostor) dapat kata yang mirip. Beri deskripsi bergiliran lewat roda putar, lalu voting. 1000 pasangan kata dalam 100 kategori. | Party Games | 3–10 |
+
 ## Menjalankan
 
 Service worker hanya aktif lewat `http://localhost` atau `https://`, jadi jalankan server statis apa saja:

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#3b3f6e"/>
+  <circle cx="100" cy="92" r="70" fill="#454a80"/>
+  <!-- badan / mantel -->
+  <path d="M28 200c0-52 30-86 72-86s72 34 72 86z" fill="#1f2233"/>
+  <path d="M72 120l28 70 28-70-28 16z" fill="#2a2d42"/>
+  <path d="M78 118l14 64 8-40z M122 118l-14 64-8-40z" fill="#ffffff"/>
+  <path d="M100 142l-6 10 6 36 6-36z" fill="#1f2233"/>
+  <!-- kepala -->
+  <circle cx="100" cy="86" r="34" fill="#1f2233"/>
+  <!-- topi -->
+  <ellipse cx="100" cy="62" rx="62" ry="12" fill="#1f2233"/>
+  <path d="M66 62c0-26 14-40 34-40s34 14 34 40z" fill="#1f2233"/>
+  <rect x="66" y="50" width="68" height="8" fill="#2c3048"/>
+  <!-- kacamata -->
+  <path d="M62 80h76v6c0 9-8 16-17 16s-15-6-17-12h-8c-2 6-8 12-17 12s-17-7-17-16z" fill="#e2402f"/>
+  <path d="M70 84h22M108 84h22" stroke="#ff8a7c" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+</svg>

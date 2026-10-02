@@ -28,5 +28,14 @@ window.MABARIN_MODES = [
 ];
 
 window.MABARIN_GAMES = [
-  // Game akan ditambahkan di sini secara berkala.
+  {
+    id: 'tebak-impostor',
+    title: 'Tebak Impostor',
+    modes: ['party'],
+    players: '3-10',
+    color: 'navy',
+    icon: 'games/tebak-impostor/cover.svg',
+    isNew: true
+  }
+  // Game berikutnya ditambahkan di sini.
 ];
