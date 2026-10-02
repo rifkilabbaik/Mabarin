@@ -41,7 +41,10 @@
   }
   if (!Array.isArray(store.cats)) store.cats = WORDS.map(function (w) { return w.c; });
   if (!store.used || typeof store.used !== 'object') store.used = {};
-  if (store.showCat === undefined) store.showCat = false;
+  delete store.showCat;
+  // mode 'word'  : crew & impostor sama-sama dapat kata (kata impostor mirip)
+  // mode 'blind' : impostor tidak dapat kata, hanya kategori
+  if (store.mode !== 'word' && store.mode !== 'blind') store.mode = 'word';
   function save() { writeJson(STORE_KEY, store); }
 
   /* ---------------- Suara & getaran ---------------- */
@@ -144,7 +147,6 @@
 
     $('#add-player').hidden = store.players.length >= MAX_PLAYERS;
     $('#reset-score').hidden = !scores;
-    $('#lobby-hint').textContent = store.players.length + ' dari ' + MAX_PLAYERS + ' pemain · minimal ' + MIN_PLAYERS;
 
     var input = $('#name-input');
     if (input) { input.focus(); input.select(); }
@@ -272,7 +274,10 @@
     screen.style.setProperty('--c', COLORS[i % COLORS.length]);
     $('#reveal-name').textContent = p.name;
     $('#reveal-panel').classList.remove('is-open');
-    $('#reveal-word').innerHTML = esc(wordFor(i)) + (store.showCat ? '<small>' + esc(round.category) + '</small>' : '');
+    var blindImp = store.mode === 'blind' && i === round.impostor;
+    $('#reveal-word').innerHTML = blindImp
+      ? '<span class="reveal__imp">KAMU IMPOSTOR!</span><small>Kategori: ' + esc(round.category) + '</small>'
+      : esc(wordFor(i));
     $('#reveal-next').hidden = true;
     var last = i === store.players.length - 1;
     $('#reveal-next').textContent = last ? 'MULAI DISKUSI' : 'SUDAH';
@@ -319,6 +324,7 @@
     wheelRot = -Math.PI / 2;
     $('#turn-label').textContent = 'Ketuk PUTAR untuk mulai';
     $('#turn-name').textContent = '';
+    $('#turn-next').textContent = '';
     $('#spin').disabled = false;
     $('#spin').hidden = false;
     $('#spin-again').hidden = true;
@@ -387,6 +393,7 @@
     $('#turn').classList.remove('is-pop');
     $('#turn-label').textContent = 'Memutar…';
     $('#turn-name').textContent = '';
+    $('#turn-next').textContent = '';
     sfx.tap();
 
     var n = round.pool.length;
@@ -431,6 +438,13 @@
     setTimeout(function () {
       round.pool.splice(k, 1);
       wheelRot = wheelRot % (Math.PI * 2);
+      // sisa satu pemain: otomatis jadi giliran terakhir tanpa perlu diputar
+      if (round.pool.length === 1) {
+        var lastIdx = round.pool.pop();
+        round.order.push(lastIdx);
+        renderOrder();
+        $('#turn-next').innerHTML = 'Setelah itu giliran terakhir: <b style="color:' + COLORS[lastIdx % COLORS.length] + '">' + esc(store.players[lastIdx].name) + '</b>';
+      }
       drawWheel();
       spinning = false;
       if (round.pool.length) {
@@ -438,7 +452,6 @@
       } else {
         $('#spin').hidden = true;
         $('#spin-again').hidden = false;
-        $('#turn-label').textContent = 'Semua sudah dapat giliran. Terakhir:';
       }
     }, 900);
   }
@@ -454,6 +467,7 @@
     $('#spin').hidden = false;
     $('#turn-label').textContent = 'Ronde deskripsi berikutnya. Ketuk PUTAR';
     $('#turn-name').textContent = '';
+    $('#turn-next').textContent = '';
     drawWheel();
   });
   $('#to-vote').addEventListener('click', function () {
@@ -509,15 +523,15 @@
       ? 'Tebakan benar! Crew menang'
       : 'Salah tebak! ' + store.players[round.voted].name + ' bukan impostor';
     $('#res-crew').textContent = round.crewWord;
-    $('#res-imp-word').textContent = round.impWord;
+    var blind = store.mode === 'blind';
+    $('#res-imp-label').textContent = blind ? 'Kategori' : 'Kata Impostor';
+    $('#res-imp-word').textContent = blind ? round.category : round.impWord;
     $('#res-imp').textContent = imp.name;
 
     if (caught) {
       store.players.forEach(function (p, i) { if (i !== round.impostor) p.score += CREW_POINTS; });
-      $('#res-points').textContent = 'Semua crew dapat +' + CREW_POINTS + ' poin.';
     } else {
       imp.score += IMPOSTOR_POINTS;
-      $('#res-points').textContent = imp.name + ' (impostor) dapat +' + IMPOSTOR_POINTS + ' poin.';
     }
     save();
 
@@ -556,7 +570,7 @@
       var on = store.cats.indexOf(w.c) !== -1;
       return '<label class="cat"><input type="checkbox" id="cat-' + i + '" data-cat="' + esc(w.c) + '"' + (on ? ' checked' : '') + '><span class="cat__check"></span><span>' + esc(w.c) + '</span></label>';
     }).join('');
-    $('#opt-showcat').checked = !!store.showCat;
+    $$('[data-mode]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === store.mode)); });
     updateCatCount();
   }
   function updateCatCount() {
@@ -583,10 +597,13 @@
     store.cats = [];
     save(); renderSettings();
   });
-  $('#opt-showcat').addEventListener('change', function (e) {
+  $('#mode-pick').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-mode]');
+    if (!b) return;
     sfx.tap();
-    store.showCat = e.target.checked;
+    store.mode = b.getAttribute('data-mode');
     save();
+    renderSettings();
   });
 
   /* ================= Navigasi umum ================= */
@@ -608,9 +625,11 @@
       modal({
         title: 'Cara Main',
         html: '<ol>' +
-          '<li><b>Atur pemain</b>: 3 sampai 10 orang, ketuk nama untuk mengubahnya.</li>' +
-          '<li><b>Lihat kata</b>: oper HP bergiliran. Semua crew dapat kata yang sama, impostor dapat kata yang mirip tapi berbeda. Impostor tidak tahu dirinya impostor!</li>' +
-          '<li><b>Diskusi</b>: putar roda untuk menentukan giliran. Yang terpilih memberi deskripsi singkat tentang katanya.</li>' +
+          '<li><b>Atur pemain</b>: 3 sampai 10 orang, ketuk nama untuk mengubahnya. Mode permainan bisa dipilih di ⚙.</li>' +
+          (store.mode === 'blind'
+            ? '<li><b>Lihat kata</b>: oper HP bergiliran. Semua crew dapat kata yang sama. Impostor tidak dapat kata, hanya kategorinya, jadi harus pintar menebak dari deskripsi teman.</li>'
+            : '<li><b>Lihat kata</b>: oper HP bergiliran. Semua crew dapat kata yang sama, impostor dapat kata yang mirip tapi berbeda. Impostor tidak tahu dirinya impostor!</li>') +
+          '<li><b>Diskusi</b>: putar roda untuk menentukan giliran. Yang terpilih memberi deskripsi singkat tentang katanya. Pemain terakhir otomatis dapat giliran.</li>' +
           '<li><b>Voting</b>: tentukan bersama siapa yang paling mencurigakan.</li>' +
           '<li><b>Poin</b>: tebakan benar, tiap crew +' + CREW_POINTS + '. Tebakan salah, impostor +' + IMPOSTOR_POINTS + '.</li>' +
         '</ol>'

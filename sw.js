@@ -1,7 +1,7 @@
 /* MABARIN service worker
  * Naikkan CACHE_VERSION setiap kali ada file yang berubah / game baru ditambahkan,
  * agar pemain otomatis mendapat versi terbaru. */
-var CACHE_VERSION = 'mabarin-v1.1.0';
+var CACHE_VERSION = 'mabarin-v1.2.0';
 
 var PRECACHE = [
   './',

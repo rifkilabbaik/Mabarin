@@ -53,9 +53,6 @@
           </span>
           PASANG APP
         </button>
-        <button class="icon-btn icon-btn--gear" id="home-settings" data-nav="settings" aria-label="Pengaturan">
-          <svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM12 15.3a3.3 3.3 0 1 1 0-6.6 3.3 3.3 0 0 1 0 6.6z"/></svg>
-        </button>
       </header>
 
       <main class="home__body">
@@ -135,28 +132,9 @@
           </label>
         </div>
 
-        <div class="panel">
-          <h3 class="panel__title">Nama Pemain</h3>
-          <p class="panel__hint">Nama ini akan dipakai di semua game.</p>
-          <div class="players" id="players-list"><!-- diisi oleh js --></div>
-        </div>
 
         <div class="panel">
           <h3 class="panel__title">Aplikasi</h3>
-          <button class="row row--btn" data-action="install" id="settings-install">
-            <span class="row__icon bg-navy">
-              <svg viewBox="0 0 24 24"><path d="M12 3v11m0 0-4.5-4.5M12 14l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="row__label">Pasang di Perangkat</span>
-            <span class="row__value" id="install-state">—</span>
-          </button>
-          <button class="row row--btn" data-action="share">
-            <span class="row__icon bg-green-dark">
-              <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" fill="#fff"/><circle cx="6" cy="12" r="3" fill="#fff"/><circle cx="18" cy="19" r="3" fill="#fff"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4" stroke="#fff" stroke-width="2.2"/></svg>
-            </span>
-            <span class="row__label">Bagikan ke Teman</span>
-            <span class="row__chev">›</span>
-          </button>
           <button class="row row--btn" data-action="reset">
             <span class="row__icon bg-red">
               <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -187,9 +165,8 @@
         </div>
         <button class="drawer__item" data-nav="home" data-close>Beranda</button>
         <button class="drawer__item" data-nav="settings" data-close>Pengaturan</button>
-        <button class="drawer__item" data-action="install" data-close>Pasang Aplikasi</button>
+        <button class="drawer__item" id="drawer-install" data-action="install" data-close>Pasang Aplikasi</button>
         <button class="drawer__item" data-action="share" data-close>Ajak Teman</button>
-        <button class="drawer__item" data-action="about" data-close>Tentang</button>
       </nav>
     </div>
 

@@ -4,17 +4,16 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.1.0';
+  var APP_VERSION = '1.2.0';
+  var SHARE_URL = 'https://github.com/rifkilabbaik/Mabarin';
   var STORAGE_KEY = 'mabarin:settings';
   var MODES = window.MABARIN_MODES || [];
   var GAMES = window.MABARIN_GAMES || [];
 
-  var PLAYER_COLORS = ['red', 'blue', 'green', 'yellow'];
   var DEFAULTS = {
     sound: true,
     vibrate: true,
-    dark: false,
-    players: ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
+    dark: false
   };
 
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
@@ -26,11 +25,7 @@
   function loadSettings() {
     var s = {};
     try { s = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { s = {}; }
-    var merged = Object.assign({}, DEFAULTS, s);
-    merged.players = DEFAULTS.players.map(function (d, i) {
-      return (s.players && typeof s.players[i] === 'string' && s.players[i].trim()) || d;
-    });
-    return merged;
+    return Object.assign({}, DEFAULTS, s);
   }
   function saveSettings() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) { /* mode privat */ }
@@ -226,14 +221,6 @@
       var key = el.getAttribute('data-setting');
       el.checked = key === 'fullscreen' ? !!document.fullscreenElement : !!settings[key];
     });
-    $('#players-list').innerHTML = settings.players.map(function (name, i) {
-      return (
-        '<div class="player" style="--c: var(--' + PLAYER_COLORS[i] + ')">' +
-          '<span class="player__badge">' + (i + 1) + '</span>' +
-          '<input type="text" maxlength="14" data-player="' + i + '" value="' + escapeHtml(name) + '" aria-label="Nama pemain ' + (i + 1) + '" enterkeyhint="done" autocomplete="off">' +
-        '</div>'
-      );
-    }).join('');
     $('#app-version').textContent = APP_VERSION;
     updateInstallUi();
     var canFs = document.fullscreenEnabled && !isStandalone();
@@ -306,8 +293,8 @@
 
   function updateInstallUi() {
     $('#install-btn').hidden = !deferredPrompt || isStandalone();
-    var state = isStandalone() ? 'Terpasang ✓' : (deferredPrompt ? 'Pasang' : 'Lihat cara');
-    $('#install-state').textContent = state;
+    // sudah terpasang: menu Pasang Aplikasi tidak perlu ditampilkan
+    $('#drawer-install').hidden = isStandalone();
   }
 
   window.addEventListener('beforeinstallprompt', function (e) {
@@ -343,8 +330,8 @@
   function share() {
     var data = {
       title: 'Mabarin - Game Station',
-      text: 'Yuk main bareng di Mabarin! Banyak game seru untuk 1-4 pemain dalam satu HP.',
-      url: location.origin + location.pathname
+      text: 'Yuk main bareng di Mabarin! Banyak game seru untuk dimainkan bareng teman dalam satu HP.',
+      url: SHARE_URL
     };
     if (navigator.share) {
       navigator.share(data).catch(function () { /* dibatalkan */ });
@@ -364,18 +351,11 @@
     'close-drawer': function () { closeDrawer(); },
     install: function () { sfx.tap(); install(); },
     share: function () { sfx.tap(); share(); },
-    about: function () {
-      sfx.tap();
-      modal({
-        title: 'Tentang Mabarin',
-        text: 'Mabarin (main bareng) adalah game station berisi kumpulan game seru untuk dimainkan bareng teman di satu perangkat.\n\nGame baru ditambahkan secara berkala.\nVersi ' + APP_VERSION
-      });
-    },
     reset: function () {
       sfx.tap();
       modal({
         title: 'Reset Data?',
-        text: 'Semua pengaturan, nama pemain, dan skor akan dihapus.',
+        text: 'Semua pengaturan, nama pemain dan skor di game akan dihapus.',
         buttons: [
           { label: 'BATAL', style: 'ghost' },
           {
@@ -434,17 +414,8 @@
       sfx.toggle(el.checked);
       return;
     }
-    if (el.hasAttribute('data-player')) {
-      var i = +el.getAttribute('data-player');
-      var v = el.value.trim();
-      settings.players[i] = v || DEFAULTS.players[i];
-      el.value = settings.players[i];
-      saveSettings();
-      toast('Nama tersimpan');
-    }
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target.hasAttribute('data-player')) e.target.blur();
     if (e.key === 'Escape') {
       if ($('#modal').classList.contains('is-open')) closeModal();
       else if ($('#drawer').classList.contains('is-open')) closeDrawer();

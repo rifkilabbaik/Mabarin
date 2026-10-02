@@ -36,7 +36,6 @@
           <span>Tambah Pemain</span>
           <span class="add-player__plus" aria-hidden="true">+</span>
         </button>
-        <p class="lobby__hint" id="lobby-hint"></p>
       </main>
 
       <footer class="lobby__foot">
@@ -86,6 +85,7 @@
         <div class="turn" id="turn" aria-live="polite">
           <span class="turn__label" id="turn-label">Ketuk PUTAR untuk mulai</span>
           <span class="turn__name" id="turn-name"></span>
+          <span class="turn__next" id="turn-next"></span>
         </div>
 
         <ol class="order" id="order"><!-- js --></ol>
@@ -133,14 +133,13 @@
           <span class="info-card__value" id="res-crew"></span>
         </div>
         <div class="info-card">
-          <span class="info-card__label">Kata Impostor</span>
+          <span class="info-card__label" id="res-imp-label">Kata Impostor</span>
           <span class="info-card__value info-card__value--red" id="res-imp-word"></span>
         </div>
         <div class="info-card">
           <span class="info-card__label">Impostor</span>
           <span class="info-card__value info-card__value--red" id="res-imp"></span>
         </div>
-        <p class="result__points" id="res-points"></p>
       </main>
       <footer class="dark__foot">
         <button class="btn btn--dark" id="result-next">LANJUT</button>
@@ -153,19 +152,27 @@
         <button class="icon-btn" data-go="lobby" aria-label="Kembali">
           <svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <h2 class="topbar__title">KATEGORI KATA</h2>
+        <h2 class="topbar__title">PENGATURAN</h2>
         <span class="icon-btn" aria-hidden="true"></span>
       </header>
       <main class="cat__body">
+        <h3 class="sec-title">Mode Permainan</h3>
+        <div class="mode-pick" id="mode-pick">
+          <button class="mode-opt" data-mode="word" aria-pressed="true">
+            <span class="mode-opt__title">Kata Mirip</span>
+            <span class="mode-opt__desc">Crew dan impostor sama-sama dapat kata. Kata impostor mirip tapi berbeda.</span>
+          </button>
+          <button class="mode-opt" data-mode="blind" aria-pressed="false">
+            <span class="mode-opt__title">Tanpa Kata</span>
+            <span class="mode-opt__desc">Impostor tidak dapat kata, hanya kategorinya saja.</span>
+          </button>
+        </div>
+        <h3 class="sec-title">Kategori Kata</h3>
         <div class="cat__tools">
           <span class="cat__count" id="cat-count"></span>
           <button class="chip" id="cat-all">Pilih semua</button>
           <button class="chip" id="cat-none">Kosongkan</button>
         </div>
-        <label class="toggle-row">
-          <span>Tampilkan kategori saat lihat kata</span>
-          <input type="checkbox" class="switch" id="opt-showcat">
-        </label>
         <div class="cat-list" id="cat-list"><!-- js --></div>
       </main>
     </section>
