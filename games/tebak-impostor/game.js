@@ -273,11 +273,14 @@
     var screen = $('#s-reveal');
     screen.style.setProperty('--c', COLORS[i % COLORS.length]);
     $('#reveal-name').textContent = p.name;
-    $('#reveal-panel').classList.remove('is-open');
-    var blindImp = store.mode === 'blind' && i === round.impostor;
-    $('#reveal-word').innerHTML = blindImp
-      ? '<span class="reveal__imp">KAMU IMPOSTOR!</span><small>Kategori: ' + esc(round.category) + '</small>'
-      : esc(wordFor(i));
+    // tutup panel tanpa animasi & kosongkan kata, supaya kata pemain berikutnya
+    // tidak sempat terlihat selama panel memudar
+    var panel = $('#reveal-panel');
+    panel.classList.add('no-anim');
+    panel.classList.remove('is-open');
+    $('#reveal-word').innerHTML = '';
+    void panel.offsetWidth;
+    panel.classList.remove('no-anim');
     $('#reveal-next').hidden = true;
     var last = i === store.players.length - 1;
     $('#reveal-next').textContent = last ? 'MULAI DISKUSI' : 'SUDAH';
@@ -285,9 +288,18 @@
     show('reveal');
   }
 
+  function revealHtml(i) {
+    if (store.mode === 'blind' && i === round.impostor) {
+      return '<span class="reveal__imp">KAMU IMPOSTOR!</span><small>Kategori: ' + esc(round.category) + '</small>';
+    }
+    return esc(wordFor(i));
+  }
+
   $('#reveal-panel').addEventListener('click', function () {
     var panel = $('#reveal-panel');
     var open = !panel.classList.contains('is-open');
+    // kata baru diisi saat panel dibuka oleh pemiliknya sendiri
+    if (open) $('#reveal-word').innerHTML = revealHtml(round.revealIdx);
     panel.classList.toggle('is-open', open);
     if (open) {
       sfx.reveal();

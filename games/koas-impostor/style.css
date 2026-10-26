@@ -1,0 +1,60 @@
+/* =========================================================
+   MABARIN - Koas Impostor
+   Tambahan di atas ../tebak-impostor/style.css
+   ========================================================= */
+
+/* ---------------- Menggambar ---------------- */
+.draw__head {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: calc(14px + var(--safe-top)) 16px 8px 76px;
+}
+.draw__round { align-self: flex-start; color: #8e97c7; font-size: 15px; letter-spacing: .02em; }
+.draw__turn { min-height: 64px; padding: 6px 14px; }
+.draw__turn .turn__name { font-size: 28px; }
+
+.board {
+  flex: 1; min-height: 0;
+  display: grid; place-items: center;
+  padding: 6px 16px;
+}
+.board canvas {
+  display: block;
+  background: #fffdf6;
+  border-radius: 20px;
+  box-shadow: 0 0 0 6px rgba(255,255,255,.14), 0 8px 0 rgba(0,0,0,.2);
+  touch-action: none;
+  cursor: crosshair;
+}
+.board.is-locked canvas { cursor: default; }
+
+.draw__order { flex: 0 0 auto; margin: 8px auto 0; padding: 0 16px; }
+.draw__order li.is-now { background: rgba(255,255,255,.28); outline: 2px solid var(--c); }
+.draw__order li.is-done { opacity: .55; }
+
+.draw__foot { padding-top: 8px; min-height: calc(96px + var(--safe-bottom)); justify-content: center; }
+.draw__hint { margin: 0; font-size: 17px; text-align: center; color: #c9d0f5; }
+.draw__hint b { color: var(--yellow); font-weight: 700; }
+.draw__hint[hidden] { display: none; }
+.draw__actions { display: flex; gap: 10px; width: 100%; max-width: 420px; }
+.draw__actions[hidden] { display: none; }
+.draw__actions .btn { flex: 1; min-width: 0; padding: 0 12px; }
+.btn--soft-dark { background: rgba(255,255,255,.14); }
+.btn--green { background: var(--green); }
+
+/* ---------------- Gambar di voting & hasil ---------------- */
+.art-thumb {
+  display: block;
+  width: min(62vw, 240px, 30vh); aspect-ratio: 1;
+  border-radius: 18px; background: #fffdf6;
+  box-shadow: 0 0 0 5px rgba(255,255,255,.14);
+}
+.guess__answer[hidden] { display: none; }
+.guess__answer { animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
+.result__art--koas { display: grid; place-items: center; margin: 4px 0 8px; }
+.result__art--koas .art-thumb { width: min(60vw, 220px, 28vh); }
+.result__art--koas .stamp { top: 50%; }
+
+/* ---------------- Pengaturan ---------------- */
+.mode-pick--3 { grid-template-columns: repeat(3, 1fr); }
+.mode-pick--3 .mode-opt { align-items: center; text-align: center; }

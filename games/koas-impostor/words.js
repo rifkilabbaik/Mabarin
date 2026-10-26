@@ -1,0 +1,26 @@
+/* Koas Impostor - daftar benda untuk digambar
+ * Tiap kategori: { c: nama kategori, w: [benda, ...] }.
+ * Pilih benda yang bisa digambar dengan beberapa garis saja.
+ * Untuk menambah kata: tambahkan benda di kategori yang ada, atau buat kategori baru. */
+window.KOAS_WORDS = [
+  { c: 'Buah', w: ['Apel', 'Pisang', 'Jeruk', 'Semangka', 'Anggur', 'Nanas', 'Stroberi', 'Ceri', 'Mangga', 'Durian', 'Pir', 'Kelapa', 'Alpukat', 'Lemon', 'Rambutan', 'Belimbing', 'Melon', 'Pepaya', 'Salak', 'Manggis'] },
+  { c: 'Sayuran', w: ['Wortel', 'Tomat', 'Brokoli', 'Jagung', 'Cabai', 'Terong', 'Kentang', 'Bawang', 'Timun', 'Kubis', 'Jamur', 'Labu', 'Kacang Polong', 'Paprika', 'Lobak', 'Bayam', 'Selada', 'Pare', 'Buncis', 'Bawang Putih'] },
+  { c: 'Hewan Darat', w: ['Kucing', 'Anjing', 'Gajah', 'Jerapah', 'Singa', 'Kelinci', 'Kuda', 'Sapi', 'Babi', 'Zebra', 'Monyet', 'Beruang', 'Tikus', 'Kanguru', 'Unta', 'Rusa', 'Badak', 'Domba', 'Landak', 'Panda'] },
+  { c: 'Hewan Air', w: ['Ikan', 'Hiu', 'Paus', 'Gurita', 'Kepiting', 'Udang', 'Bintang Laut', 'Ubur-ubur', 'Kura-kura', 'Lumba-lumba', 'Kuda Laut', 'Kerang', 'Cumi-cumi', 'Pari', 'Katak', 'Buaya', 'Penyu', 'Anjing Laut', 'Lobster', 'Pinguin'] },
+  { c: 'Burung & Serangga', w: ['Ayam', 'Bebek', 'Burung Hantu', 'Merak', 'Flamingo', 'Elang', 'Angsa', 'Burung Unta', 'Kupu-kupu', 'Lebah', 'Semut', 'Laba-laba', 'Siput', 'Capung', 'Kumbang', 'Nyamuk', 'Ulat', 'Belalang', 'Kepik', 'Kalajengking'] },
+  { c: 'Makanan', w: ['Pizza', 'Burger', 'Hot Dog', 'Es Krim', 'Donat', 'Kue Ulang Tahun', 'Sate', 'Telur Ceplok', 'Mi', 'Nasi Tumpeng', 'Roti', 'Permen', 'Lolipop', 'Kerupuk', 'Sushi', 'Kentang Goreng', 'Ketupat', 'Popcorn', 'Croissant', 'Cokelat Batang'] },
+  { c: 'Minuman & Wadah', w: ['Gelas', 'Cangkir', 'Botol', 'Teko', 'Kaleng', 'Sedotan', 'Mangkok', 'Piring', 'Termos', 'Kotak Susu', 'Jus', 'Kopi', 'Es Teh', 'Toples', 'Ember', 'Kendi', 'Galon', 'Gelas Wine', 'Kotak Bekal', 'Rantang'] },
+  { c: 'Peralatan Dapur', w: ['Panci', 'Wajan', 'Sendok', 'Garpu', 'Pisau', 'Spatula', 'Kompor', 'Kulkas', 'Blender', 'Talenan', 'Sumpit', 'Parutan', 'Saringan', 'Oven', 'Rice Cooker', 'Celemek', 'Cobek', 'Gunting Dapur', 'Microwave', 'Pemanggang'] },
+  { c: 'Barang di Rumah', w: ['Kursi', 'Meja', 'Kasur', 'Bantal', 'Lampu', 'Jam Dinding', 'Cermin', 'Lemari', 'Sofa', 'Televisi', 'Kipas Angin', 'Pintu', 'Jendela', 'Tangga', 'Payung', 'Kunci', 'Sapu', 'Pot Bunga', 'Gorden', 'Bingkai Foto'] },
+  { c: 'Kamar Mandi', w: ['Sikat Gigi', 'Pasta Gigi', 'Sabun', 'Handuk', 'Shower', 'Bak Mandi', 'Toilet', 'Sisir', 'Gayung', 'Wastafel', 'Pisau Cukur', 'Bebek Karet', 'Botol Sampo', 'Keset', 'Gunting Kuku', 'Tisu Gulung', 'Hair Dryer', 'Spons', 'Kran Air', 'Ember Cucian'] },
+  { c: 'Sekolah & Kantor', w: ['Pensil', 'Penggaris', 'Gunting', 'Buku', 'Tas Ransel', 'Penghapus', 'Papan Tulis', 'Globe', 'Kalkulator', 'Lem', 'Stapler', 'Amplop', 'Kapur', 'Rautan', 'Jangka', 'Klip Kertas', 'Spidol', 'Map', 'Lonceng', 'Topi Wisuda'] },
+  { c: 'Gadget & Elektronik', w: ['Handphone', 'Laptop', 'Kamera', 'Headphone', 'Remote TV', 'Mouse', 'Keyboard', 'Jam Tangan', 'Radio', 'Robot', 'Baterai', 'Lampu Senter', 'Mikrofon', 'Speaker', 'Printer', 'Charger', 'Joystick', 'Drone', 'Satelit', 'Kalkulator Saku'] },
+  { c: 'Pakaian & Aksesoris', w: ['Kaos', 'Celana', 'Rok', 'Topi', 'Sepatu', 'Sandal', 'Kacamata', 'Dasi', 'Kaus Kaki', 'Sarung Tangan', 'Syal', 'Cincin', 'Kalung', 'Mahkota', 'Ikat Pinggang', 'Jaket', 'Dompet', 'Tas', 'Peci', 'Sepatu Bot'] },
+  { c: 'Kendaraan', w: ['Mobil', 'Motor', 'Sepeda', 'Bus', 'Truk', 'Kereta Api', 'Pesawat', 'Helikopter', 'Kapal', 'Perahu', 'Roket', 'Becak', 'Bajaj', 'Kapal Selam', 'Balon Udara', 'Traktor', 'Ambulans', 'Skuter', 'Delman', 'Skateboard'] },
+  { c: 'Alam & Cuaca', w: ['Matahari', 'Bulan', 'Bintang', 'Awan', 'Hujan', 'Petir', 'Pelangi', 'Gunung', 'Pohon', 'Bunga', 'Daun', 'Pantai', 'Air Terjun', 'Gunung Berapi', 'Salju', 'Kaktus', 'Pohon Kelapa', 'Pulau', 'Ombak', 'Batu'] },
+  { c: 'Bangunan & Tempat', w: ['Rumah', 'Masjid', 'Gereja', 'Candi', 'Menara', 'Istana', 'Jembatan', 'Monas', 'Tenda', 'Mercusuar', 'Kincir Angin', 'Lampu Lalu Lintas', 'Pagar', 'Sumur', 'Gedung Bertingkat', 'Bioskop', 'Rumah Sakit', 'Pom Bensin', 'Kandang Ayam', 'Rumah Pohon'] },
+  { c: 'Olahraga & Mainan', w: ['Bola Sepak', 'Raket', 'Gawang', 'Ring Basket', 'Piala', 'Medali', 'Layang-layang', 'Yoyo', 'Gasing', 'Boneka', 'Balon', 'Kelereng', 'Dadu', 'Catur', 'Ayunan', 'Perosotan', 'Papan Selancar', 'Barbel', 'Bola Bowling', 'Kok Bulu Tangkis'] },
+  { c: 'Alat Musik', w: ['Gitar', 'Piano', 'Drum', 'Biola', 'Terompet', 'Seruling', 'Angklung', 'Harmonika', 'Saksofon', 'Gendang', 'Gong', 'Marakas', 'Rebana', 'Harpa', 'Ukulele', 'Kecapi', 'Kolintang', 'Tamborin', 'Xilofon', 'Peluit'] },
+  { c: 'Peralatan & Perkakas', w: ['Palu', 'Obeng', 'Gergaji', 'Tang', 'Paku', 'Kapak', 'Cangkul', 'Sekop', 'Kuas Cat', 'Tangga Lipat', 'Gembok', 'Rantai', 'Magnet', 'Teropong', 'Kompas', 'Lup', 'Jangkar', 'Pancingan', 'Timbangan', 'Jam Pasir'] },
+  { c: 'Tubuh & Karakter', w: ['Mata', 'Hidung', 'Telinga', 'Tangan', 'Kaki', 'Gigi', 'Bibir', 'Jantung', 'Tengkorak', 'Otot', 'Hantu', 'Alien', 'Putri Duyung', 'Bajak Laut', 'Penyihir', 'Malaikat', 'Naga', 'Unicorn', 'Manusia Salju', 'Pocong'] }
+];

@@ -1,7 +1,7 @@
 /* MABARIN service worker
  * Naikkan CACHE_VERSION setiap kali ada file yang berubah / game baru ditambahkan,
  * agar pemain otomatis mendapat versi terbaru. */
-var CACHE_VERSION = 'mabarin-v1.2.0';
+var CACHE_VERSION = 'mabarin-v1.3.0';
 
 var PRECACHE = [
   './',
@@ -23,7 +23,13 @@ var PRECACHE = [
   './games/tebak-impostor/style.css',
   './games/tebak-impostor/game.js',
   './games/tebak-impostor/words.js',
-  './games/tebak-impostor/cover.svg'
+  './games/tebak-impostor/cover.svg',
+  // Game: Koas Impostor (memakai style.css Tebak Impostor sebagai dasar)
+  './games/koas-impostor/index.html',
+  './games/koas-impostor/style.css',
+  './games/koas-impostor/game.js',
+  './games/koas-impostor/words.js',
+  './games/koas-impostor/cover.svg'
   // Tambahkan file game berikutnya di sini
 ];
 

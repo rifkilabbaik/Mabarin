@@ -15,6 +15,7 @@ Dibuat sebagai **PWA** (HTML + CSS + JavaScript murni, tanpa build tool), jadi b
 | Game | Mode | Pemain |
 | --- | --- | --- |
 | **Tebak Impostor**: semua dapat kata rahasia, satu orang (impostor) dapat kata yang mirip. Beri deskripsi bergiliran lewat roda putar, lalu voting. 1000 pasangan kata dalam 100 kategori. | Party Games | 3–10 |
+| **Koas Impostor**: semua tahu benda yang harus digambar, kecuali impostor. Bergiliran menambah 1 garis di kanvas bersama, lalu voting. Impostor yang ketahuan masih bisa menang kalau berhasil menebak bendanya. 400 benda dalam 20 kategori. | Party Games | 3–10 |
 
 ## Menjalankan
 
