@@ -236,6 +236,7 @@ svg { display: block; }
 .reveal__word small { font-family: var(--font-body); font-size: 15px; font-weight: 600; letter-spacing: .04em; color: rgba(255,255,255,.6); text-transform: uppercase; }
 .reveal__panel.is-open .reveal__word { opacity: 1; transform: none; }
 .reveal__panel.is-open .reveal__hidden { opacity: 0; }
+.reveal__panel.no-anim, .reveal__panel.no-anim * { transition: none !important; }
 .reveal__foot {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
   padding: 16px 16px calc(24px + var(--safe-bottom));

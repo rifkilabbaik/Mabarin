@@ -36,6 +36,15 @@ window.MABARIN_GAMES = [
     color: 'navy',
     icon: 'games/tebak-impostor/cover.svg',
     isNew: true
+  },
+  {
+    id: 'koas-impostor',
+    title: 'Koas Impostor',
+    modes: ['party'],
+    players: '3-10',
+    color: 'purple',
+    icon: 'games/koas-impostor/cover.svg',
+    isNew: true
   }
   // Game berikutnya ditambahkan di sini.
 ];

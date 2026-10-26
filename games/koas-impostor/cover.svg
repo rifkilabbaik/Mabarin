@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#3b3f6e"/>
+  <!-- kertas gambar -->
+  <rect x="30" y="34" width="140" height="132" rx="14" fill="#fffdf6" transform="rotate(-6 100 100)"/>
+  <!-- coretan warna-warni para pemain -->
+  <path d="M52 120c10-34 30-54 50-46" fill="none" stroke="#ff5f57" stroke-width="7" stroke-linecap="round"/>
+  <path d="M102 74c22 6 34 26 28 48" fill="none" stroke="#12aef0" stroke-width="7" stroke-linecap="round"/>
+  <path d="M130 122c-20 18-56 18-78-2" fill="none" stroke="#6cc33f" stroke-width="7" stroke-linecap="round"/>
+  <path d="M84 98h4M112 98h4" stroke="#ffbb2c" stroke-width="8" stroke-linecap="round"/>
+  <!-- coretan impostor yang asal -->
+  <path d="M60 64c8 10 2 16 12 22s-4 14 6 18" fill="none" stroke="#1f2233" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 10"/>
+  <!-- kuas dengan topi impostor -->
+  <g transform="translate(150 132) rotate(32)">
+    <rect x="-7" y="-6" width="14" height="58" rx="7" fill="#1f2233"/>
+    <rect x="-9" y="-12" width="18" height="12" rx="3" fill="#c7cbe0"/>
+    <path d="M-9 -12c0-12 4-20 9-26 5 6 9 14 9 26z" fill="#e2402f"/>
+    <path d="M-1 -36c1-3 2-4 2-4" stroke="#e2402f" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="0" cy="8" rx="16" ry="4" fill="#2c3048"/>
+    <path d="M-8 20h16v5c0 4-3 7-8 7s-8-3-8-7z" fill="#e2402f"/>
+  </g>
+</svg>
