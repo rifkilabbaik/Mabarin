@@ -51,6 +51,15 @@ export class InputManager {
     this.onModeChange?.(mode);
   }
 
+  /** Mode meja kartu: tanpa joystick, geser layar = melihat sekeliling, tanpa Pointer Lock. */
+  setCardMode(on) {
+    this.cardMode = on;
+    this.joystick.end();
+    this.lookPointers.clear();
+    this.mouseDrag = null;
+    this.keys.clear();
+  }
+
   setEnabled(on) {
     this.enabled = on;
     if (!on) {
@@ -89,6 +98,10 @@ export class InputManager {
       if (!this.enabled) return;
       if (e.pointerType === 'mouse') {
         this.setMode('desktop');
+        if (this.cardMode) {
+          this.mouseDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+          return;
+        }
         if (this.pointerLocked) {
           if (e.button === 0) this.onUse?.();
           return;
@@ -101,7 +114,7 @@ export class InputManager {
       e.preventDefault();
       this.setMode('touch');
       s.setPointerCapture(e.pointerId);
-      const leftZone = e.clientX < window.innerWidth * 0.45;
+      const leftZone = !this.cardMode && e.clientX < window.innerWidth * 0.45;
       if (leftZone && !this.joystick.active) {
         this.joystick.start(e.pointerId, e.clientX, e.clientY);
       } else if (this.lookPointers.size < 2) {

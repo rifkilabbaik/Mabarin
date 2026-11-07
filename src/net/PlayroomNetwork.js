@@ -70,6 +70,11 @@ export async function connectPlayroom({ mode }) {
         cb(payload, sender?.id);
       });
     },
+    // Hanya host room yang boleh mengeluarkan pemain.
+    kick(pid) {
+      const p = pr.getParticipants?.()?.[pid];
+      p?.kick?.().catch?.(() => {});
+    },
     // Keluar room secara "manual" (Playroom tidak akan me-reload halaman).
     leave() {
       clearSessionFlags();

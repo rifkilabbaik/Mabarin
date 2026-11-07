@@ -45,6 +45,7 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
   const joinCallbacks = [];
   const roomState = {};
   const eventListeners = new Map();
+  const disconnectCallbacks = [];
 
   const ensure = (pid) => {
     let p = others.get(pid);
@@ -91,6 +92,12 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
         case 'bye':
           remove(msg.id);
           break;
+        case 'kick':
+          if (msg.to === id) {
+            post({ type: 'bye', id });
+            disconnectCallbacks.forEach((cb) => cb({ code: 4999, reason: 'PLAYER_KICKED' }));
+          }
+          break;
       }
     };
     setInterval(() => {
@@ -114,8 +121,12 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
       for (const p of others.values()) cb(p, false);
       return () => {};
     },
-    onDisconnect() {
+    onDisconnect(cb) {
+      disconnectCallbacks.push(cb);
       return () => {};
+    },
+    kick(pid) {
+      post({ type: 'kick', id, to: pid });
     },
     leave() {
       post({ type: 'bye', id });

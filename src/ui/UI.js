@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { ChatLog } from './ChatLog.js';
 import { randomLook, sanitizeLook } from '../character/looks.js';
+import { hydrateIcons, icon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'lowpoly-world-profile';
@@ -17,7 +18,8 @@ function saveProfile(p) {
 }
 
 export class UI {
-  constructor({ onStart, onChat, onChatOpenChange, onToggleMap, onCustomize, onExit, onVolume, getVolume, onMenuOpenChange }) {
+  constructor({ onStart, onChat, onChatOpenChange, onToggleMap, onCustomize, onExit, onVolume, getVolume, onMenuOpenChange, onGames }) {
+    this.onGames = onGames;
     this.onStart = onStart;
     this.onChat = onChat;
     this.onChatOpenChange = onChatOpenChange;
@@ -28,6 +30,7 @@ export class UI {
     this.getVolume = getVolume;
     this.onMenuOpenChange = onMenuOpenChange;
     this.chatLog = new ChatLog($('chat-log'));
+    hydrateIcons();
 
     const saved = loadProfile();
     this.name = saved.name || '';
@@ -54,7 +57,7 @@ export class UI {
     $('btn-customize').addEventListener('click', () => this.onCustomize?.());
     const soundBtn = $('btn-sound');
     const syncSound = () => {
-      soundBtn.textContent = (this.getVolume?.('music') ?? 1) > 0 ? '🔊' : '🔇';
+      soundBtn.innerHTML = icon((this.getVolume?.('music') ?? 1) > 0 ? 'volume' : 'mute');
     };
     soundBtn.addEventListener('click', () => {
       const on = (this.getVolume?.('music') ?? 1) > 0;
@@ -129,7 +132,7 @@ export class UI {
     });
     $('room-pill').addEventListener('click', () => this.shareInvite());
 
-    // Menu ☰
+    // Menu utama (ikon garis tiga)
     $('btn-menu').addEventListener('click', () => this.toggleMenu());
     $('m-customize').addEventListener('click', () => {
       this.toggleMenu(false);
@@ -146,6 +149,16 @@ export class UI {
       el.addEventListener('input', () => this.onVolume?.(kind, Number(el.value) / 100));
     }
     $('surface').addEventListener('pointerdown', () => this.toggleMenu(false));
+
+    // Game & dialog umum
+    $('btn-games').addEventListener('click', () => this.onGames?.());
+    $('m-help').addEventListener('click', () => {
+      this.toggleMenu(false);
+      this.openModal('help-modal');
+    });
+    document.querySelectorAll('.modal [data-close]').forEach((b) =>
+      b.addEventListener('click', () => this.closeModal(b.closest('.modal').id))
+    );
 
     const form = $('chat-form');
     const input = $('chat-input');
@@ -174,10 +187,15 @@ export class UI {
         this.openChat();
       } else if (e.code === 'KeyM' && !e.repeat) {
         this.onToggleMap?.();
+      } else if (e.code === 'KeyG' && !e.repeat) {
+        this.onGames?.();
       } else if (e.key === 'Escape') {
         this.onToggleMap?.(false);
         this.toggleMenu(false);
         this.confirmExit(false);
+        document.querySelectorAll('.modal:not([hidden])').forEach((m) => {
+          if (m.id !== 'afk-modal') this.closeModal(m.id);
+        });
       }
     });
 
@@ -198,17 +216,29 @@ export class UI {
       for (const kind of ['music', 'sfx']) $(`vol-${kind}`).value = String(Math.round((this.getVolume?.(kind) ?? 1) * 100));
       document.exitPointerLock?.();
     }
-    this.onMenuOpenChange?.(open);
+    this.onMenuOpenChange?.(this.overlayOpen);
   }
 
   confirmExit(open) {
-    $('confirm-exit').hidden = !open;
-    if (open) document.exitPointerLock?.();
-    this.onMenuOpenChange?.(open);
+    if (open) this.openModal('confirm-exit');
+    else this.closeModal('confirm-exit');
   }
 
-  get menuOpen() {
-    return !$('hud-menu').hidden || !$('confirm-exit').hidden;
+  openModal(id) {
+    $(id).hidden = false;
+    document.exitPointerLock?.();
+    this.onMenuOpenChange?.(this.overlayOpen);
+  }
+
+  closeModal(id) {
+    if ($(id).hidden) return;
+    $(id).hidden = true;
+    this.onMenuOpenChange?.(this.overlayOpen);
+  }
+
+  /** Ada menu/dialog yang terbuka (input game dimatikan). */
+  get overlayOpen() {
+    return !$('hud-menu').hidden || !!document.querySelector('.modal:not([hidden])');
   }
 
   toggleChat() {
@@ -259,18 +289,18 @@ export class UI {
   async shareInvite() {
     const url = this.net?.inviteUrl?.();
     if (!url) {
-      this.toast('Mode offline: buka tab lain di browser yang sama untuk uji multiplayer lokal.');
+      this.toast('Mode offline tidak punya link undangan.');
       return;
     }
     if (navigator.share && document.body.dataset.input === 'touch') {
       try {
-        await navigator.share({ title: 'Low Poly World', text: 'Ayo main bareng di Low Poly World!', url });
+        await navigator.share({ title: 'Mabarin', text: 'Ayo mabar di Mabarin!', url });
         return;
       } catch { /* dibatalkan, lanjut salin */ }
     }
     try {
       await navigator.clipboard.writeText(url);
-      this.toast('Link undangan disalin ke clipboard ✓');
+      this.toast('Link undangan disalin');
     } catch {
       this.toast(`Bagikan link ini: ${url}`);
     }

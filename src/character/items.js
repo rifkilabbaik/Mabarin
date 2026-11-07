@@ -8,12 +8,12 @@ import { mat, mergedMesh } from './parts.js';
  *  power  : kekuatan dorongan
  */
 export const ITEMS = [
-  { id: 'hand', name: 'Tangan', icon: '👋', action: 'Melambai', cooldown: 1.2 },
-  { id: 'hammer', name: 'Palu Bonk', icon: '🔨', action: 'Pukul', cooldown: 0.65, reach: 2.0, power: 11, arc: 1.2 },
-  { id: 'sword', name: 'Pedang Kayu', icon: '🗡️', action: 'Tebas', cooldown: 0.42, reach: 2.3, power: 7.5, arc: 1.0 },
-  { id: 'watergun', name: 'Pistol Air', icon: '🔫', action: 'Tembak', cooldown: 0.32, power: 5.5 },
-  { id: 'chair', name: 'Kursi', icon: '🪑', action: 'Taruh', cooldown: 0.4 },
-  { id: 'guitar', name: 'Gitar', icon: '🎸', action: 'Petik', cooldown: 0.35 },
+  { id: 'hand', name: 'Tangan', icon: 'hand', action: 'Melambai', cooldown: 1.2 },
+  { id: 'hammer', name: 'Palu Bonk', icon: 'hammer', action: 'Pukul', cooldown: 0.65, reach: 2.0, power: 11, arc: 1.2 },
+  { id: 'sword', name: 'Pedang Kayu', icon: 'sword', action: 'Tebas', cooldown: 0.42, reach: 2.3, power: 7.5, arc: 1.0 },
+  { id: 'watergun', name: 'Pistol Air', icon: 'drop', action: 'Tembak', cooldown: 0.32, power: 5.5 },
+  { id: 'chair', name: 'Kursi', icon: 'chair', action: 'Taruh', cooldown: 0.4 },
+  { id: 'guitar', name: 'Gitar', icon: 'guitar', action: 'Petik', cooldown: 0.35 },
 ];
 export const ITEM_IDS = ITEMS.map((i) => i.id);
 export const getItem = (id) => ITEMS.find((i) => i.id === id) || ITEMS[0];

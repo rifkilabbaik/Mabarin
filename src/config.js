@@ -38,6 +38,12 @@ export const CONFIG = {
     touchSensitivity: 0.006,
   },
 
+  // Pemain yang tidak menyentuh kontrol selama ini dikeluarkan agar room tidak penuh.
+  afk: {
+    warnMs: 4 * 60 * 1000,
+    kickMs: 5 * 60 * 1000,
+  },
+
   net: {
     sendRate: 15, // update posisi per detik
     interpolationDelay: 120, // ms

@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <title>Low Poly World</title>
-    <meta name="description" content="Dunia multiplayer low poly — jalan-jalan bareng teman langsung dari browser." />
+    <title>Mabarin</title>
+    <meta name="description" content="Mabarin — main bareng di pulau low poly, langsung dari browser." />
     <meta name="theme-color" content="#3d8fe0" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="LowPoly" />
+    <meta name="apple-mobile-web-app-title" content="Mabarin" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   </head>
@@ -29,37 +29,22 @@
         </button>
       </div>
       <div class="hud-top-right">
-        <button id="btn-chat" class="icon-btn" type="button" title="Chat (Enter)" aria-label="Chat">
-          <svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
-        </button>
-        <button id="btn-menu" class="icon-btn" type="button" title="Menu" aria-label="Menu" aria-expanded="false">
-          <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z"/></svg>
-        </button>
+        <button id="btn-chat" class="icon-btn" type="button" title="Chat (Enter)" aria-label="Chat" data-icon="chat"></button>
+        <button id="btn-games" class="icon-btn" type="button" title="Game (G)" aria-label="Game" data-icon="cards"></button>
+        <button id="btn-menu" class="icon-btn" type="button" title="Menu" aria-label="Menu" aria-expanded="false" data-icon="menu"></button>
       </div>
 
       <div id="hud-menu" hidden>
-        <button id="m-customize" type="button">🎨 Ubah karakter</button>
-        <button id="btn-invite" type="button">🔗 Undang teman</button>
-        <button id="btn-fullscreen" type="button">⛶ Layar penuh</button>
-        <label class="vol"><span>🎵 Musik</span><input id="vol-music" type="range" min="0" max="100" /></label>
-        <label class="vol"><span>🔊 Efek suara</span><input id="vol-sfx" type="range" min="0" max="100" /></label>
-        <button id="m-exit" type="button" class="danger">🚪 Keluar ke menu utama</button>
+        <button id="m-customize" type="button"><i data-icon="palette"></i>Ubah karakter</button>
+        <button id="btn-invite" type="button"><i data-icon="share"></i>Undang ke room</button>
+        <button id="btn-fullscreen" type="button"><i data-icon="fullscreen"></i>Layar penuh</button>
+        <button id="m-help" type="button"><i data-icon="keyboard"></i>Kontrol</button>
+        <label class="vol"><span><i data-icon="music"></i>Musik</span><input id="vol-music" type="range" min="0" max="100" /></label>
+        <label class="vol"><span><i data-icon="volume"></i>Efek suara</span><input id="vol-sfx" type="range" min="0" max="100" /></label>
+        <button id="m-exit" type="button" class="danger"><i data-icon="logout"></i>Keluar</button>
       </div>
 
-      <div id="lock-hint" class="hint">
-        <strong>Klik layar</strong> untuk mengunci kursor &amp; memutar kamera
-        <div class="keys">
-          <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> / <kbd>WASD</kbd> gerak</span>
-          <span><kbd>Shift</kbd> lari</span>
-          <span><kbd>Spasi</kbd> lompat</span>
-          <span><kbd>1</kbd>–<kbd>6</kbd> item</span>
-          <span><kbd>Klik</kbd>/<kbd>F</kbd> pakai</span>
-          <span><kbd>E</kbd> duduk</span>
-          <span><kbd>Enter</kbd> chat</span>
-          <span><kbd>M</kbd> peta</span>
-          <span><kbd>Esc</kbd> lepas kursor</span>
-        </div>
-      </div>
+      <div id="lock-hint" class="hint">Klik layar untuk mulai</div>
 
       <button id="minimap-btn" type="button" title="Buka peta (M)" aria-label="Buka peta">
         <canvas id="minimap"></canvas>
@@ -70,10 +55,10 @@
       <div id="prompt" hidden></div>
       <div id="hotbar" role="toolbar" aria-label="Item"></div>
 
-      <button id="btn-use" class="touch-btn use" type="button" aria-label="Pakai item"><span class="ico">👋</span><span class="lbl">Melambai</span></button>
-      <button id="btn-item" class="touch-btn item" type="button" aria-label="Pilih item">👋</button>
+      <button id="btn-use" class="touch-btn use" type="button" aria-label="Pakai item"></button>
+      <button id="btn-item" class="touch-btn item" type="button" aria-label="Pilih item"></button>
       <div id="item-menu" hidden></div>
-      <button id="btn-interact" class="touch-pill" type="button" hidden>🪑 Duduk</button>
+      <button id="btn-interact" class="touch-pill" type="button" hidden></button>
 
       <button id="btn-jump" class="touch-btn" type="button" aria-label="Lompat">
         <svg viewBox="0 0 24 24"><path d="M12 4 5 11h4v6h6v-6h4l-7-7Z"/></svg>
@@ -83,14 +68,14 @@
         <div id="chat-log" aria-live="polite"></div>
         <form id="chat-form" autocomplete="off">
           <input id="chat-input" maxlength="120" placeholder="Ketik pesan lalu Enter…" enterkeyhint="send" />
-          <button type="submit">Kirim</button>
+          <button type="submit" aria-label="Kirim" data-icon="send"></button>
         </form>
       </div>
 
       <div id="map-overlay" hidden>
         <div class="map-panel" role="dialog" aria-label="Peta pulau">
           <div class="map-head">
-            <h2>Peta Pulau</h2>
+            <h2>Peta</h2>
             <button id="map-close" class="icon-btn" type="button" aria-label="Tutup peta">
               <svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z"/></svg>
             </button>
@@ -100,7 +85,6 @@
             <div class="map-side">
               <h3>Pemain (<span id="map-count">1</span>)</h3>
               <ul id="player-list"></ul>
-              <p class="map-legend"><span class="lg fire"></span>Api unggun &nbsp; <span class="lg tent"></span>Tenda &nbsp; <span class="lg tree"></span>Hutan</p>
             </div>
           </div>
         </div>
@@ -110,7 +94,6 @@
     <div id="confirm-exit" class="modal" hidden>
       <div class="modal-card" role="dialog" aria-label="Keluar ke menu utama">
         <h3>Keluar ke menu utama?</h3>
-        <p>Kamu akan meninggalkan room ini. Kursi yang kamu taruh akan ikut hilang.</p>
         <div class="modal-actions">
           <button id="exit-cancel" class="btn" type="button">Batal</button>
           <button id="exit-ok" class="btn danger" type="button">Keluar</button>
@@ -118,11 +101,105 @@
       </div>
     </div>
 
+    <div id="games" class="modal" hidden>
+      <div class="modal-card">
+        <div class="modal-head"><h3>Game</h3><button class="close-btn" type="button" data-close aria-label="Tutup" data-icon="x"></button></div>
+        <button id="game-kilat" class="game-tile" type="button">
+          <span class="gt-art"><i data-icon="bolt"></i></span>
+          <span class="gt-text"><b>Kartu Kilat</b><small><i data-icon="users"></i>2–4</small></span>
+          <i data-icon="arrowRight"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="invite-modal" class="modal" hidden>
+      <div class="modal-card">
+        <div class="modal-head"><h3>Undang teman</h3><button class="close-btn" type="button" data-close aria-label="Tutup" data-icon="x"></button></div>
+        <ul id="invite-list" class="pick-list"></ul>
+        <p id="invite-empty" class="muted" hidden>Belum ada pemain lain.</p>
+        <div class="modal-actions">
+          <button id="invite-bot" class="btn" type="button"><i data-icon="bot"></i>Bot</button>
+          <button id="invite-send" class="btn primary" type="button"><i data-icon="send"></i>Undang</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="invite-pop" hidden>
+      <span class="ip-icon"><i data-icon="bolt"></i></span>
+      <span class="ip-text"><b id="ip-from"></b><span>ngajak main Kartu Kilat</span></span>
+      <button id="ip-no" class="btn" type="button">Abaikan</button>
+      <button id="ip-yes" class="btn primary" type="button">Terima</button>
+      <span class="ip-timer"><span id="ip-bar"></span></span>
+    </div>
+
+    <div id="cards-ui" hidden>
+      <div class="cu-top">
+        <div id="cu-turn" class="cu-chip"></div>
+        <div id="cu-color" class="cu-chip cu-icon"></div>
+        <div id="cu-dir" class="cu-chip cu-icon"></div>
+        <button id="cu-leave" class="icon-btn" type="button" aria-label="Tinggalkan meja" data-icon="logout"></button>
+      </div>
+      <div class="cu-timer"><span id="cu-timer-bar"></span></div>
+      <div class="cu-actions">
+        <button id="cu-kilat" class="btn kilat" type="button" hidden><i data-icon="bolt"></i>Kilat!</button>
+        <button id="cu-draw" class="btn" type="button" hidden><i data-icon="plus"></i>Ambil</button>
+        <button id="cu-pass" class="btn" type="button" hidden><i data-icon="arrowRight"></i>Lewat</button>
+      </div>
+      <div id="cu-lobby" class="cu-panel" hidden>
+        <h3><i data-icon="bolt"></i>Kartu Kilat</h3>
+        <ul id="cu-seats" class="pick-list"></ul>
+        <div class="cu-row">
+          <button id="cu-invite" class="btn" type="button"><i data-icon="userPlus"></i>Undang teman</button>
+          <button id="cu-start" class="btn primary" type="button"><i data-icon="play"></i>Mulai</button>
+        </div>
+        <p id="cu-wait" class="muted" hidden><i data-icon="hourglass"></i>Menunggu bandar…</p>
+      </div>
+      <div id="cu-colors" class="cu-panel" hidden>
+        <h3>Pilih warna</h3>
+        <div class="cu-color-grid"></div>
+      </div>
+      <div id="cu-end" class="cu-panel" hidden>
+        <span class="cu-crown"><i data-icon="crown"></i></span>
+        <h3 id="cu-winner"></h3>
+        <div class="cu-row">
+          <button id="cu-exit" class="btn" type="button"><i data-icon="logout"></i>Keluar</button>
+          <button id="cu-again" class="btn primary" type="button"><i data-icon="refresh"></i>Main lagi</button>
+        </div>
+      </div>
+      <div id="cu-msg" class="cu-msg"></div>
+    </div>
+
+    <div id="afk-modal" class="modal" hidden>
+      <div class="modal-card">
+        <h3>Masih di sini?</h3>
+        <p>Keluar otomatis dalam <b id="afk-count">60</b> detik.</p>
+        <div class="modal-actions"><button id="afk-stay" class="btn primary" type="button">Saya di sini</button></div>
+      </div>
+    </div>
+
+    <div id="help-modal" class="modal" hidden>
+      <div class="modal-card">
+        <div class="modal-head"><h3>Kontrol</h3><button class="close-btn" type="button" data-close aria-label="Tutup" data-icon="x"></button></div>
+        <dl class="keys-list">
+          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / panah</dt><dd>Gerak</dd>
+          <dt><kbd>Shift</kbd></dt><dd>Lari</dd>
+          <dt><kbd>Spasi</kbd></dt><dd>Lompat</dd>
+          <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Pilih item</dd>
+          <dt><kbd>Klik</kbd> / <kbd>F</kbd></dt><dd>Pakai item</dd>
+          <dt><kbd>E</kbd></dt><dd>Duduk / berdiri</dd>
+          <dt><kbd>G</kbd></dt><dd>Game</dd>
+          <dt><kbd>Enter</kbd></dt><dd>Chat</dd>
+          <dt><kbd>M</kbd></dt><dd>Peta</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Lepas kursor</dd>
+        </dl>
+      </div>
+    </div>
+
     <div id="customize" hidden>
       <div class="cz-panel" role="dialog" aria-label="Kustomisasi karakter">
         <div class="cz-head">
           <h2>Karakter</h2>
-          <button id="cz-random" class="btn small" type="button">🎲 Acak</button>
+          <button id="cz-random" class="btn small" type="button"><i data-icon="dice"></i>Acak</button>
         </div>
         <div class="cz-tabs" role="tablist"></div>
         <div class="cz-body"></div>
@@ -133,18 +210,15 @@
     <!-- Layar awal -->
     <div id="start-screen">
       <div class="card">
-        <button id="btn-sound" class="sound-toggle" type="button" aria-label="Musik nyala/mati" title="Musik">🔊</button>
-        <h1>Low Poly <span>World</span></h1>
-        <p class="subtitle">Dunia multiplayer low poly — jalan-jalan bareng teman langsung dari browser.</p>
+        <button id="btn-sound" class="sound-toggle" type="button" aria-label="Musik nyala/mati" title="Musik"></button>
+        <h1>Mabar<span>in</span></h1>
 
         <label class="field">
-          <span>Nama</span>
-          <input id="name-input" maxlength="16" placeholder="Nama kamu" autocomplete="nickname" />
+          <input id="name-input" maxlength="16" placeholder="Nama kamu" autocomplete="nickname" aria-label="Nama" />
         </label>
 
         <button id="btn-customize" class="btn customize" type="button">
-          <span id="cz-dot" class="cz-dot"></span> 🎨 Ubah Karakter
-          <small>bentuk tubuh, rambut, topi, aksesoris…</small>
+          <span id="cz-dot" class="cz-dot"></span><i data-icon="palette"></i>Karakter
         </button>
 
         <div id="invite-box" class="invite-box" hidden>
@@ -161,16 +235,14 @@
         <p id="start-error" class="error" hidden></p>
 
         <div class="footer-row">
-          <button id="btn-install" class="link" type="button" hidden>⬇ Pasang aplikasi</button>
-          <span class="controls-info" data-for="desktop">PC: Panah/WASD + mouse (Pointer Lock)</span>
-          <span class="controls-info" data-for="touch">HP: joystick virtual + geser untuk kamera</span>
+          <button id="btn-install" class="link" type="button" hidden><i data-icon="download"></i>Pasang aplikasi</button>
         </div>
       </div>
     </div>
 
     <div id="loading" hidden>
       <div class="spinner"></div>
-      <p id="loading-text">Menghubungkan ke server…</p>
+      <p id="loading-text">Menghubungkan…</p>
     </div>
 
     <script type="module" src="/src/main.js"></script>

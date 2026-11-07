@@ -17,6 +17,7 @@ import { MapView } from './ui/MapView.js';
 import { Hotbar } from './ui/Hotbar.js';
 import { CustomizePanel } from './ui/CustomizePanel.js';
 import { AudioManager } from './audio/AudioManager.js';
+import { CardGame } from './cards/CardGame.js';
 import { registerPWA } from './pwa.js';
 
 const $ = (id) => document.getElementById(id);
@@ -55,12 +56,12 @@ let net = null;
 let local = null;
 let myProfile = null;
 const remotes = new Map();
-const blockers = { chat: false, menu: false, customize: false };
+const blockers = { chat: false, menu: false, customize: false, cards: false };
 
 function refreshInputEnabled() {
   const on = !blockers.chat && !blockers.menu && !blockers.customize;
   input.setEnabled(on);
-  items.enabled = on;
+  items.enabled = on && !blockers.cards;
 }
 
 // ---------- UI ----------
@@ -80,6 +81,7 @@ const ui = new UI({
     blockers.menu = open;
     refreshInputEnabled();
   },
+  onGames: () => state === 'playing' && cards.openGames(),
 });
 ui.setInvite(getInviteRoomFromUrl());
 
@@ -109,6 +111,23 @@ const input = new InputManager({
   onSlot: (i) => state === 'playing' && items.select(i),
   onUse: () => state === 'playing' && items.use(),
   onInteract: () => state === 'playing' && items.interact(),
+});
+
+// Permainan kartu di meja (tampilan orang-pertama)
+const cards = new CardGame({
+  scene, camera, world, audio, ui, input,
+  onEnter: () => {
+    blockers.cards = true;
+    refreshInputEnabled();
+    mapView.toggle(false);
+  },
+  onExit: () => {
+    blockers.cards = false;
+    refreshInputEnabled();
+    camRig.initialized = false;
+    camRig.yaw = local.facing + Math.PI;
+    camRig.pitch = 0.3;
+  },
 });
 
 // Karakter pratinjau di menu
@@ -182,6 +201,8 @@ async function startGame(mode, profile) {
   camRig.pitch = 0.3;
   camRig.initialized = false;
   items.attach(local, net, remotes);
+  cards.attach({ net, local, remotes, profile: () => myProfile });
+  startAfkWatch();
 
   const joinedAt = performance.now();
   net.onPlayerJoin((handle, isMe) => {
@@ -192,7 +213,7 @@ async function startGame(mode, profile) {
     if (performance.now() - joinedAt > 2500) {
       setTimeout(() => {
         if (!remotes.has(handle.id)) return;
-        ui.toastPlayer(rp.name, 'bergabung 👋');
+        ui.toastPlayer(rp.name, 'bergabung');
         audio.play('chime', { volume: 0.7 });
       }, 1200);
     }
@@ -201,12 +222,18 @@ async function startGame(mode, profile) {
       if (!p) return;
       ui.toastPlayer(p.name, 'keluar');
       audio.play('leave', { volume: 0.6 });
+      cards.onPlayerQuit(handle.id);
       p.dispose();
       remotes.delete(handle.id);
       ui.setPlayerCount(remotes.size + 1);
     });
   });
-  net.onDisconnect?.(() => {
+  net.onDisconnect?.((e) => {
+    if (e?.reason === 'PLAYER_KICKED') {
+      sessionStorage.setItem(AFK_FLAG, '1');
+      exitToMenu();
+      return;
+    }
     ui.setConnected(false);
     ui.toast('Koneksi ke server terputus. Muat ulang halaman untuk menyambung lagi.');
   });
@@ -219,20 +246,80 @@ async function startGame(mode, profile) {
   ui.setState('playing');
   state = 'playing';
 
-  const where = net.kind === 'local' ? 'mode offline' : net.isPublic ? 'Dunia Publik' : `room ${net.roomCode}`;
-  ui.toast(
-    isTouchDevice
-      ? `Kamu masuk ke ${where}. Ketuk tombol item untuk ganti properti, 💬 untuk chat, peta kecil untuk peta pulau.`
-      : `Kamu masuk ke ${where}. 1–6 ganti item, klik/F pakai, E duduk, Enter chat, M peta.`
-  );
   loadChatHistory();
   setTimeout(loadChatHistory, 2000); // state room kadang baru tiba sesaat setelah terhubung
 
-  if (net.kind === 'playroom' && !net.isPublic) {
-    ui.toast('Room privat dibuat. Buka menu ☰ → Undang teman untuk membagikan link.');
-  }
+  if (net.kind === 'playroom' && !net.isPublic) ui.toast('Room privat siap — undang lewat menu.');
   if (isTouchDevice && quality === 'low' && !document.fullscreenElement) {
     ui.toggleFullscreen();
+  }
+}
+
+// ---------- AFK: keluarkan pemain yang tidak aktif agar room tidak penuh ----------
+const AFK_FLAG = 'lpw-afk';
+let lastActivity = Date.now();
+let lastBucket = -1;
+let afkWarn = false;
+const afkSeen = new Map(); // id pemain -> { v, at } (dipantau host)
+
+function markActive() {
+  lastActivity = Date.now();
+  if (afkWarn) {
+    afkWarn = false;
+    ui.closeModal('afk-modal');
+  }
+}
+
+function startAfkWatch() {
+  for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) {
+    window.addEventListener(ev, markActive, { capture: true, passive: true });
+  }
+  $('afk-stay').addEventListener('click', markActive);
+  markActive();
+}
+
+let afkTimer = 0;
+function updateAfk(now) {
+  afkTimer -= 1;
+  if (afkTimer > 0) return;
+  afkTimer = 20; // cukup dicek beberapa kali per detik
+  const t = Date.now();
+  const idle = t - lastActivity;
+  const { warnMs, kickMs } = CONFIG.afk;
+
+  // tanda aktivitas untuk host (berubah tiap 15 detik selama pemain aktif)
+  const bucket = Math.floor(lastActivity / 15000);
+  if (bucket !== lastBucket) {
+    lastBucket = bucket;
+    net.me.setState('ia', bucket, true);
+  }
+
+  if (idle > kickMs) {
+    sessionStorage.setItem(AFK_FLAG, '1');
+    exitToMenu();
+    return;
+  }
+  if (idle > warnMs) {
+    if (!afkWarn) {
+      afkWarn = true;
+      ui.openModal('afk-modal');
+      audio.play('chime');
+    }
+    $('afk-count').textContent = String(Math.ceil((kickMs - idle) / 1000));
+  }
+
+  // Host room mengeluarkan pemain yang tandanya tidak berubah (mis. tab/aplikasi dibekukan)
+  if (net.isHost()) {
+    for (const rp of remotes.values()) {
+      const v = rp.handle.getState('ia');
+      const seen = afkSeen.get(rp.id);
+      if (!seen || seen.v !== v) afkSeen.set(rp.id, { v, at: t });
+      else if (t - seen.at > kickMs + 60000) {
+        afkSeen.set(rp.id, { v, at: t });
+        if (rp.handle.kick) rp.handle.kick().catch?.(() => {});
+        else net.kick?.(rp.id);
+      }
+    }
   }
 }
 
@@ -291,12 +378,10 @@ function recordHistory(m) {
 function loadChatHistory() {
   const log = net?.getRoomState('chatlog');
   if (!Array.isArray(log)) return;
-  let added = 0;
   for (const raw of log) {
     const m = sanitizeChat(raw);
-    if (m && showChatLine(m, true)) added++;
+    if (m) showChatLine(m, true);
   }
-  if (added) ui.toast(`${added} pesan sebelumnya dimuat — buka chat untuk melihat riwayat.`);
 }
 
 function sendChat(text) {
@@ -373,19 +458,24 @@ function frame(timestamp) {
 
   if (state === 'playing' && local) {
     input.update();
-    camRig.applyInput(input.consumeLook());
+    cards.update(dt, Date.now());
+    const look = input.consumeLook();
+    if (cards.inTable) cards.applyLook(look);
+    else camRig.applyInput(look);
     if (customize.isOpen && !local.sitting) local.facing = camRig.yaw; // hadap kamera saat ganti baju
     local.update(dt, input, camRig);
-    camRig.update(dt, local.position);
+    if (cards.inTable) cards.updateCamera();
+    else camRig.update(dt, local.position);
     for (const rp of remotes.values()) rp.update(dt, now);
     items.update(dt, input.mode === 'touch');
+    updateAfk(now);
     updateChairs(dt);
     world.update(dt, local.position, camera);
     updateMap(dt);
     const p = local.position;
     audio.setListener(p.x, p.z, camRig.yaw);
     audio.updateAmbient(dt, p.x, p.z, world.getHeight(p.x, p.z), elapsed);
-    document.body.classList.toggle('aiming', items.item.id === 'watergun' && !customize.isOpen);
+    document.body.classList.toggle('aiming', items.item.id === 'watergun' && !customize.isOpen && !cards.inTable);
   } else {
     menuFocus.copy(preview.root.position);
     preview.animate(dt, { speed: 0, grounded: true, swimming: false, vy: 0 });
@@ -418,7 +508,10 @@ registerPWA();
 
 // Playroom me-reload halaman bila koneksi gagal / terputus — tangani di sini.
 const reloadReason = readReloadReason();
-if (reloadReason === 'connect-failed') {
+if (sessionStorage.getItem(AFK_FLAG)) {
+  sessionStorage.removeItem(AFK_FLAG);
+  ui.setStartError('Kamu dikeluarkan karena tidak aktif (AFK).');
+} else if (reloadReason === 'connect-failed') {
   ui.setStartError('Tidak bisa terhubung ke server Playroom. Periksa koneksi internet lalu coba lagi, atau pilih "Main Offline".');
 } else if (reloadReason === 'rejoin') {
   ui.start('invite'); // koneksi sempat terputus: sambung ulang otomatis ke room yang sama
@@ -426,6 +519,6 @@ if (reloadReason === 'connect-failed') {
 
 // Untuk debugging di console
 window.__game = {
-  scene, world, camera, camRig, renderer, ui, mapView, items, seats, audio, customize,
+  scene, world, camera, camRig, renderer, ui, mapView, items, seats, audio, customize, cards, CONFIG,
   get local() { return local; }, remotes, get net() { return net; },
 };

@@ -240,14 +240,52 @@ function buildCampfire(world, rand, markers) {
   };
 }
 
+// ---------- Meja Kartu Kilat (3 meja, masing-masing 4 bangku) ----------
+function buildCardTables(world, markers) {
+  const top = merge([
+    prep(new THREE.CylinderGeometry(0.82, 0.82, 0.08, 12).translate(0, 0.74, 0), '#a0672f'),
+    prep(new THREE.CylinderGeometry(0.66, 0.66, 0.012, 12).translate(0, 0.785, 0), '#2f9e44'),
+    prep(new THREE.CylinderGeometry(0.09, 0.12, 0.7, 6).translate(0, 0.35, 0), '#6b4226'),
+    prep(new THREE.CylinderGeometry(0.4, 0.45, 0.06, 8).translate(0, 0.03, 0), '#6b4226'),
+  ]);
+  const stool = merge([
+    prep(new THREE.CylinderGeometry(0.24, 0.22, 0.08, 8).translate(0, 0.42, 0), '#c08552'),
+    prep(new THREE.CylinderGeometry(0.06, 0.08, 0.4, 5).translate(0, 0.2, 0), '#6b4226'),
+  ]);
+  const mat = lambert();
+  [1.14, 2.71, 4.28].forEach((a, index) => {
+    const r = 7.6;
+    const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+    const y = world.getHeight(cx, cz);
+    const t = new THREE.Mesh(top, mat);
+    t.position.set(cx, y, cz);
+    t.castShadow = t.receiveShadow = true;
+    world.scene.add(t);
+    world.colliders.add(cx, cz, 0.85, y + 0.8);
+    const seats = [];
+    for (let k = 0; k < 4; k++) {
+      const sa = a + Math.PI / 4 + (k * Math.PI) / 2;
+      const sx = cx + Math.cos(sa) * 1.18, sz = cz + Math.sin(sa) * 1.18;
+      const sy = world.getHeight(sx, sz);
+      const m = new THREE.Mesh(stool, mat);
+      m.position.set(sx, sy, sz);
+      m.castShadow = m.receiveShadow = true;
+      world.scene.add(m);
+      seats.push({ x: sx, z: sz, y: sy + 0.46, rot: Math.atan2(cx - sx, cz - sz), locked: true });
+    }
+    markers.cardTables.push({ index, x: cx, z: cz, y: y + 0.79, seats });
+  });
+}
+
 export function buildProps(world, rand) {
   const cfg = CONFIG.world;
   const scene = world.scene;
   const shadows = world.quality !== 'low';
 
   // Penanda untuk peta (src/ui/MapView.js)
-  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], campfire: { x: 0, z: 0 } };
+  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], cardTables: [], campfire: { x: 0, z: 0 } };
   const campfire = buildCampfire(world, rand, markers);
+  buildCardTables(world, markers);
 
   // Pohon (punya collider batang)
   const pines = scatter(world, rand, cfg.trees.pine, { minH: 2, maxH: 14, maxSlope: 0.75, avoidSpawn: 14, collider: 0.45 });

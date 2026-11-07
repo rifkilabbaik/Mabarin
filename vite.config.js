@@ -15,9 +15,9 @@ export default defineConfig({
       injectRegister: null, // didaftarkan manual di src/pwa.js
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
-        name: 'Low Poly World',
-        short_name: 'LowPoly',
-        description: 'Dunia multiplayer low poly — jalan-jalan bareng teman langsung dari browser.',
+        name: 'Mabarin',
+        short_name: 'Mabarin',
+        description: 'Main bareng di pulau low poly, langsung dari browser.',
         lang: 'id',
         start_url: './',
         scope: './',

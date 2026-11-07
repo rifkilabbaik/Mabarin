@@ -84,7 +84,8 @@ export class LocalPlayer {
     const vel = this.velocity;
 
     if (this.seat) {
-      const wantsUp = Math.hypot(input.move.x, input.move.y) > 0.3 || input.consumeJump();
+      const jump = input.consumeJump();
+      const wantsUp = !this.seat.locked && (Math.hypot(input.move.x, input.move.y) > 0.3 || jump);
       if (wantsUp) this.stand();
       else {
         this.speed = 0;

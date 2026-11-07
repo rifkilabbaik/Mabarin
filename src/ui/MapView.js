@@ -87,6 +87,12 @@ export class MapView {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.fillStyle = '#8b5a2b';
+    for (const t of m.cardTables) {
+      ctx.beginPath();
+      ctx.arc(toPx(t.x), toPx(t.z), 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.fillStyle = '#ff7a1a';
     ctx.beginPath();
     ctx.arc(toPx(m.campfire.x), toPx(m.campfire.z), 2.6, 0, Math.PI * 2);

@@ -1,4 +1,4 @@
-# Mabarin — Low Poly World 🌲
+# Mabarin
 
 Game dunia terbuka **multiplayer** berbasis web (PWA) dengan **Three.js** + **Playroom Kit**.
 Art style **low poly** (flat shading) dan karakter bergaya **capsule character**.
@@ -6,22 +6,51 @@ Tanpa akun, tanpa server sendiri: game di-host gratis di **GitHub Pages**, konek
 
 ## Fitur
 
-- 🌍 Pulau low poly prosedural (seed tetap → dunia identik di semua pemain): bukit, gunung bersalju, pantai, laut beranimasi, pohon pinus & pohon bulat, batu, semak, rumput, bunga, awan bergerak, api unggun + tenda di titik spawn.
-- 💊 Karakter kapsul dengan tangan melayang; animasi idle, jalan, lari, lompat (stretch & squash), berenang, duduk.
-- 🎨 **Kustomisasi karakter** (di menu awal atau saat bermain lewat ☰ → Ubah karakter): warna badan, bentuk tubuh (normal/tinggi/pendek/gemuk), 6 gaya rambut + 8 warna rambut, 4 gaya mata, topi (pet, koboi, kupluk, pesta, mahkota), kacamata / kacamata hitam / kumis, ransel / sayap / jubah, syal / dasi kupu-kupu. Tersimpan di perangkat & terlihat oleh semua pemain.
-- 🧰 **Hotbar properti**: 👋 Tangan (melambai), 🔨 Palu Bonk, 🗡️ Pedang Kayu, 🔫 Pistol Air, 🪑 Kursi, 🎸 Gitar.
-  - Senjata bersifat **"bonk"** — lawan terpental & pusing sebentar, tanpa nyawa / tanpa mati.
-  - **Kursi** bisa ditaruh (maks. 3 per pemain, ambil lagi dengan memakai item kursi di dekatnya) dan **diduduki** siapa saja; bangku di api unggun juga bisa diduduki. Main gitar sambil duduk bisa!
-- 🎵 **Musik lofi & efek suara orisinal** (dibuat langsung dengan Web Audio, tanpa file audio): langkah kaki per permukaan, lompat, cipratan air, bonk, semprotan air, kursi, notifikasi; gitar Karplus-Strong; suara ombak & api unggun yang makin keras saat didekati. Volume musik & efek bisa diatur di menu ☰.
-- 🚪 **Keluar ke menu utama** lewat ☰ → Keluar.
-- 🗺️ **Minimap** (berputar mengikuti arah kamera, teman yang jauh tampil di tepi lingkaran) dan **peta pulau penuh** berisi posisi + nama semua pemain dan daftar pemain beserta jaraknya.
-- 💬 **Chat dengan riwayat**: pesan baru tampil sebentar di layar, riwayat lengkap (bisa di-scroll, dengan jam) terlihat saat kolom chat dibuka. Pemain yang baru masuk ikut melihat 50 pesan terakhir di room. Pemberitahuan masuk/keluar juga tercatat di riwayat. Gelembung chat tetap muncul di atas kepala.
-- 🎮 Kontrol:
-  - **PC/Laptop** — Arrow keys (juga WASD) bergerak, **Pointer Lock** + mouse untuk kamera, `Shift` lari, `Spasi` lompat, `1`–`6` pilih item, **klik kiri** / `F` pakai item, `E` duduk/berdiri, scroll zoom, `Enter` chat, `M` peta, `Esc` tutup peta / lepas kursor.
-  - **HP/Tablet** — **joystick virtual** dinamis di kiri (dorong penuh = lari), geser di kanan untuk kamera, cubit (2 jari) untuk zoom, tombol lompat, tombol **pakai item**, tombol **pilih item**, tombol **Duduk** (muncul di dekat kursi/bangku), 💬 chat, ketuk minimap untuk peta.
-- 🌐 **Dunia Publik** (satu room bersama), **Room Privat** (link undangan), nama + warna pemain.
-- 📴 **Main Offline** — tanpa internet. Beberapa tab di browser yang sama saling terlihat (BroadcastChannel), berguna untuk mencoba multiplayer secara lokal.
-- 📲 **PWA** — bisa di-install ke layar utama, layar penuh, aset di-cache.
+- **Pulau low poly prosedural** (seed tetap, dunia identik di semua pemain): bukit, gunung bersalju, pantai, laut beranimasi, hutan, batu, awan, api unggun, tenda, dan 3 meja kartu.
+- **Karakter kapsul** dengan animasi idle, jalan, lari, lompat, berenang, duduk.
+- **Kustomisasi karakter** (menu awal atau menu dalam game): warna badan, bentuk tubuh, 6 gaya rambut + 8 warna, 4 gaya mata, topi, kacamata / kumis, ransel / sayap / jubah, syal / dasi kupu-kupu.
+- **Hotbar properti**: Tangan (melambai), Palu Bonk, Pedang Kayu, Pistol Air, Kursi, Gitar.
+  Senjata bersifat "bonk": lawan terpental & pusing sebentar, tanpa nyawa. Kursi bisa ditaruh (maks. 3) dan diduduki; bangku api unggun juga bisa diduduki.
+- **Kartu Kilat** — permainan kartu cocok-warna 2–4 pemain di meja, dengan tampilan orang-pertama ala VR (lihat detail di bawah).
+- **Minimap & peta pulau** dengan posisi dan daftar pemain.
+- **Chat dengan riwayat** (pemain baru ikut melihat 50 pesan terakhir).
+- **Musik lofi & efek suara orisinal** dibuat langsung dengan Web Audio (tanpa file audio). Volume diatur di menu.
+- **Kick otomatis pemain AFK** supaya room tidak penuh.
+- **Ikon SVG** buatan sendiri di seluruh antarmuka (tanpa emoji).
+- **Main Offline** (beberapa tab di browser yang sama saling terlihat) dan **PWA** (bisa di-install).
+
+### Kontrol
+
+| | PC / Laptop | HP / Tablet |
+|---|---|---|
+| Gerak | Panah / WASD, `Shift` lari | Joystick virtual (dorong penuh = lari) |
+| Kamera | Klik layar (Pointer Lock) + mouse, scroll zoom | Geser sisi kanan, cubit untuk zoom |
+| Lompat | `Spasi` | Tombol panah atas |
+| Item | `1`–`6` pilih, klik / `F` pakai | Tombol item & tombol pakai |
+| Duduk | `E` | Tombol Duduk (muncul dekat kursi) |
+| Game | `G` | Tombol kartu (kanan atas) |
+| Chat / Peta | `Enter` / `M` | Tombol chat / ketuk minimap |
+
+Daftar kontrol juga ada di menu → Kontrol.
+
+## Kartu Kilat
+
+Permainan kartu orisinal Mabarin (aturan cocok warna/angka seperti permainan kartu klasik, dengan desain sendiri).
+
+- **Kartu**: 4 warna bertema pulau — Api, Matahari, Daun, Ombak — masing-masing angka 0–9, **Lewati**, **Balik**, **+2**; ditambah **Pelangi** (pilih warna) dan **Pelangi +4**. Total 108 kartu, 7 kartu per pemain.
+- **Giliran**: mainkan kartu dengan warna atau angka/simbol yang sama, atau Pelangi. Tidak bisa? Ambil 1 kartu, lalu mainkan atau Lewat. Batas waktu 30 detik per giliran.
+- **Kilat!**: saat tinggal 2 kartu di giliranmu, tekan **Kilat!** sebelum memainkan kartu kedua terakhir — kalau lupa, kamu mengambil 2 kartu.
+- Yang pertama menghabiskan kartu menang.
+
+**Cara mengajak teman**: tombol Game → **Kartu Kilat** → **Undang teman** (centang pemain) → teman mendapat undangan **Terima / Abaikan**. Bandar (pembuat meja) bisa menambah **Bot** dan menekan **Mulai**.
+
+**Tampilan ala VR**: saat duduk di meja kamera menjadi orang-pertama — menunduk untuk melihat kartu di tangan, lurus ke depan untuk melihat meja dan lawan, menoleh ke samping untuk melihat pemain lain. Geser layar / drag mouse untuk melihat sekeliling, ketuk / klik kartu untuk memainkannya, ketuk tumpukan kartu tertutup untuk mengambil.
+
+Logika permainan berjalan di perangkat bandar: state meja disiarkan lewat player state `cg` milik bandar, aksi pemain dikirim lewat event `cg`, undangan lewat event `cg-inv`. Semua pemain di room bisa menonton meja yang sedang dimainkan. (Kartu di tangan tidak dienkripsi — cocok untuk main santai.)
+
+## Pemain AFK
+
+Pemain yang tidak menyentuh kontrol selama **4 menit** mendapat peringatan "Masih di sini?" dan dikeluarkan otomatis pada menit ke-**5**. Host room juga mengeluarkan pemain yang tanda aktivitasnya berhenti (mis. aplikasi di HP ditutup tanpa keluar). Atur di `src/config.js` → `afk`.
 
 ## Main online
 
@@ -29,7 +58,7 @@ Game sudah online lewat GitHub Pages: **https://rifkilabbaik.github.io/Mabarin/*
 
 1. Buka link di PC atau HP, isi nama & pilih warna.
 2. **Masuk Dunia Publik** → semua pemain masuk room yang sama.
-   Atau **Buat Room Privat** → tekan tombol 🔗 (kanan atas) untuk membagikan link undangan (`...#r=RXXXX`).
+   Atau **Buat Room Privat** → menu → Undang ke room untuk membagikan link (`...#r=RXXXX`).
 3. Di HP, pilih "Tambahkan ke Layar Utama" / "Install app" untuk memasang sebagai aplikasi.
 
 ### Deploy otomatis (GitHub Pages)
@@ -72,6 +101,9 @@ Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyia
 | `act` (RPC event) | animasi aksi: lambai / pukul / tebas / tembak / petik gitar | reliable |
 | `bonk` (RPC event) | `{ to, dx, dz, p }` — dihitung penyerang, korban terpental | reliable |
 | `chatlog` (room state, ditulis host) | 50 pesan terakhir | reliable |
+| `ia` (player state) | tanda aktivitas (berubah tiap 15 detik saat aktif) untuk deteksi AFK | reliable |
+| `cg` (player state bandar) | state meja Kartu Kilat | reliable |
+| `cg` / `cg-inv` (RPC event) | aksi pemain di meja / undangan | reliable |
 
 Pemain lain di-render dengan **snapshot interpolation** (jeda 120 ms) memakai cap waktu pengirim, sehingga gerakan tetap mulus meski paket datang tidak teratur.
 
@@ -79,7 +111,7 @@ Pemain lain di-render dengan **snapshot interpolation** (jeda 120 ms) memakai ca
 
 ```
 src/
-  main.js                    loop game, alur menu → bermain, chat & riwayat
+  main.js                    loop game, alur menu ke bermain, chat & riwayat, AFK
   config.js                  angka penting (dunia, kecepatan, kamera, jaringan, warna)
   world/World.js             terrain heightfield, air (shader ombak), langit, cahaya & bayangan
   world/props.js             pohon/batu/semak/bunga (InstancedMesh), awan, api unggun, tenda
@@ -107,6 +139,12 @@ src/
   ui/MapView.js              minimap & peta pulau penuh
   ui/Hotbar.js               hotbar (PC) & tombol item (HP)
   ui/CustomizePanel.js       panel kustomisasi karakter
+  ui/icons.js                ikon SVG (pengganti emoji) + simbol 4 warna kartu
+  cards/rules.js             aturan & kartu Kartu Kilat, AI bot sederhana
+  cards/MatchHost.js         logika bandar (kocok, bagi, giliran, timer, bot)
+  cards/CardGame.js          undangan, tampilan orang-pertama, kartu di tangan, UI meja
+  cards/TableView.js         tampilan meja untuk semua pemain (tumpukan, kartu lawan, bot)
+  cards/cardArt.js           gambar kartu (atlas canvas)
 public/                      favicon & ikon PWA
 scripts/generate-icons.mjs   membuat ikon PNG dari SVG (butuh Playwright)
 ```

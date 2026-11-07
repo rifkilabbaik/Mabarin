@@ -15,6 +15,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -830,3 +831,198 @@ body.customizing #hud { display: none; }
   .cz-panel { left: calc(8px + var(--safe-l)); right: calc(8px + var(--safe-r)); top: auto; bottom: calc(8px + var(--safe-b)); width: auto; height: 54vh; }
 }
 #item-menu:not([hidden]) ~ #btn-interact { display: none !important; }
+
+/* ---------------- Ikon ---------------- */
+.ic { width: 1.2em; height: 1.2em; flex: none; vertical-align: -0.22em; }
+.icon-btn .ic { width: 20px; height: 20px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+#hud-menu button { display: flex; align-items: center; gap: 10px; }
+#hud-menu .vol span { display: flex; align-items: center; gap: 10px; }
+#hotbar .slot .ic { width: 26px; height: 26px; }
+.touch-btn.use .ic { width: 32px; height: 32px; }
+.touch-btn.item .ic { width: 24px; height: 24px; }
+#item-menu .ic { width: 26px; height: 26px; }
+.touch-pill { align-items: center; gap: 6px; }
+body[data-input='touch'] .touch-pill:not([hidden]) { display: inline-flex; }
+#chat-form button .ic { width: 20px; height: 20px; }
+.sound-toggle { display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.sound-toggle .ic { width: 20px; height: 20px; }
+.btn.customize { display: flex; justify-content: flex-start; gap: 10px; }
+.btn.customize .cz-dot { width: 24px; height: 24px; }
+.link { display: inline-flex; align-items: center; gap: 6px; }
+.hint { padding: 9px 16px; font-weight: 650; }
+h1 { margin-right: 48px; }
+
+/* ---------------- Dialog umum ---------------- */
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.modal-head h3 { margin: 0; }
+.close-btn { border: 0; background: #eef2f8; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.close-btn .ic { width: 18px; height: 18px; }
+.muted { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pick-list { list-style: none; margin: 0 0 14px; padding: 0; max-height: 42vh; overflow-y: auto; }
+.pick-list li { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px solid #edf1f7; font-weight: 650; }
+.pick-list li:last-child { border-bottom: 0; }
+.pick-list .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #d0d8e6; }
+.pick-list .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-list .tag { font-size: 12px; font-weight: 700; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+.pick-list input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--accent); }
+.pick-list li.empty-seat { color: var(--muted); font-weight: 600; }
+.btn.small { padding: 8px 12px; }
+
+.game-tile {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid #e3e9f3;
+  border-radius: 16px;
+  background: #f7f9fc;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--ink);
+}
+.game-tile:hover { border-color: var(--accent); }
+.gt-art {
+  width: 52px; height: 52px; border-radius: 12px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: conic-gradient(#ff6b6b 0 25%, #fcc419 0 50%, #51cf66 0 75%, #4dabf7 0);
+  color: #fff;
+}
+.gt-art .ic { width: 28px; height: 28px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
+.gt-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.gt-text b { font-size: 16px; }
+.gt-text small { color: var(--muted); font-weight: 650; display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------------- Undangan masuk ---------------- */
+#invite-pop {
+  position: fixed;
+  top: calc(12px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100% - 24px));
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 14px;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  z-index: 9;
+  animation: pop-in 0.25s ease-out;
+}
+#invite-pop[hidden] { display: none; }
+@keyframes pop-in { from { transform: translate(-50%, -16px); opacity: 0; } }
+.ip-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; background: conic-gradient(#ff6b6b 0 25%, #fcc419 0 50%, #51cf66 0 75%, #4dabf7 0); }
+.ip-text { display: flex; flex-direction: column; font-size: 13.5px; color: var(--muted); min-width: 0; }
+.ip-text b { color: var(--ink); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#invite-pop .btn { padding: 9px 12px; font-size: 14px; }
+.ip-timer { position: absolute; left: 14px; right: 14px; bottom: 6px; height: 3px; border-radius: 3px; background: #edf1f7; overflow: hidden; }
+.ip-timer span { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; }
+@media (max-width: 420px) {
+  #invite-pop { grid-template-columns: auto 1fr; }
+  #invite-pop .btn { grid-row: 2; }
+}
+
+/* ---------------- Meja Kartu Kilat ---------------- */
+#cards-ui { position: fixed; inset: 0; pointer-events: none; z-index: 2; color: #fff; }
+#cards-ui[hidden] { display: none; }
+body.in-cards #hud .hud-top-left ~ *:not(.hud-top-right):not(#hud-menu):not(#chat) { display: none !important; }
+body.in-cards #surface { cursor: default; }
+body.in-cards .joy-base { display: none !important; }
+.cu-top {
+  position: absolute;
+  top: calc(60px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+.cu-chip {
+  height: 40px;
+  min-width: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 750;
+  font-size: 14.5px;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.cu-chip.mine { background: #2f80ed; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6); }
+.cu-icon { padding: 0; width: 40px; }
+.cu-icon .ic { width: 22px; height: 22px; }
+.cu-timer { position: absolute; top: calc(106px + var(--safe-t)); left: 50%; transform: translateX(-50%); width: min(280px, 60vw); height: 5px; border-radius: 5px; background: rgba(0, 0, 0, 0.3); overflow: hidden; }
+.cu-timer span { display: block; height: 100%; width: 100%; background: #fff; transform-origin: left; }
+.cu-actions {
+  position: absolute;
+  right: calc(14px + var(--safe-r));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: auto;
+}
+body.in-cards #chat-log:not(.open) { display: none; }
+@media (max-width: 480px) {
+  .cu-chip { height: 36px; min-width: 36px; padding: 0 12px; font-size: 13.5px; }
+  .cu-icon { width: 36px; padding: 0; }
+  .cu-actions .btn { min-width: 0; padding: 11px 14px; }
+}
+.cu-actions .btn { min-width: 110px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25); }
+.cu-actions .btn[hidden] { display: none; }
+.btn.kilat { background: linear-gradient(135deg, #fcc419, #ff6b6b); color: #fff; animation: kilat-pulse 0.9s ease-in-out infinite; }
+@keyframes kilat-pulse { 50% { transform: scale(1.07); } }
+.cu-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(380px, calc(100% - 24px));
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  text-align: center;
+}
+.cu-panel[hidden] { display: none; }
+.cu-panel h3 { margin: 0 0 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 19px; }
+.cu-panel .pick-list { text-align: left; }
+.cu-row { display: flex; gap: 8px; justify-content: center; }
+.cu-row .btn { flex: 1; }
+.cu-color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.cu-color-grid button { aspect-ratio: 1; border: 0; border-radius: 16px; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15); }
+.cu-color-grid .ic { width: 34px; height: 34px; }
+.cu-crown { display: inline-flex; width: 56px; height: 56px; border-radius: 50%; align-items: center; justify-content: center; background: #fff3bf; color: #f08c00; margin-bottom: 6px; }
+.cu-crown .ic { width: 30px; height: 30px; }
+.cu-msg {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+  font-weight: 850;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.cu-msg.show { animation: msg-pop 1.6s ease-out; }
+@keyframes msg-pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); } 15%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -70%); } }
+
+/* ---------------- Bantuan kontrol ---------------- */
+.keys-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; align-items: center; }
+.keys-list dt { white-space: nowrap; color: var(--muted); font-size: 13px; }
+.keys-list dd { margin: 0; font-weight: 650; }
+.keys-list kbd { background: #eef2f8; border-color: #d0d8e6; color: var(--ink); }

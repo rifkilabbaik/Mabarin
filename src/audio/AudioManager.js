@@ -315,6 +315,24 @@ const SFX = {
     a.tone('triangle', 660, 880, t, 0.12, 0.06, out);
     a.tone('triangle', 880, 1100, t + 0.13, 0.12, 0.05, out);
   },
+  card(a, out, t) {
+    a.hiss(t, 0.06, 0.22, out, 'bandpass', 2600, 1200, 0.9);
+    a.tone('sine', 420, 300, t, 0.05, 0.05, out);
+  },
+  shuffle(a, out, t) {
+    for (let i = 0; i < 7; i++) a.hiss(t + i * 0.045, 0.05, 0.14, out, 'bandpass', 2200 + Math.random() * 800, 0, 1);
+  },
+  kilat(a, out, t) {
+    [784, 1046.5, 1318.5, 1568].forEach((f, i) => a.tone('square', f, 0, t + i * 0.05, 0.18, 0.035, out));
+    a.hiss(t, 0.25, 0.08, out, 'highpass', 4000);
+  },
+  win(a, out, t) {
+    [523.3, 659.3, 784, 1046.5, 784, 1046.5].forEach((f, i) => a.tone('triangle', f, 0, t + i * 0.11, 0.4, 0.09, out));
+  },
+  turn(a, out, t) {
+    a.tone('sine', 988, 0, t, 0.12, 0.08, out);
+    a.tone('sine', 1318.5, 0, t + 0.09, 0.16, 0.07, out);
+  },
   click(a, out, t) {
     a.tone('sine', 1500, 0, t, 0.025, 0.05, out);
   },

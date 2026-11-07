@@ -1,4 +1,5 @@
 import { ITEMS } from '../character/items.js';
+import { icon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,8 +23,7 @@ export class Hotbar {
       b.type = 'button';
       b.className = 'slot';
       b.title = `${it.name} (${i + 1})`;
-      b.innerHTML = `<span class="ico"></span><span class="key">${i + 1}</span>`;
-      b.querySelector('.ico').textContent = it.icon;
+      b.innerHTML = `${icon(it.icon)}<span class="key">${i + 1}</span>`;
       b.addEventListener('click', () => this.onSelect?.(i));
       this.bar.appendChild(b);
       return b;
@@ -37,8 +37,7 @@ export class Hotbar {
     ITEMS.forEach((it, i) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.innerHTML = `<span class="ico"></span><span class="lbl"></span>`;
-      b.querySelector('.ico').textContent = it.icon;
+      b.innerHTML = `${icon(it.icon)}<span class="lbl"></span>`;
       b.querySelector('.lbl').textContent = it.name;
       b.addEventListener('click', () => {
         this.onSelect?.(i);
@@ -70,8 +69,9 @@ export class Hotbar {
     this.selected = i;
     this.slots.forEach((s, k) => s.classList.toggle('active', k === i));
     this.menu.querySelectorAll('button').forEach((b, k) => b.classList.toggle('active', k === i));
-    this.itemBtn.textContent = ITEMS[i].icon;
-    this.useBtn.querySelector('.ico').textContent = ITEMS[i].icon;
+    this.itemBtn.innerHTML = icon(ITEMS[i].icon);
+    this.useBtn.innerHTML = icon(ITEMS[i].icon);
+    this.useBtn.setAttribute('aria-label', ITEMS[i].action);
     this.flash(ITEMS[i].name);
     this.ctxSig = '';
   }
@@ -88,9 +88,10 @@ export class Hotbar {
     const sig = `${interact}|${useLabel}|${isTouch}`;
     if (sig === this.ctxSig) return;
     this.ctxSig = sig;
-    this.useBtn.querySelector('.lbl').textContent = useLabel;
+    this.useBtn.setAttribute('aria-label', useLabel);
     this.interactBtn.hidden = !interact;
-    this.interactBtn.textContent = interact === 'Berdiri' ? '🧍 Berdiri' : '🪑 Duduk';
+    this.interactBtn.innerHTML = `${icon(interact === 'Berdiri' ? 'stand' : 'chair')}<span></span>`;
+    this.interactBtn.querySelector('span').textContent = interact || '';
     if (interact) {
       this.promptEl.hidden = false;
       this.promptEl.innerHTML = `<kbd>E</kbd> ${interact}`;
