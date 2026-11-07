@@ -1,7 +1,5 @@
 # Build game lalu deploy ke GitHub Pages setiap ada push ke main.
 # Aktifkan sekali: Settings → Pages → Build and deployment → Source: "GitHub Actions".
-# Game ID Playroom (opsional): Settings → Secrets and variables → Actions → tab Variables
-#   → New repository variable: VITE_PLAYROOM_GAME_ID
 name: Deploy ke GitHub Pages
 
 on:
@@ -29,9 +27,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-        env:
-          VITE_PLAYROOM_GAME_ID: ${{ vars.VITE_PLAYROOM_GAME_ID }}
-          VITE_PUBLIC_ROOM: ${{ vars.VITE_PUBLIC_ROOM }}
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

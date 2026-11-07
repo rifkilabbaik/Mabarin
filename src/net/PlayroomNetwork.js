@@ -19,7 +19,6 @@ export async function connectPlayroom({ mode }) {
     reconnectGracePeriod: 5000,
     defaultPlayerStates: {},
   };
-  if (CONFIG.playroomGameId) options.gameId = CONFIG.playroomGameId;
   if (mode === 'public') options.roomCode = CONFIG.publicRoomCode;
 
   // Playroom me-reload halaman bila koneksi gagal/terputus. Simpan penanda di sessionStorage
@@ -57,6 +56,19 @@ export async function connectPlayroom({ mode }) {
     },
     onDisconnect(cb) {
       return pr.onDisconnect(cb);
+    },
+    // State bersama room (hanya host yang boleh menulis di Playroom).
+    isHost: () => pr.isHost(),
+    getRoomState: (key) => pr.getState(key),
+    setRoomState: (key, value) => pr.setState(key, value, true),
+    // Event sekali kirim (RPC) ke pemain lain, mis. pesan chat.
+    sendEvent(name, payload) {
+      pr.RPC.call(name, payload, pr.RPC.Mode.OTHERS).catch?.(() => {});
+    },
+    onEvent(name, cb) {
+      return pr.RPC.register(name, async (payload, sender) => {
+        cb(payload, sender?.id);
+      });
     },
   };
 }

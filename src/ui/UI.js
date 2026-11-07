@@ -1,4 +1,5 @@
 import { CONFIG } from '../config.js';
+import { ChatLog } from './ChatLog.js';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'lowpoly-world-profile';
@@ -14,16 +15,14 @@ function saveProfile(p) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch { /* abaikan */ }
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 export class UI {
-  constructor({ onStart, onColorChange, onChat, onChatOpenChange }) {
+  constructor({ onStart, onColorChange, onChat, onChatOpenChange, onToggleMap }) {
     this.onStart = onStart;
     this.onColorChange = onColorChange;
     this.onChat = onChat;
     this.onChatOpenChange = onChatOpenChange;
+    this.onToggleMap = onToggleMap;
+    this.chatLog = new ChatLog($('chat-log'));
 
     const saved = loadProfile();
     this.name = saved.name || '';
@@ -115,7 +114,7 @@ export class UI {
     $('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
     if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled) $('btn-fullscreen').hidden = true;
 
-    $('btn-chat').addEventListener('click', () => this.openChat());
+    $('btn-chat').addEventListener('click', () => this.toggleChat());
     $('btn-invite').addEventListener('click', () => this.shareInvite());
     $('room-pill').addEventListener('click', () => this.shareInvite());
 
@@ -136,21 +135,38 @@ export class UI {
       }
       e.stopPropagation();
     });
-    input.addEventListener('blur', () => setTimeout(() => this.closeChat(), 50));
+    // Ketuk/klik area game menutup chat (riwayat tetap bisa di-scroll saat terbuka)
+    $('surface').addEventListener('pointerdown', () => this.closeChat());
 
     window.addEventListener('keydown', (e) => {
-      if (document.body.dataset.state !== 'playing') return;
+      if (document.body.dataset.state !== 'playing' || isTyping(e)) return;
       if (e.key === 'Enter' && !this.chatOpen) {
         e.preventDefault();
         this.openChat();
+      } else if (e.code === 'KeyM' && !e.repeat) {
+        this.onToggleMap?.();
+      } else if (e.key === 'Escape') {
+        this.onToggleMap?.(false);
       }
     });
+
+    $('minimap-btn').addEventListener('click', () => this.onToggleMap?.(true));
+    $('map-close').addEventListener('click', () => this.onToggleMap?.(false));
+    $('map-overlay').addEventListener('pointerdown', (e) => {
+      if (e.target === $('map-overlay')) this.onToggleMap?.(false);
+    });
+  }
+
+  toggleChat() {
+    if (this.chatOpen) this.closeChat();
+    else this.openChat();
   }
 
   openChat() {
     if (this.chatOpen) return;
     this.chatOpen = true;
     document.body.classList.add('chatting');
+    this.chatLog.setOpen(true);
     this.onChatOpenChange?.(true);
     // fokus harus sinkron (masih dalam gesture pengguna) agar keyboard HP muncul
     $('chat-input').focus();
@@ -160,6 +176,7 @@ export class UI {
     if (!this.chatOpen) return;
     this.chatOpen = false;
     document.body.classList.remove('chatting');
+    this.chatLog.setOpen(false);
     $('chat-input').blur();
     this.onChatOpenChange?.(false);
   }
@@ -201,25 +218,17 @@ export class UI {
       await navigator.clipboard.writeText(url);
       this.toast('Link undangan disalin ke clipboard ✓');
     } catch {
-      this.toast(`Bagikan link ini: ${escapeHtml(url)}`, 8000, true);
+      this.toast(`Bagikan link ini: ${url}`);
     }
   }
 
-  toast(text, ms = 3500, html = false) {
-    const el = document.createElement('div');
-    el.className = 'toast';
-    if (html) el.innerHTML = text;
-    else el.textContent = text;
-    $('toasts').appendChild(el);
-    while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
-    setTimeout(() => {
-      el.classList.add('out');
-      setTimeout(() => el.remove(), 450);
-    }, ms);
+  // Notifikasi masuk ke riwayat chat sebagai pesan sistem.
+  toast(text) {
+    this.chatLog.system(text);
   }
 
   toastPlayer(name, action) {
-    this.toast(`<b>${escapeHtml(name)}</b> ${action}`, 3500, true);
+    this.chatLog.system(`${name} ${action}`);
   }
 
   async toggleFullscreen() {
@@ -257,4 +266,9 @@ export class UI {
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+}
+
+function isTyping(e) {
+  const t = e.target;
+  return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
 }

@@ -47,20 +47,45 @@
           <span><kbd>Shift</kbd> lari</span>
           <span><kbd>Spasi</kbd> lompat</span>
           <span><kbd>Enter</kbd> chat</span>
+          <span><kbd>M</kbd> peta</span>
           <span><kbd>Esc</kbd> lepas kursor</span>
         </div>
       </div>
+
+      <button id="minimap-btn" type="button" title="Buka peta (M)" aria-label="Buka peta">
+        <canvas id="minimap"></canvas>
+      </button>
 
       <button id="btn-jump" class="touch-btn" type="button" aria-label="Lompat">
         <svg viewBox="0 0 24 24"><path d="M12 4 5 11h4v6h6v-6h4l-7-7Z"/></svg>
       </button>
 
-      <form id="chat-form" autocomplete="off">
-        <input id="chat-input" maxlength="120" placeholder="Ketik pesan lalu Enter…" enterkeyhint="send" />
-        <button type="submit">Kirim</button>
-      </form>
+      <div id="chat">
+        <div id="chat-log" aria-live="polite"></div>
+        <form id="chat-form" autocomplete="off">
+          <input id="chat-input" maxlength="120" placeholder="Ketik pesan lalu Enter…" enterkeyhint="send" />
+          <button type="submit">Kirim</button>
+        </form>
+      </div>
 
-      <div id="toasts" aria-live="polite"></div>
+      <div id="map-overlay" hidden>
+        <div class="map-panel" role="dialog" aria-label="Peta pulau">
+          <div class="map-head">
+            <h2>Peta Pulau</h2>
+            <button id="map-close" class="icon-btn" type="button" aria-label="Tutup peta">
+              <svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z"/></svg>
+            </button>
+          </div>
+          <div class="map-body">
+            <canvas id="map-full"></canvas>
+            <div class="map-side">
+              <h3>Pemain (<span id="map-count">1</span>)</h3>
+              <ul id="player-list"></ul>
+              <p class="map-legend"><span class="lg fire"></span>Api unggun &nbsp; <span class="lg tent"></span>Tenda &nbsp; <span class="lg tree"></span>Hutan</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Layar awal -->

@@ -148,7 +148,7 @@ function instanced(geo, mat, items, scene, { shadow = true, scale = [1, 1], tint
 }
 
 // ---------- Api unggun & tenda di titik spawn ----------
-function buildCampfire(world, rand) {
+function buildCampfire(world, rand, markers) {
   const group = new THREE.Group();
   const y0 = world.getHeight(0, 0);
   group.position.set(0, y0, 0);
@@ -224,6 +224,7 @@ function buildCampfire(world, rand) {
     tent.castShadow = tent.receiveShadow = true;
     world.scene.add(tent);
     world.colliders.add(x, z, 1.55);
+    markers.tents.push({ x, z, color: c });
   });
 
   return {
@@ -243,7 +244,9 @@ export function buildProps(world, rand) {
   const scene = world.scene;
   const shadows = world.quality !== 'low';
 
-  const campfire = buildCampfire(world, rand);
+  // Penanda untuk peta (src/ui/MapView.js)
+  const markers = { pines: [], rounds: [], rocks: [], tents: [], campfire: { x: 0, z: 0 } };
+  const campfire = buildCampfire(world, rand, markers);
 
   // Pohon (punya collider batang)
   const pines = scatter(world, rand, cfg.trees.pine, { minH: 2, maxH: 14, maxSlope: 0.75, avoidSpawn: 14, collider: 0.45 });
@@ -251,11 +254,14 @@ export function buildProps(world, rand) {
 
   const rounds = scatter(world, rand, cfg.trees.round, { minH: 1.4, maxH: 9, maxSlope: 0.55, avoidSpawn: 14, collider: 0.45 });
   instanced(roundTreeGeometry(rand), lambert(), rounds, scene, { scale: [0.8, 1.4], rand, shadow: true });
+  markers.pines = pines;
+  markers.rounds = rounds;
 
   // Batu (collider sesuai skala)
   const rockMat = lambert();
   const rockGeos = [rockGeometry(rand, '#9c9a96'), rockGeometry(rand, '#8a8580'), rockGeometry(rand, '#a8a49c')];
   const rocks = scatter(world, rand, cfg.rocks, { minH: -1.5, maxH: 30, maxSlope: 2, avoidSpawn: 13 });
+  markers.rocks = rocks;
   const rockGroups = [[], [], []];
   rocks.forEach((r, i) => rockGroups[i % 3].push(r));
   rockGroups.forEach((items, k) => {
@@ -293,6 +299,7 @@ export function buildProps(world, rand) {
   }
 
   return {
+    markers,
     update(dt, t) {
       campfire.update(t);
       for (const c of clouds) {

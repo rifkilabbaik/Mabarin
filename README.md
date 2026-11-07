@@ -1,110 +1,76 @@
-# Low Poly World 🌲
+# Mabarin — Low Poly World 🌲
 
 Game dunia terbuka **multiplayer** berbasis web (PWA) dengan **Three.js** + **Playroom Kit**.
 Art style **low poly** (flat shading) dan karakter bergaya **capsule character**.
+Tanpa akun, tanpa server sendiri: game di-host gratis di **GitHub Pages**, koneksi antar pemain lewat **server gratis Playroom Kit**.
 
 ## Fitur
 
 - 🌍 Pulau low poly prosedural (seed tetap → dunia identik di semua pemain): bukit, gunung bersalju, pantai, laut beranimasi, pohon pinus & pohon bulat, batu, semak, rumput, bunga, awan bergerak, api unggun + tenda di titik spawn.
 - 💊 Karakter kapsul dengan mata, pipi, dan tangan melayang; animasi idle, jalan, lari, lompat (stretch & squash), berenang.
+- 🗺️ **Minimap** (berputar mengikuti arah kamera, teman yang jauh tampil di tepi lingkaran) dan **peta pulau penuh** berisi posisi + nama semua pemain dan daftar pemain beserta jaraknya.
+- 💬 **Chat dengan riwayat**: pesan baru tampil sebentar di layar, riwayat lengkap (bisa di-scroll, dengan jam) terlihat saat kolom chat dibuka. Pemain yang baru masuk ikut melihat 50 pesan terakhir di room. Pemberitahuan masuk/keluar juga tercatat di riwayat. Gelembung chat tetap muncul di atas kepala.
 - 🎮 Kontrol:
-  - **PC/Laptop** — Arrow keys (juga WASD) untuk bergerak, **Pointer Lock** + mouse untuk kamera, `Shift` lari, `Spasi` lompat, scroll untuk zoom, `Enter` chat, `Esc` lepas kursor.
-  - **HP/Tablet** — **joystick virtual** dinamis di sisi kiri (dorong penuh = lari), geser di sisi kanan untuk kamera, cubit (2 jari) untuk zoom, tombol lompat, tombol chat.
-- 🌐 Multiplayer via Playroom Kit: **Dunia Publik** (satu room bersama), **Room Privat** (link undangan), nama + warna pemain, gelembung chat di atas kepala, notifikasi pemain masuk/keluar.
-- 📴 **Main Offline** — tanpa server. Buka beberapa tab di browser yang sama dan mereka saling terlihat (BroadcastChannel), berguna untuk menguji multiplayer.
-- 📲 **PWA** — bisa di-install ke layar utama, layar penuh, aset di-cache untuk dibuka offline.
+  - **PC/Laptop** — Arrow keys (juga WASD) bergerak, **Pointer Lock** + mouse untuk kamera, `Shift` lari, `Spasi` lompat, scroll zoom, `Enter` chat, `M` peta, `Esc` tutup peta / lepas kursor.
+  - **HP/Tablet** — **joystick virtual** dinamis di kiri (dorong penuh = lari), geser di kanan untuk kamera, cubit (2 jari) untuk zoom, tombol lompat, tombol 💬 chat, ketuk minimap untuk peta.
+- 🌐 **Dunia Publik** (satu room bersama), **Room Privat** (link undangan), nama + warna pemain.
+- 📴 **Main Offline** — tanpa internet. Beberapa tab di browser yang sama saling terlihat (BroadcastChannel), berguna untuk mencoba multiplayer secara lokal.
+- 📲 **PWA** — bisa di-install ke layar utama, layar penuh, aset di-cache.
 
-## Menjalankan
+## Main online
+
+Game sudah online lewat GitHub Pages: **https://rifkilabbaik.github.io/Mabarin/**
+
+1. Buka link di PC atau HP, isi nama & pilih warna.
+2. **Masuk Dunia Publik** → semua pemain masuk room yang sama.
+   Atau **Buat Room Privat** → tekan tombol 🔗 (kanan atas) untuk membagikan link undangan (`...#r=RXXXX`).
+3. Di HP, pilih "Tambahkan ke Layar Utama" / "Install app" untuk memasang sebagai aplikasi.
+
+### Deploy otomatis (GitHub Pages)
+
+Workflow `.github/workflows/deploy-pages.yml` mem-build dan men-deploy game setiap ada push ke `main`.
+Syarat (sekali saja): **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+Deploy manual: tab **Actions → Deploy ke GitHub Pages → Run workflow**.
+
+### Batasan server Playroom (paket gratis, tanpa akun)
+
+- **Butuh internet.** Koneksi memakai WebSocket ke `ws.joinplayroom.com`. Jaringan yang memblokirnya (sebagian Wi‑Fi kantor/sekolah) membuat game gagal terhubung — coba jaringan lain atau data seluler.
+- **Maks. 24 pemain per room** (diatur di `src/config.js` → `maxPlayersPerRoom`). Jika Dunia Publik penuh, pakai Room Privat.
+- **Kuota pemakaian.** Playroom menerapkan batas pemakaian untuk paket gratis, dan SDK-nya memperingatkan bahwa game tanpa Game ID bisa terkena batas pemain aktif harian. Angka resminya tidak tercantum di sini — cek joinplayroom.com. Bila kuota habis, game menampilkan pesan *"Kuota gratis server Playroom sedang habis"*.
+- **Riwayat chat tidak permanen** — disimpan di state room Playroom (50 pesan terakhir), bukan di database.
+- **Koneksi putus** → Playroom memuat ulang halaman; game otomatis bergabung kembali ke room yang sama.
+
+## Pengembangan
 
 ```bash
 npm install
-cp .env.example .env   # opsional: isi VITE_PLAYROOM_GAME_ID
-npm run dev
+npm run dev        # http://localhost:5173
+npm run build      # hasil di dist/
+npm run preview    # cek hasil build
 ```
 
-Buka `http://localhost:5173`. Untuk mencoba di HP pada jaringan Wi‑Fi yang sama, buka alamat "Network" yang ditampilkan Vite.
-
-> Pointer Lock dan service worker (PWA) hanya aktif di **HTTPS** atau `localhost`. Saat diakses lewat IP LAN (http), game tetap jalan tapi tidak bisa di-install.
-
-### Build
-
-```bash
-npm run build      # hasil di folder dist/
-npm run preview    # cek hasil build secara lokal
-```
-
-Build memakai path relatif (`base: './'`), jadi folder `dist/` bisa di-host di root domain maupun sub-folder tanpa diubah.
-
-## Main online dengan Playroom Kit
-
-Kode multiplayer sudah tersambung ke Playroom. Untuk main online bersama teman cukup dua langkah: **pasang Game ID** dan **online-kan game di URL HTTPS**.
-
-### 1. Ambil Game ID
-
-1. Buka dev portal Playroom di **https://dev.joinplayroom.com**, daftar lalu login.
-2. Buat project/game baru, lalu salin **Game ID**-nya.
-3. Masukkan ke file `.env` di root proyek:
-
-   ```bash
-   cp .env.example .env
-   # edit .env:
-   VITE_PLAYROOM_GAME_ID=isi_game_id_kamu
-   ```
-
-4. Tes lokal dengan `npm run dev`. Buka di dua browser/perangkat lalu pilih **Masuk Dunia Publik**, kedua karakter akan saling terlihat.
-
-> Tanpa Game ID game tetap bisa terhubung, tapi Playroom memberi peringatan di console dan statistik/kuota tidak tercatat ke project kamu.
-> Game ID bukan rahasia (ikut terbaca di bundle JavaScript), jadi aman dipasang sebagai environment variable biasa.
-> Variabel `VITE_*` dibaca saat **build**, jadi harus diisi sebelum `npm run build` / sebelum deploy.
-
-### 2. Online-kan game — gratis, tanpa kartu kredit
-
-**GitHub Pages (direkomendasikan, sudah disiapkan)**
-
-Workflow `.github/workflows/deploy-pages.yml` otomatis build & deploy setiap ada push ke `main`. Aktifkan sekali saja:
-
-1. Di repo GitHub: **Settings → Pages → Build and deployment → Source**, pilih **GitHub Actions**.
-2. (Opsional) **Settings → Secrets and variables → Actions → tab Variables → New repository variable**:
-   nama `VITE_PLAYROOM_GAME_ID`, isi Game ID kamu. Bisa juga `VITE_PUBLIC_ROOM`.
-3. Buka tab **Actions → Deploy ke GitHub Pages → Run workflow** (atau push commit apa saja).
-4. Game online di `https://<username>.github.io/<nama-repo>/`.
-
-Setiap kali Game ID diubah, jalankan ulang workflow (langkah 3) karena nilainya dibaca saat build.
-
-**Alternatif lain yang juga gratis & tanpa kartu**: Vercel (paket Hobby), Netlify, atau Cloudflare Pages — login dengan akun GitHub, pilih repo ini, build command `npm run build`, output `dist`, lalu tambahkan environment variable `VITE_PLAYROOM_GAME_ID`.
-
-### 3. Main bareng
-
-- **Masuk Dunia Publik**: semua pemain masuk room yang sama (`VITE_PUBLIC_ROOM`, default `LOWPOLYWORLD`, maks. 24 pemain, bisa diubah di `src/config.js`).
-- **Buat Room Privat**: room dengan kode acak. Tekan tombol 🔗 di pojok kanan atas untuk menyalin/membagikan link undangan (`...#r=RXXXX`). Teman yang membuka link langsung melihat tombol **Gabung Room**.
-- Di HP, buka URL-nya lalu pilih "Tambahkan ke Layar Utama" / "Install app" untuk memasang sebagai aplikasi (PWA).
-
-### Jika tidak bisa terhubung
-
-- Muncul pesan *"Tidak bisa terhubung ke server Playroom"*: periksa koneksi internet. Beberapa jaringan kantor/sekolah memblokir WebSocket ke `ws.joinplayroom.com`. Coba jaringan lain atau data seluler.
-- Room publik penuh: pakai **Room Privat**, atau ganti `VITE_PUBLIC_ROOM`.
-- Batas pemakaian (jumlah pemain harian, dsb.) mengikuti paket Playroom kamu, cek di dev portal.
+Untuk mencoba di HP pada Wi‑Fi yang sama, buka alamat "Network" yang ditampilkan Vite.
+Pointer Lock dan service worker (PWA) hanya aktif di **HTTPS** atau `localhost`.
 
 ### Cara kerja jaringan
 
 Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyiarkan state:
 
-| Key player state | Isi | Kanal |
+| Data | Isi | Lewat |
 |---|---|---|
-| `profile` | `{ name, color }` | reliable |
-| `m` | `[x, y, z, rotY, speed, flags, waktuKirim]` ±15×/detik | unreliable |
-| `chat` | `{ id, text, at }` | reliable |
+| `profile` (player state) | `{ name, color }` | reliable |
+| `m` (player state) | `[x, y, z, rotY, speed, flags, waktuKirim]` ±15×/detik | unreliable |
+| `chat` (RPC event) | `{ id, t, at, n, c }` | reliable |
+| `chatlog` (room state, ditulis host) | 50 pesan terakhir | reliable |
 
 Pemain lain di-render dengan **snapshot interpolation** (jeda 120 ms) memakai cap waktu pengirim, sehingga gerakan tetap mulus meski paket datang tidak teratur.
 
-Catatan: Playroom me-*reload* halaman jika koneksi gagal/terputus. Game menangani ini — setelah reload, muncul pesan error (bila gagal terhubung) atau otomatis bergabung kembali ke room yang sama (bila terputus saat bermain).
-
-## Struktur
+### Struktur
 
 ```
 src/
-  main.js                    loop game, alur menu → bermain
-  config.js                  semua angka penting (dunia, kecepatan, kamera, jaringan, warna)
+  main.js                    loop game, alur menu → bermain, chat & riwayat
+  config.js                  angka penting (dunia, kecepatan, kamera, jaringan, warna)
   world/World.js             terrain heightfield, air (shader ombak), langit, cahaya & bayangan
   world/props.js             pohon/batu/semak/bunga (InstancedMesh), awan, api unggun, tenda
   world/noise.js             RNG ber-seed + simplex noise
@@ -116,15 +82,18 @@ src/
   camera/ThirdPersonCamera.js kamera orbit yang tidak menembus bukit
   player/LocalPlayer.js      fisika pemain (gravitasi, lompat, berenang, tabrakan) + kirim state
   player/RemotePlayer.js     interpolasi pemain lain
-  net/PlayroomNetwork.js     koneksi Playroom (publik / privat / undangan)
+  net/PlayroomNetwork.js     koneksi Playroom (publik / privat / undangan), RPC, state room
   net/LocalNetwork.js        mode offline (BroadcastChannel antar tab)
-  ui/UI.js                   layar awal, HUD, chat, toast, install PWA
+  ui/UI.js                   layar awal, HUD, chat, install PWA
+  ui/ChatLog.js              panel riwayat chat
+  ui/MapView.js              minimap & peta pulau penuh
 public/                      favicon & ikon PWA
 scripts/generate-icons.mjs   membuat ikon PNG dari SVG (butuh Playwright)
 ```
 
-## Tips kustomisasi
+### Tips kustomisasi
 
 - Ganti `world.seed` di `src/config.js` untuk pulau yang berbeda.
-- Kualitas grafis otomatis: HP/tablet memakai mode `low` (bayangan 1024, tanpa antialias). Paksa dengan `?q=high` atau `?q=low` di URL.
-- Debug di console browser: `window.__game` (scene, world, local, remotes, net).
+- `publicRoomCode` di `src/config.js` menentukan room "Dunia Publik".
+- Kualitas grafis otomatis: HP/tablet memakai mode `low`. Paksa dengan `?q=high` atau `?q=low` di URL.
+- Debug di console browser: `window.__game`.

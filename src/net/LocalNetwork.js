@@ -43,6 +43,8 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
   const me = new LocalPlayerHandle(id, post);
   const others = new Map();
   const joinCallbacks = [];
+  const roomState = {};
+  const eventListeners = new Map();
 
   const ensure = (pid) => {
     let p = others.get(pid);
@@ -69,10 +71,16 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
       switch (msg.type) {
         case 'hello':
           ensure(msg.id);
-          post({ type: 'sync', id, state: me.state });
+          post({ type: 'sync', id, state: me.state, room: roomState });
           break;
         case 'sync':
           Object.assign(ensure(msg.id).state, msg.state);
+          // ambil riwayat chat dari tab lain bila lebih lengkap
+          if ((msg.room?.chatlog?.length || 0) > (roomState.chatlog?.length || 0)) roomState.chatlog = msg.room.chatlog;
+          break;
+        case 'ev':
+          ensure(msg.id);
+          eventListeners.get(msg.name)?.forEach((cb) => cb(msg.payload, msg.id));
           break;
         case 's':
           ensure(msg.id).state[msg.k] = msg.v;
@@ -108,6 +116,19 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
     },
     onDisconnect() {
       return () => {};
+    },
+    isHost: () => true,
+    getRoomState: (key) => roomState[key],
+    setRoomState: (key, value) => {
+      roomState[key] = value;
+    },
+    sendEvent(name, payload) {
+      post({ type: 'ev', id, name, payload });
+    },
+    onEvent(name, cb) {
+      if (!eventListeners.has(name)) eventListeners.set(name, new Set());
+      eventListeners.get(name).add(cb);
+      return () => eventListeners.get(name).delete(cb);
     },
   };
 }

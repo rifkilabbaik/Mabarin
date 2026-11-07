@@ -23,7 +23,6 @@ export class RemotePlayer {
     this.offsetSamples = [];
     this.offset = null;
     this.profileSig = '';
-    this.lastChatId = null;
     this.prevY = 0;
     this.vy = 0;
     this.render = { x: 0, y: 0, z: 0, ry: 0, spd: 0, flags: FLAG_GROUNDED };
@@ -41,17 +40,6 @@ export class RemotePlayer {
     if (sig === this.profileSig) return;
     this.profileSig = sig;
     this.character.setProfile(p.name, normalizeColor(p.color));
-  }
-
-  readChat() {
-    const c = this.handle.getState('chat');
-    if (!c || c.id === this.lastChatId) return;
-    const first = this.lastChatId === null;
-    this.lastChatId = c.id;
-    // jangan tampilkan chat lama saat baru bergabung
-    if (first && Date.now() - (c.at || 0) > 8000) return;
-    this.character.showChat(String(c.text).slice(0, 120));
-    return c.text;
   }
 
   readMovement(now) {
@@ -75,9 +63,8 @@ export class RemotePlayer {
 
   update(dt, now) {
     this.readProfile();
-    const chat = this.readChat();
     this.readMovement(now);
-    if (!this.buffer.length) return chat;
+    if (!this.buffer.length) return;
 
     const renderT = now - this.offset - CONFIG.net.interpolationDelay;
     const buf = this.buffer;
@@ -144,7 +131,10 @@ export class RemotePlayer {
       swimming: (r.flags & FLAG_SWIM) !== 0,
       vy: this.vy,
     });
-    return chat;
+  }
+
+  get color() {
+    return this.character.color;
   }
 
   dispose() {
