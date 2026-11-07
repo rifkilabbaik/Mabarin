@@ -48,7 +48,19 @@ export class World {
     h = lerp(2.2, h, smoothstep(11, 24, r));
 
     const island = smoothstep(0.98, 0.62, coast);
-    return lerp(-7, h, island);
+    h = lerp(-7, h, island);
+
+    // kompleks olahraga diratakan
+    const Z = CONFIG.sports.zone;
+    const dx = Math.max(0, Math.abs(x - Z.x) - Z.w / 2);
+    const dz = Math.max(0, Math.abs(z - Z.z) - Z.d / 2);
+    return lerp(Z.h, h, smoothstep(0, Z.margin, Math.hypot(dx, dz)));
+  }
+
+  /** Di dalam area kompleks olahraga (+ jarak pad)? */
+  inZone(x, z, pad = 0) {
+    const Z = CONFIG.sports.zone;
+    return Math.abs(x - Z.x) < Z.w / 2 + pad && Math.abs(z - Z.z) < Z.d / 2 + pad;
   }
 
   buildHeightfield() {

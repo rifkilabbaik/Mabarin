@@ -15,9 +15,13 @@ const KEY_MAP = {
  *  - HP/Tablet : joystick virtual (kiri), geser area kanan untuk kamera, pinch untuk zoom, tombol lompat.
  */
 export class InputManager {
-  constructor({ surface, jumpButton, onModeChange, onPointerLockChange, onSlot, onUse, onInteract }) {
+  constructor({ surface, jumpButton, onModeChange, onPointerLockChange, onSlot, onUse, onUseEnd, onInteract, onDash, onSlide, onVoice }) {
+    this.onVoice = onVoice;
     this.onSlot = onSlot;
     this.onUse = onUse;
+    this.onUseEnd = onUseEnd;
+    this.onDash = onDash;
+    this.onSlide = onSlide;
     this.onInteract = onInteract;
     this.surface = surface;
     this.enabled = true;
@@ -80,11 +84,17 @@ export class InputManager {
         if (digit) this.onSlot?.(Number(digit[1]) - 1);
         else if (e.code === 'KeyF') this.onUse?.();
         else if (e.code === 'KeyE') this.onInteract?.();
+        else if (e.code === 'KeyQ') this.onDash?.();
+        else if (e.code === 'KeyC') this.onSlide?.();
+        else if (e.code === 'KeyV') this.onVoice?.();
       }
       this.keys.add(e.code);
       if (KEY_MAP[e.code]) this.setMode('desktop');
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('keyup', (e) => {
+      this.keys.delete(e.code);
+      if (e.code === 'KeyF') this.onUseEnd?.();
+    });
     window.addEventListener('blur', () => this.keys.clear());
   }
 
@@ -156,6 +166,9 @@ export class InputManager {
       }
     });
 
+    s.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'mouse' && e.button === 0 && this.pointerLocked) this.onUseEnd?.();
+    });
     const end = (e) => {
       if (this.mouseDrag && this.mouseDrag.id === e.pointerId) this.mouseDrag = null;
       if (e.pointerId === this.joystick.pointerId) this.joystick.end();

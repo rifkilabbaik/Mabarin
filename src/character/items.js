@@ -11,7 +11,7 @@ export const ITEMS = [
   { id: 'hand', name: 'Tangan', icon: 'hand', action: 'Melambai', cooldown: 1.2 },
   { id: 'hammer', name: 'Palu Bonk', icon: 'hammer', action: 'Pukul', cooldown: 0.65, reach: 2.0, power: 11, arc: 1.2 },
   { id: 'sword', name: 'Pedang Kayu', icon: 'sword', action: 'Tebas', cooldown: 0.42, reach: 2.3, power: 7.5, arc: 1.0 },
-  { id: 'watergun', name: 'Pistol Air', icon: 'drop', action: 'Tembak', cooldown: 0.32, power: 5.5 },
+  { id: 'watergun', name: 'Pistol Air', icon: 'pistol', action: 'Tembak', cooldown: 0.32, power: 5.5 },
   { id: 'chair', name: 'Kursi', icon: 'chair', action: 'Taruh', cooldown: 0.4 },
   { id: 'guitar', name: 'Gitar', icon: 'guitar', action: 'Petik', cooldown: 0.35 },
 ];
@@ -48,8 +48,24 @@ export function buildHeldItem(id) {
       { geo: new THREE.CylinderGeometry(0.04, 0.04, 0.2, 6), pos: [0, 0.18, 0.34], rot: [Math.PI / 2, 0, 0] },
       { geo: new THREE.CylinderGeometry(0.08, 0.08, 0.16, 8), pos: [0, 0.32, 0.02] },
     ], mat('#3bc9db')));
+  } else if (id === 'racket' || id === 'birdie') {
+    // raket tenis (besar) / bulu tangkis (ramping)
+    const small = id === 'birdie';
+    const head = small ? 0.11 : 0.15;
+    const len = small ? 0.52 : 0.4;
+    g.add(mergedMesh([
+      { geo: new THREE.CylinderGeometry(0.03, 0.035, 0.24, 6), pos: [0, 0.08, 0] },
+    ], mat('#343a40')));
+    g.add(mergedMesh([
+      { geo: new THREE.CylinderGeometry(0.012, 0.012, len - 0.2, 5), pos: [0, 0.2 + (len - 0.2) / 2, 0] },
+      { geo: new THREE.TorusGeometry(head, 0.016, 4, 12), pos: [0, len + head * 0.9, 0], scale: [0.8, 1, 1] },
+    ], mat(small ? '#4dabf7' : '#ff922b')));
+    const strings = new THREE.Mesh(new THREE.CircleGeometry(head * 0.95, 12), new THREE.MeshBasicMaterial({ color: '#f1f3f5', transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+    strings.scale.set(0.8, 1, 1);
+    strings.position.y = len + head * 0.9;
+    g.add(strings);
   } else if (id === 'guitar') {
-    // dipegang melintang di depan badan (diposisikan oleh CapsuleCharacter)
+    // dipegang melintang di depan badan (diposisikan oleh Character)
     g.add(mergedMesh([
       { geo: new THREE.CylinderGeometry(0.2, 0.2, 0.08, 10), pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], scale: [1, 1, 1.25] },
       { geo: new THREE.CylinderGeometry(0.15, 0.15, 0.08, 10), pos: [0, 0.22, 0], rot: [Math.PI / 2, 0, 0] },

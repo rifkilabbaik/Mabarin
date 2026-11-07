@@ -4,7 +4,7 @@ import { CONFIG } from './config.js';
 import { World } from './world/World.js';
 import { Seats } from './world/Seats.js';
 import { Projectiles } from './world/Projectiles.js';
-import { CapsuleCharacter } from './character/CapsuleCharacter.js';
+import { Character } from './character/Character.js';
 import { InputManager } from './controls/InputManager.js';
 import { ThirdPersonCamera } from './camera/ThirdPersonCamera.js';
 import { LocalPlayer } from './player/LocalPlayer.js';
@@ -17,7 +17,16 @@ import { MapView } from './ui/MapView.js';
 import { Hotbar } from './ui/Hotbar.js';
 import { CustomizePanel } from './ui/CustomizePanel.js';
 import { AudioManager } from './audio/AudioManager.js';
-import { CardGame } from './cards/CardGame.js';
+import { TableGames } from './tablegames/TableGames.js';
+import { GameMenu } from './ui/GameMenu.js';
+import kilat from './tablegames/games/kilat.js';
+import gertak from './tablegames/games/gertak.js';
+import catur from './tablegames/games/catur.js';
+import dam from './tablegames/games/dam.js';
+import ludo from './tablegames/games/ludo.js';
+import { buildFields } from './sports/fields.js';
+import { Sports } from './sports/Sports.js';
+import { VoiceChat } from './net/VoiceChat.js';
 import { registerPWA } from './pwa.js';
 
 const $ = (id) => document.getElementById(id);
@@ -42,6 +51,7 @@ const world = new World(scene, { quality });
 const camRig = new ThirdPersonCamera(camera, world);
 const seats = new Seats(world);
 const projectiles = new Projectiles(scene, world);
+const fields = buildFields(world);
 const audio = new AudioManager();
 
 window.addEventListener('resize', () => {
@@ -56,12 +66,12 @@ let net = null;
 let local = null;
 let myProfile = null;
 const remotes = new Map();
-const blockers = { chat: false, menu: false, customize: false, cards: false };
+const blockers = { chat: false, menu: false, customize: false, cards: false, sport: false };
 
 function refreshInputEnabled() {
   const on = !blockers.chat && !blockers.menu && !blockers.customize;
   input.setEnabled(on);
-  items.enabled = on && !blockers.cards;
+  items.enabled = on && !blockers.cards && !blockers.sport;
 }
 
 // ---------- UI ----------
@@ -81,7 +91,7 @@ const ui = new UI({
     blockers.menu = open;
     refreshInputEnabled();
   },
-  onGames: () => state === 'playing' && cards.openGames(),
+  onGames: () => state === 'playing' && gameMenu.open(),
 });
 ui.setInvite(getInviteRoomFromUrl());
 
@@ -108,14 +118,26 @@ const input = new InputManager({
     document.body.dataset.input = mode;
   },
   onPointerLockChange: (locked) => ui.setPointerLocked(locked),
-  onSlot: (i) => state === 'playing' && items.select(i),
-  onUse: () => state === 'playing' && items.use(),
-  onInteract: () => state === 'playing' && items.interact(),
+  onSlot: (i) => state === 'playing' && !sports.active && items.select(i),
+  onUse: () => {
+    if (state !== 'playing') return;
+    if (sports.active) sports.pressHit();
+    else items.use();
+  },
+  onUseEnd: () => state === 'playing' && sports.releaseHit(),
+  onInteract: () => state === 'playing' && !sports.active && items.interact(),
+  onDash: () => state === 'playing' && input.enabled && sports.dash(),
+  onSlide: () => state === 'playing' && input.enabled && sports.slide(),
+  onVoice: () => state === 'playing' && voice.toggle(),
 });
 
+// Voice chat berbasis jarak (WebRTC)
+const voice = new VoiceChat({ audio, ui, button: $('btn-mic') });
+
 // Permainan kartu di meja (tampilan orang-pertama)
-const cards = new CardGame({
-  scene, camera, world, audio, ui, input,
+const TABLE_GAMES = [kilat, gertak, catur, dam, ludo];
+const cards = new TableGames({
+  scene, camera, world, audio, ui, input, games: TABLE_GAMES,
   onEnter: () => {
     blockers.cards = true;
     refreshInputEnabled();
@@ -130,8 +152,34 @@ const cards = new CardGame({
   },
 });
 
+// Pertandingan di kompleks olahraga
+const sports = new Sports({
+  scene, camRig, audio, ui, input, fields,
+  onEnter: () => {
+    blockers.sport = true;
+    refreshInputEnabled();
+  },
+  onExit: () => {
+    blockers.sport = false;
+    refreshInputEnabled();
+    if (local) items.select(items.slot, true);
+  },
+});
+cards.busy = () => sports.active;
+sports.busy = () => cards.inTable;
+
+// Menu Game: daftar game meja dan olahraga
+const gameMenu = new GameMenu({
+  ui,
+  entries: () => [
+    ...TABLE_GAMES.map((g) => ({ id: g.id, name: g.name, icon: g.icon, art: g.art, players: g.min === g.max ? `${g.min}` : `${g.min}–${g.max}`, start: () => cards.createMatch(g.id) })),
+    ...sports.entries(),
+  ],
+  isBusy: () => cards.inTable || sports.active,
+});
+
 // Karakter pratinjau di menu
-const preview = new CapsuleCharacter({ color: ui.color, look: ui.look, showName: false });
+const preview = new Character({ color: ui.color, look: ui.look, showName: false });
 preview.root.position.set(3.4, world.getHeight(3.4, 0), 0);
 preview.root.rotation.y = Math.PI * 0.25;
 scene.add(preview.root);
@@ -202,6 +250,8 @@ async function startGame(mode, profile) {
   camRig.initialized = false;
   items.attach(local, net, remotes);
   cards.attach({ net, local, remotes, profile: () => myProfile });
+  sports.attach({ net, local, remotes, profile: () => myProfile });
+  voice.attach({ net, local, remotes });
   startAfkWatch();
 
   const joinedAt = performance.now();
@@ -223,6 +273,8 @@ async function startGame(mode, profile) {
       ui.toastPlayer(p.name, 'keluar');
       audio.play('leave', { volume: 0.6 });
       cards.onPlayerQuit(handle.id);
+      sports.onPlayerQuit(handle.id);
+      voice.onPlayerQuit(handle.id);
       p.dispose();
       remotes.delete(handle.id);
       ui.setPlayerCount(remotes.size + 1);
@@ -284,6 +336,7 @@ function updateAfk(now) {
   if (afkTimer > 0) return;
   afkTimer = 20; // cukup dicek beberapa kali per detik
   const t = Date.now();
+  if (cards.inTable || sports.active) lastActivity = t; // sedang main game: giliran diatur timer game
   const idle = t - lastActivity;
   const { warnMs, kickMs } = CONFIG.afk;
 
@@ -464,10 +517,12 @@ function frame(timestamp) {
     else camRig.applyInput(look);
     if (customize.isOpen && !local.sitting) local.facing = camRig.yaw; // hadap kamera saat ganti baju
     local.update(dt, input, camRig);
-    if (cards.inTable) cards.updateCamera();
+    sports.update(dt);
+    if (cards.inTable) cards.updateCamera(dt);
     else camRig.update(dt, local.position);
     for (const rp of remotes.values()) rp.update(dt, now);
     items.update(dt, input.mode === 'touch');
+    voice.update(dt);
     updateAfk(now);
     updateChairs(dt);
     world.update(dt, local.position, camera);
@@ -519,6 +574,6 @@ if (sessionStorage.getItem(AFK_FLAG)) {
 
 // Untuk debugging di console
 window.__game = {
-  scene, world, camera, camRig, renderer, ui, mapView, items, seats, audio, customize, cards, CONFIG,
+  scene, world, camera, camRig, renderer, ui, mapView, items, seats, audio, customize, cards, sports, voice, fields, CONFIG, Character,
   get local() { return local; }, remotes, get net() { return net; },
 };

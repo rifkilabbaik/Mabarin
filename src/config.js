@@ -24,7 +24,9 @@ export const CONFIG = {
     swimSpeed: 3.2,
     jumpVelocity: 9.5,
     gravity: 26,
-    radius: 0.45,
+    radius: 0.42,
+    dashCooldown: 1.6,
+    slideCooldown: 1.8,
     height: 1.7,
   },
 
@@ -38,10 +40,21 @@ export const CONFIG = {
     touchSensitivity: 0.006,
   },
 
+  // Kompleks olahraga (area diratakan) + plaza meja game
+  sports: {
+    zone: { x: 6, z: -38, w: 76, d: 46, h: 4, margin: 9 },
+    fields: {
+      bola: { x: -8, z: -38, L: 32, W: 20, goalW: 5, goalH: 2 },
+      tenis: { x: 28, z: -46, L: 20, W: 10, net: 0.95 },
+      badminton: { x: 28, z: -29, L: 13, W: 6, net: 1.55 },
+    },
+    plazaTables: [[0, -19.5], [8, -19.5], [16, -19.5], [24, -19.5]],
+  },
+
   // Pemain yang tidak menyentuh kontrol selama ini dikeluarkan agar room tidak penuh.
   afk: {
-    warnMs: 4 * 60 * 1000,
-    kickMs: 5 * 60 * 1000,
+    warnMs: 45 * 1000,
+    kickMs: 60 * 1000,
   },
 
   net: {

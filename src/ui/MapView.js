@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp } from '../utils/math.js';
+import { CONFIG } from '../config.js';
 
 const MAP_RES = 384; // resolusi gambar pulau (px)
 const MINIMAP_RADIUS = 48; // jangkauan minimap (unit dunia dari pemain ke tepi)
@@ -93,6 +94,23 @@ export class MapView {
       ctx.arc(toPx(t.x), toPx(t.z), 2.6, 0, Math.PI * 2);
       ctx.fill();
     }
+    // kompleks olahraga
+    const F = CONFIG.sports.fields;
+    const court = (f, fill, run) => {
+      const k = MAP_RES / w.size;
+      ctx.fillStyle = fill;
+      ctx.fillRect(toPx(f.x - f.L / 2 - run), toPx(f.z - f.W / 2 - run), (f.L + run * 2) * k, (f.W + run * 2) * k);
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(toPx(f.x - f.L / 2), toPx(f.z - f.W / 2), f.L * k, f.W * k);
+      ctx.beginPath();
+      ctx.moveTo(toPx(f.x), toPx(f.z - f.W / 2));
+      ctx.lineTo(toPx(f.x), toPx(f.z + f.W / 2));
+      ctx.stroke();
+    };
+    court(F.bola, '#3fa34d', 2.5);
+    court(F.tenis, '#3b6fb6', 3);
+    court(F.badminton, '#2b8a3e', 2);
     ctx.fillStyle = '#ff7a1a';
     ctx.beginPath();
     ctx.arc(toPx(m.campfire.x), toPx(m.campfire.z), 2.6, 0, Math.PI * 2);

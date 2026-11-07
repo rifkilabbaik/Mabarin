@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
-import { CapsuleCharacter } from '../character/CapsuleCharacter.js';
+import { Character } from '../character/Character.js';
 import { damp, dampAngle, lerp, lerpAngle } from '../utils/math.js';
-import { FLAG_GROUNDED, FLAG_SIT, FLAG_SWIM } from './LocalPlayer.js';
+import { FLAG_DASH, FLAG_GROUNDED, FLAG_SIT, FLAG_SLIDE, FLAG_SWIM } from './LocalPlayer.js';
 import { ITEM_IDS } from '../character/items.js';
 
 // Pemain lain. Posisi di-interpolasi dari snapshot (dengan jeda kecil) supaya gerakan mulus
@@ -11,7 +11,7 @@ export class RemotePlayer {
     this.handle = handle;
     this.id = handle.id;
     const prof = handle.getState('profile') || handle.getProfile?.() || {};
-    this.character = new CapsuleCharacter({
+    this.character = new Character({
       name: prof.name || 'Pemain',
       color: normalizeColor(prof.color),
       look: prof.look,
@@ -47,7 +47,7 @@ export class RemotePlayer {
 
   readItem() {
     const id = this.handle.getState('item');
-    if (ITEM_IDS.includes(id)) this.character.setItem(id);
+    if (ITEM_IDS.includes(id) || id === 'racket' || id === 'birdie') this.character.setItem(id);
   }
 
   get sitting() {
@@ -61,6 +61,7 @@ export class RemotePlayer {
     if (t === this.lastT) return;
     this.lastT = t;
     this.buffer.push({ t, x: m[0], y: m[1], z: m[2], ry: m[3], spd: m[4], flags: m[5] });
+    if (Number.isFinite(m[7]) && Number.isFinite(m[8])) this.character.setGaze(m[7], m[8]);
     if (this.buffer.length > 40) this.buffer.shift();
     // Pastikan urut (paket unreliable bisa datang tak berurutan)
     if (this.buffer.length > 1 && this.buffer[this.buffer.length - 2].t > t) this.buffer.sort((a, b) => a.t - b.t);
@@ -143,6 +144,8 @@ export class RemotePlayer {
       grounded: (r.flags & FLAG_GROUNDED) !== 0,
       swimming: (r.flags & FLAG_SWIM) !== 0,
       sitting: (r.flags & FLAG_SIT) !== 0,
+      sliding: (r.flags & FLAG_SLIDE) !== 0,
+      dashing: (r.flags & FLAG_DASH) !== 0,
       vy: this.vy,
     });
   }

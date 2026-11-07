@@ -115,6 +115,7 @@ function scatter(world, rand, count, opts) {
     const x = (rand() * 2 - 1) * lim;
     const z = (rand() * 2 - 1) * lim;
     if (Math.hypot(x, z) < avoidSpawn) continue;
+    if (world.inZone(x, z, 3)) continue; // area olahraga bebas pohon/batu
     const y = world.getHeight(x, z);
     if (y < minH || y > maxH) continue;
     if (world.getSlope(x, z) > maxSlope) continue;
@@ -253,9 +254,9 @@ function buildCardTables(world, markers) {
     prep(new THREE.CylinderGeometry(0.06, 0.08, 0.4, 5).translate(0, 0.2, 0), '#6b4226'),
   ]);
   const mat = lambert();
-  [1.14, 2.71, 4.28].forEach((a, index) => {
-    const r = 7.6;
-    const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+  const spots = [1.14, 2.71, 4.28, 5.85].map((a) => [Math.cos(a) * 7.6, Math.sin(a) * 7.6, a]);
+  for (const [x, z] of CONFIG.sports.plazaTables) spots.push([x, z, 0]);
+  spots.forEach(([cx, cz, a], index) => {
     const y = world.getHeight(cx, cz);
     const t = new THREE.Mesh(top, mat);
     t.position.set(cx, y, cz);

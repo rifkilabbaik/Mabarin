@@ -112,7 +112,7 @@ export class ItemController {
     const fx = Math.sin(L.facing), fz = Math.cos(L.facing);
     let hits = 0;
     for (const rp of this.remotes.values()) {
-      if (!rp.hasPose) continue;
+      if (!rp.hasPose || rp.sitting || rp.busy) continue; // pemain yang duduk / sedang main game tidak bisa di-bonk
       const dx = rp.render.x - L.position.x, dz = rp.render.z - L.position.z;
       const d = Math.hypot(dx, dz);
       if (d > item.reach + 0.35 || Math.abs(rp.render.y - L.position.y) > 1.6) continue;
@@ -223,6 +223,14 @@ export class ItemController {
         }
         this.audio.playAt('pew', x, z, { volume: 0.7 });
         break;
+      case 'kick':
+      case 'racket':
+        rp.character.playAction(p.k);
+        if (p.k === 'racket') this.audio.playAt('whoosh', x, z, { volume: 0.4 });
+        break;
+      case 'dash':
+        this.audio.playAt('dash', x, z, { volume: 0.6 });
+        break;
       case 'strum':
         rp.character.playAction('strum');
         this.audio.strum(Number(p.c) || 0, x, z);
@@ -263,7 +271,7 @@ export class ItemController {
 
     this.projectiles.update(dt, this.remotes.values(), (id, dx, dz) => {
       const rp = this.remotes.get(id);
-      if (rp) this.hitRemote(rp, dx, dz, getItem('watergun'));
+      if (rp && !rp.sitting && !rp.busy) this.hitRemote(rp, dx, dz, getItem('watergun'));
     });
 
     // Bayangan kursi saat memegang kursi

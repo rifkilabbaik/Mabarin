@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
-import { CapsuleCharacter } from '../character/CapsuleCharacter.js';
+import { Character } from '../character/Character.js';
 import { dampAngle } from '../utils/math.js';
 
 export const FLAG_GROUNDED = 1;
 export const FLAG_SWIM = 2;
 export const FLAG_SIT = 4;
+export const FLAG_SLIDE = 8;
+export const FLAG_DASH = 16;
 
 // Pemain yang dikendalikan perangkat ini. Fisika dihitung lokal (client-authoritative),
 // lalu posisinya disiarkan ke pemain lain lewat Playroom.
@@ -14,7 +16,7 @@ export class LocalPlayer {
     this.world = world;
     this.net = net;
     this.onSfx = onSfx; // (nama, opsi) => void — langkah, lompat, mendarat, cipratan
-    this.character = new CapsuleCharacter({ name, color, look, showName: false });
+    this.character = new Character({ name, color, look, showName: false });
     scene.add(this.character.root);
 
     this.position = world.spawnPoint();
@@ -29,6 +31,12 @@ export class LocalPlayer {
     this._scratch = [];
     this.seat = null; // tempat duduk yang sedang dipakai
     this.stunT = 0; // sisa waktu terpental (input diabaikan)
+    this.dashT = 0;
+    this.slideT = 0;
+    this.dashCd = 0;
+    this.slideCd = 0;
+    this.gaze = { yaw: 0, pitch: 0 };
+    this.immune = false;
     this.lastStepPhase = 0;
     this.syncMesh();
   }
@@ -67,6 +75,7 @@ export class LocalPlayer {
 
   /** Terpental kena bonk. (dx,dz) arah dorongan ternormalisasi. */
   knockback(dx, dz, power) {
+    if (this.seat?.locked || this.immune) return; // sedang main game meja / pertandingan
     if (this.seat) this.stand();
     const p = Math.min(power, 13);
     this.velocity.x = dx * p;
@@ -77,11 +86,40 @@ export class LocalPlayer {
     this.stunT = 0.55;
   }
 
+  /** Dash: dorongan cepat ke arah gerak/hadap. */
+  dash() {
+    if (this.seat || this.dashCd > 0 || this.swimming || this.stunT > 0) return false;
+    const a = this.facing;
+    this.velocity.x = Math.sin(a) * 15;
+    this.velocity.z = Math.cos(a) * 15;
+    this.dashT = 0.2;
+    this.dashCd = CONFIG.player.dashCooldown;
+    this.onSfx?.('dash');
+    return true;
+  }
+
+  /** Sleding: meluncur rendah saat berlari. */
+  slide() {
+    if (this.seat || this.slideCd > 0 || !this.grounded || this.swimming || this.speed < 3) return false;
+    const a = this.facing;
+    const sp = Math.max(this.speed, 10.5);
+    this.velocity.x = Math.sin(a) * sp;
+    this.velocity.z = Math.cos(a) * sp;
+    this.slideT = 0.6;
+    this.slideCd = CONFIG.player.slideCooldown;
+    this.onSfx?.('slide');
+    return true;
+  }
+
   update(dt, input, camRig) {
     const P = CONFIG.player;
     const w = this.world;
     const pos = this.position;
     const vel = this.velocity;
+    this.dashT = Math.max(0, this.dashT - dt);
+    this.slideT = Math.max(0, this.slideT - dt);
+    this.dashCd = Math.max(0, this.dashCd - dt);
+    this.slideCd = Math.max(0, this.slideCd - dt);
 
     if (this.seat) {
       const jump = input.consumeJump();
@@ -118,15 +156,16 @@ export class LocalPlayer {
     const wading = !this.swimming && ground < w.waterLevel - 0.3;
     let maxSpeed = this.swimming ? P.swimSpeed : input.run ? P.runSpeed : P.walkSpeed;
     if (wading) maxSpeed *= 0.7;
-    const targetVX = stunned ? vel.x * 0.6 : wx * maxSpeed * mag;
-    const targetVZ = stunned ? vel.z * 0.6 : wz * maxSpeed * mag;
-    const accel = stunned ? 1.5 : this.grounded || this.swimming ? 14 : 3.5;
+    const coasting = stunned || this.slideT > 0 || this.dashT > 0;
+    const targetVX = coasting ? vel.x * 0.6 : wx * maxSpeed * mag;
+    const targetVZ = coasting ? vel.z * 0.6 : wz * maxSpeed * mag;
+    const accel = this.dashT > 0 ? 0 : this.slideT > 0 ? 1.6 : stunned ? 1.5 : this.grounded || this.swimming ? 14 : 3.5;
     const k = 1 - Math.exp(-accel * dt);
     vel.x += (targetVX - vel.x) * k;
     vel.z += (targetVZ - vel.z) * k;
 
     // --- lompat & gravitasi ---
-    const jump = input.consumeJump() && !stunned;
+    const jump = input.consumeJump() && !stunned && this.slideT <= 0;
     if (jump && (this.grounded || this.swimming)) this.onSfx?.('jump');
     if (jump && this.grounded) {
       vel.y = P.jumpVelocity;
@@ -194,7 +233,7 @@ export class LocalPlayer {
 
     // --- rotasi karakter mengikuti arah gerak ---
     this.speed = Math.hypot(vel.x, vel.z);
-    if (this.speed > 0.4) {
+    if (this.speed > 0.4 && this.slideT <= 0) {
       this.facing = dampAngle(this.facing, Math.atan2(vel.x, vel.z), 12, dt);
     }
 
@@ -204,6 +243,8 @@ export class LocalPlayer {
       grounded: this.grounded,
       swimming: this.swimming,
       vy: vel.y,
+      sliding: this.slideT > 0,
+      dashing: this.dashT > 0,
     });
 
     // Bunyi langkah tiap kaki "menapak" (fase animasi melewati kelipatan π)
@@ -229,16 +270,19 @@ export class LocalPlayer {
     if (this.sendTimer < 1 / CONFIG.net.sendRate) return;
     this.sendTimer = 0;
     const p = this.position;
-    const flags = (this.grounded ? FLAG_GROUNDED : 0) | (this.swimming ? FLAG_SWIM : 0) | (this.seat ? FLAG_SIT : 0);
+    const flags = (this.grounded ? FLAG_GROUNDED : 0) | (this.swimming ? FLAG_SWIM : 0) | (this.seat ? FLAG_SIT : 0)
+      | (this.slideT > 0 ? FLAG_SLIDE : 0) | (this.dashT > 0 ? FLAG_DASH : 0);
     const data = [
       round2(p.x), round2(p.y), round2(p.z),
       round2(this.facing), Math.round(this.speed * 10) / 10, flags,
     ];
-    const sig = data.join(',');
+    // arah kepala (mis. saat duduk di meja game) — dikirim setelah cap waktu
+    const gy = Math.round((this.gaze?.yaw || 0) * 20) / 20, gp = Math.round((this.gaze?.pitch || 0) * 20) / 20;
+    const sig = data.join(',') + `|${gy},${gp}`;
     if (sig === this.lastSent && this.keepAlive < 1) return;
     this.lastSent = sig;
     this.keepAlive = 0;
-    data.push(Math.round(performance.now()));
+    data.push(Math.round(performance.now()), gy, gp);
     this.net.me.setState('m', data, false);
   }
 

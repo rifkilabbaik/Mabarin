@@ -1,10 +1,19 @@
-import { CONFIG } from '../config.js';
 import { LOOK_OPTIONS, randomLook, sanitizeLook } from '../character/looks.js';
 
 const TABS = [
-  { label: 'Tubuh', sections: [{ key: 'color', label: 'Warna badan', colors: CONFIG.colors }, { key: 'body', label: 'Bentuk tubuh' }] },
+  { label: 'Tubuh', sections: [{ key: 'body', label: 'Bentuk tubuh' }, { key: 'skin', label: 'Warna kulit', colors: LOOK_OPTIONS.skin }] },
   { label: 'Rambut', sections: [{ key: 'hair', label: 'Gaya rambut' }, { key: 'hairColor', label: 'Warna rambut', colors: LOOK_OPTIONS.hairColor }] },
   { label: 'Wajah', sections: [{ key: 'eyes', label: 'Mata' }, { key: 'face', label: 'Aksesoris wajah' }] },
+  {
+    label: 'Pakaian',
+    sections: [
+      { key: 'top', label: 'Atasan' },
+      { key: 'topColor', label: 'Warna atasan', colors: LOOK_OPTIONS.topColor },
+      { key: 'bottom', label: 'Bawahan' },
+      { key: 'bottomColor', label: 'Warna bawahan', colors: LOOK_OPTIONS.bottomColor },
+      { key: 'shoes', label: 'Sepatu' },
+    ],
+  },
   { label: 'Aksesoris', sections: [{ key: 'hat', label: 'Topi' }, { key: 'back', label: 'Punggung' }, { key: 'neck', label: 'Leher' }] },
 ];
 
@@ -20,7 +29,7 @@ export class CustomizePanel {
     root.querySelector('#cz-done').addEventListener('click', () => this.close());
     root.querySelector('#cz-random').addEventListener('click', () => {
       this.look = randomLook();
-      this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+      this.color = this.look.topColor;
       this.render();
       this.emit();
     });
@@ -42,8 +51,8 @@ export class CustomizePanel {
   }
 
   open({ color, look }) {
-    this.color = color;
-    this.look = sanitizeLook(look);
+    this.look = sanitizeLook(look, color);
+    this.color = this.look.topColor;
     this.root.hidden = false;
     document.body.classList.add('customizing');
     this.render();
@@ -61,8 +70,8 @@ export class CustomizePanel {
   }
 
   set(key, value) {
-    if (key === 'color') this.color = value;
-    else this.look[key] = value;
+    this.look[key] = value;
+    if (key === 'topColor') this.color = value; // warna atasan = warna pemain (nama, peta)
     this.render();
     this.emit();
   }
@@ -76,7 +85,7 @@ export class CustomizePanel {
         const h = document.createElement('h3');
         h.textContent = sec.label;
         const list = document.createElement('div');
-        const current = sec.key === 'color' ? this.color : this.look[sec.key];
+        const current = this.look[sec.key];
         if (sec.colors) {
           list.className = 'cz-colors';
           for (const c of sec.colors) {

@@ -35,7 +35,8 @@ export class UI {
     const saved = loadProfile();
     this.name = saved.name || '';
     this.color = CONFIG.colors.includes(saved.color) ? saved.color : CONFIG.colors[Math.floor(Math.random() * 6)];
-    this.look = saved.look ? sanitizeLook(saved.look) : randomLook();
+    this.look = saved.look ? sanitizeLook(saved.look, this.color) : randomLook();
+    this.color = this.look.topColor; // warna pemain = warna atasan
 
     this.buildStartScreen();
     this.bindHud();
@@ -84,8 +85,8 @@ export class UI {
 
   /** Dipanggil oleh panel kustomisasi. */
   setAppearance({ color, look }) {
-    this.color = color;
-    this.look = sanitizeLook(look);
+    this.look = sanitizeLook(look, color);
+    this.color = this.look.topColor;
     $('cz-dot').style.background = color;
     saveProfile({ name: (this.name || '').trim().slice(0, 16), color, look: this.look });
   }

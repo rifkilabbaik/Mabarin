@@ -315,6 +315,39 @@ const SFX = {
     a.tone('triangle', 660, 880, t, 0.12, 0.06, out);
     a.tone('triangle', 880, 1100, t + 0.13, 0.12, 0.05, out);
   },
+  dash(a, out, t) {
+    a.hiss(t, 0.22, 0.22, out, 'bandpass', 700, 2600, 1.1);
+  },
+  slide(a, out, t) {
+    a.hiss(t, 0.5, 0.2, out, 'lowpass', 1800, 400);
+  },
+  kick(a, out, t, { strength = 1 }) {
+    a.tone('sine', 160, 60, t, 0.12, 0.35 * strength + 0.1, out);
+    a.hiss(t, 0.05, 0.15, out, 'bandpass', 1200);
+  },
+  hit(a, out, t, { strength = 1 }) {
+    a.tone('triangle', 900, 500, t, 0.07, 0.15 + strength * 0.1, out);
+    a.hiss(t, 0.04, 0.12, out, 'highpass', 2500);
+  },
+  whistle(a, out, t) {
+    a.tone('sine', 2200, 2400, t, 0.18, 0.08, out);
+    a.tone('sine', 2200, 2400, t + 0.24, 0.35, 0.08, out);
+  },
+  cheer(a, out, t) {
+    a.hiss(t, 1.2, 0.18, out, 'bandpass', 1400, 900, 0.5);
+    [523.3, 659.3, 784].forEach((f, i) => a.tone('triangle', f, 0, t + i * 0.08, 0.4, 0.06, out));
+  },
+  dice(a, out, t) {
+    for (let i = 0; i < 5; i++) a.tone('sine', 700 + Math.random() * 500, 0, t + i * 0.06, 0.03, 0.08, out);
+  },
+  boom(a, out, t) {
+    a.tone('sine', 120, 40, t, 0.5, 0.5, out);
+    a.hiss(t, 0.6, 0.4, out, 'lowpass', 1500, 200);
+    [1046.5, 1318.5, 1568, 2093].forEach((f, i) => a.tone('triangle', f, 0, t + 0.15 + i * 0.05, 0.3, 0.05, out));
+  },
+  click2(a, out, t) {
+    a.tone('square', 300, 0, t, 0.03, 0.06, out);
+  },
   card(a, out, t) {
     a.hiss(t, 0.06, 0.22, out, 'bandpass', 2600, 1200, 0.9);
     a.tone('sine', 420, 300, t, 0.05, 0.05, out);
