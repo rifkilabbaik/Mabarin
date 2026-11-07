@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // Path relatif: hasil build bisa di-host di root domain maupun sub-folder
+  // (Vercel, Netlify, GitHub Pages, hosting Playroom) tanpa perlu diubah.
+  base: './',
   server: { host: true },
   build: {
     target: 'es2020',

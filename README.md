@@ -26,23 +26,66 @@ Buka `http://localhost:5173`. Untuk mencoba di HP pada jaringan Wi‑Fi yang sam
 
 > Pointer Lock dan service worker (PWA) hanya aktif di **HTTPS** atau `localhost`. Saat diakses lewat IP LAN (http), game tetap jalan tapi tidak bisa di-install.
 
-### Build & deploy
+### Build
 
 ```bash
 npm run build      # hasil di folder dist/
 npm run preview    # cek hasil build secara lokal
 ```
 
-Upload folder `dist/` ke hosting statis ber-HTTPS (Vercel, Netlify, Cloudflare Pages, GitHub Pages, dll).
-Jika di-deploy di sub-folder (mis. GitHub Pages `https://user.github.io/repo/`), build dengan `npx vite build --base=/repo/`.
+Build memakai path relatif (`base: './'`), jadi folder `dist/` bisa di-host di root domain maupun sub-folder tanpa diubah.
 
-## Playroom Kit
+## Main online dengan Playroom Kit
 
-1. Buat game di dashboard Playroom (`https://joinplayroom.com/dev`) dan salin **Game ID**.
-2. Isi `VITE_PLAYROOM_GAME_ID` di `.env`. (Tanpa Game ID tetap jalan, tapi Playroom memberi peringatan di console.)
-3. `VITE_PUBLIC_ROOM` menentukan kode room "Dunia Publik". Maksimal pemain per room diatur di `src/config.js` (`maxPlayersPerRoom`).
+Kode multiplayer sudah tersambung ke Playroom. Untuk main online bersama teman cukup dua langkah: **pasang Game ID** dan **online-kan game di URL HTTPS**.
 
-**Model jaringan** — tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyiarkan state:
+### 1. Ambil Game ID
+
+1. Buka dev portal Playroom di **https://dev.joinplayroom.com**, daftar lalu login.
+2. Buat project/game baru, lalu salin **Game ID**-nya.
+3. Masukkan ke file `.env` di root proyek:
+
+   ```bash
+   cp .env.example .env
+   # edit .env:
+   VITE_PLAYROOM_GAME_ID=isi_game_id_kamu
+   ```
+
+4. Tes lokal dengan `npm run dev`. Buka di dua browser/perangkat lalu pilih **Masuk Dunia Publik**, kedua karakter akan saling terlihat.
+
+> Tanpa Game ID game tetap bisa terhubung, tapi Playroom memberi peringatan di console dan statistik/kuota tidak tercatat ke project kamu.
+> Game ID bukan rahasia (ikut terbaca di bundle JavaScript), jadi aman dipasang sebagai environment variable biasa.
+> Variabel `VITE_*` dibaca saat **build**, jadi harus diisi sebelum `npm run build` / sebelum deploy.
+
+### 2. Online-kan game (pilih salah satu)
+
+**Vercel (paling mudah, deploy otomatis tiap push ke GitHub)**
+1. Login ke vercel.com dengan akun GitHub, klik **Add New → Project**, pilih repo ini (repo privat juga bisa).
+2. Framework terdeteksi otomatis sebagai **Vite** (build `npm run build`, output `dist`).
+3. Di **Environment Variables** tambahkan `VITE_PLAYROOM_GAME_ID` (dan opsional `VITE_PUBLIC_ROOM`).
+4. Klik **Deploy**. Bagikan URL `https://<nama>.vercel.app` ke teman.
+
+**Netlify**: buat site dari repo GitHub, build command `npm run build`, publish directory `dist`, lalu tambahkan environment variable yang sama.
+
+**Hosting Playroom**: jalankan `npm run build` (dengan `.env` sudah terisi), lalu unggah isi folder `dist/` di tab Hosting pada dev portal.
+
+**GitHub Pages**: hanya untuk repo publik (atau akun berbayar). Unggah isi `dist/` atau pakai GitHub Actions.
+
+### 3. Main bareng
+
+- **Masuk Dunia Publik**: semua pemain masuk room yang sama (`VITE_PUBLIC_ROOM`, default `LOWPOLYWORLD`, maks. 24 pemain, bisa diubah di `src/config.js`).
+- **Buat Room Privat**: room dengan kode acak. Tekan tombol 🔗 di pojok kanan atas untuk menyalin/membagikan link undangan (`...#r=RXXXX`). Teman yang membuka link langsung melihat tombol **Gabung Room**.
+- Di HP, buka URL-nya lalu pilih "Tambahkan ke Layar Utama" / "Install app" untuk memasang sebagai aplikasi (PWA).
+
+### Jika tidak bisa terhubung
+
+- Muncul pesan *"Tidak bisa terhubung ke server Playroom"*: periksa koneksi internet. Beberapa jaringan kantor/sekolah memblokir WebSocket ke `ws.joinplayroom.com`. Coba jaringan lain atau data seluler.
+- Room publik penuh: pakai **Room Privat**, atau ganti `VITE_PUBLIC_ROOM`.
+- Batas pemakaian (jumlah pemain harian, dsb.) mengikuti paket Playroom kamu, cek di dev portal.
+
+### Cara kerja jaringan
+
+Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyiarkan state:
 
 | Key player state | Isi | Kanal |
 |---|---|---|

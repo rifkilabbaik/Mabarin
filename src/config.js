@@ -1,6 +1,6 @@
 // Konfigurasi global game. Ubah nilai di sini untuk menyesuaikan dunia & gameplay.
 export const CONFIG = {
-  // ID game dari dashboard Playroom (https://joinplayroom.com/dev). Bisa diisi via .env: VITE_PLAYROOM_GAME_ID
+  // ID game dari dashboard Playroom (https://dev.joinplayroom.com). Bisa diisi via .env: VITE_PLAYROOM_GAME_ID
   playroomGameId: import.meta.env.VITE_PLAYROOM_GAME_ID || '',
   // Kode room untuk "Dunia Publik" — semua pemain yang memilih dunia publik masuk ke room ini.
   publicRoomCode: import.meta.env.VITE_PUBLIC_ROOM || 'LOWPOLYWORLD',
