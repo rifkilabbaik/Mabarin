@@ -57,19 +57,21 @@ Kode multiplayer sudah tersambung ke Playroom. Untuk main online bersama teman c
 > Game ID bukan rahasia (ikut terbaca di bundle JavaScript), jadi aman dipasang sebagai environment variable biasa.
 > Variabel `VITE_*` dibaca saat **build**, jadi harus diisi sebelum `npm run build` / sebelum deploy.
 
-### 2. Online-kan game (pilih salah satu)
+### 2. Online-kan game — gratis, tanpa kartu kredit
 
-**Vercel (paling mudah, deploy otomatis tiap push ke GitHub)**
-1. Login ke vercel.com dengan akun GitHub, klik **Add New → Project**, pilih repo ini (repo privat juga bisa).
-2. Framework terdeteksi otomatis sebagai **Vite** (build `npm run build`, output `dist`).
-3. Di **Environment Variables** tambahkan `VITE_PLAYROOM_GAME_ID` (dan opsional `VITE_PUBLIC_ROOM`).
-4. Klik **Deploy**. Bagikan URL `https://<nama>.vercel.app` ke teman.
+**GitHub Pages (direkomendasikan, sudah disiapkan)**
 
-**Netlify**: buat site dari repo GitHub, build command `npm run build`, publish directory `dist`, lalu tambahkan environment variable yang sama.
+Workflow `.github/workflows/deploy-pages.yml` otomatis build & deploy setiap ada push ke `main`. Aktifkan sekali saja:
 
-**Hosting Playroom**: jalankan `npm run build` (dengan `.env` sudah terisi), lalu unggah isi folder `dist/` di tab Hosting pada dev portal.
+1. Di repo GitHub: **Settings → Pages → Build and deployment → Source**, pilih **GitHub Actions**.
+2. (Opsional) **Settings → Secrets and variables → Actions → tab Variables → New repository variable**:
+   nama `VITE_PLAYROOM_GAME_ID`, isi Game ID kamu. Bisa juga `VITE_PUBLIC_ROOM`.
+3. Buka tab **Actions → Deploy ke GitHub Pages → Run workflow** (atau push commit apa saja).
+4. Game online di `https://<username>.github.io/<nama-repo>/`.
 
-**GitHub Pages**: hanya untuk repo publik (atau akun berbayar). Unggah isi `dist/` atau pakai GitHub Actions.
+Setiap kali Game ID diubah, jalankan ulang workflow (langkah 3) karena nilainya dibaca saat build.
+
+**Alternatif lain yang juga gratis & tanpa kartu**: Vercel (paket Hobby), Netlify, atau Cloudflare Pages — login dengan akun GitHub, pilih repo ini, build command `npm run build`, output `dist`, lalu tambahkan environment variable `VITE_PLAYROOM_GAME_ID`.
 
 ### 3. Main bareng
 
