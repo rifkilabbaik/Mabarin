@@ -153,9 +153,9 @@ class DamControls {
   }
 
   enter() {
-    this.btnResign = this.ctx.button('flag', 'Menyerah', () => {
+    this.btnResign = this.ctx.topButton('flag', 'Menyerah', () => {
       if (confirm('Menyerah?')) this.ctx.act({ a: 'resign' });
-    }, '', 'cu-resign');
+    }, 'cu-resign');
   }
 
   exit() {}

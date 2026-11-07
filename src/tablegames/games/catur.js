@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HostBase } from '../HostBase.js';
-import { Markers, boardFrame, boardGroup, canvasPlane, cellPos, chessGeometry, pickCell, pieceMaterial } from '../boardKit.js';
+import { Markers, boardFrame, boardGroup, canvasPlane, cellPos, chessDisc, pickCell } from '../boardKit.js';
 import { applyChess, chessBot, chessResult, inCheck, initialChess, legalChess } from './chessRules.js';
 
 const SIZE = 0.6;
@@ -111,10 +111,7 @@ class CaturRenderer {
         mesh = null;
       }
       if (p && !mesh) {
-        mesh = new THREE.Mesh(chessGeometry(p[1]), pieceMaterial(COLORS[p[0]]));
-        mesh.scale.setScalar(1.35);
-        mesh.castShadow = true;
-        mesh.rotation.y = p[0] === 'b' ? Math.PI : 0;
+        mesh = chessDisc(p);
         mesh.userData.piece = p;
         this.pos(sq, mesh.position);
         this.group.add(mesh);
@@ -123,13 +120,17 @@ class CaturRenderer {
     }
   }
 
-  update(dt, m) {
+  update(dt, m, myId) {
     this.syncPieces(m);
+    // ikon bidak menghadap pemain yang sedang melihat (pemain hitam duduk di seberang)
+    const flip = myId && m.players?.[1]?.id === myId;
+    const rot = flip ? -Math.PI / 2 : Math.PI / 2;
+    for (const mesh of this.meshes.values()) mesh.rotation.y = rot;
     for (const a of this.anims) {
       a.t = Math.min(1, a.t + dt / 0.3);
       const k = a.t * a.t * (3 - 2 * a.t);
       a.mesh.position.lerpVectors(a.from, a.to, k);
-      a.mesh.position.y = Math.sin(k * Math.PI) * 0.04;
+      a.mesh.position.y = Math.sin(k * Math.PI) * 0.03;
     }
     this.anims = this.anims.filter((a) => a.t < 1);
     // sorot langkah terakhir & raja yang diskak (terlihat semua pemain)
@@ -152,9 +153,9 @@ class CaturControls {
   }
 
   enter() {
-    this.btnResign = this.ctx.button('flag', 'Menyerah', () => {
+    this.btnResign = this.ctx.topButton('flag', 'Menyerah', () => {
       if (confirm('Menyerah?')) this.ctx.act({ a: 'resign' });
-    }, '', 'cu-resign');
+    }, 'cu-resign');
   }
 
   exit() {}

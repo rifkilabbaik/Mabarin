@@ -39,6 +39,7 @@ export class TableGames {
     this.lastTurnMine = false;
     this.uiTimer = 0;
     this.lastUiSig = '';
+    this.topButtons = [];
     this._pa = new THREE.Vector3();
     this._pb = new THREE.Vector3();
     this._qa = new THREE.Quaternion();
@@ -104,6 +105,22 @@ export class TableGames {
         b.hidden = true;
         b.addEventListener('click', onClick);
         $('cu-actions').appendChild(b);
+        return b;
+      },
+      /** Tombol kecil di bar atas (mis. Menyerah) — tidak menutupi papan di layar potret. */
+      topButton: (ic, label, onClick, id = '') => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        if (id) b.id = id;
+        b.className = 'icon-btn cu-topbtn';
+        b.title = label;
+        b.setAttribute('aria-label', label);
+        b.innerHTML = `${icon(ic)}<span></span>`;
+        b.querySelector('span').textContent = label;
+        b.hidden = true;
+        b.addEventListener('click', onClick);
+        $('cu-view').before(b);
+        this.topButtons.push(b);
         return b;
       },
       setTopView: (on) => {
@@ -330,10 +347,16 @@ export class TableGames {
     $('cards-ui').dataset.game = mod.id;
     $('cu-view').hidden = !mod.topView;
     $('cu-actions').replaceChildren();
+    this.clearTopButtons();
     $('invite-pop').hidden = true;
     this.controls = new mod.Controls(this.ctx);
     this.controls.enter?.(match);
     this.onEnter?.();
+  }
+
+  clearTopButtons() {
+    for (const b of this.topButtons) b.remove();
+    this.topButtons = [];
   }
 
   sitAt(index) {
@@ -365,6 +388,7 @@ export class TableGames {
     $('cards-ui').hidden = true;
     for (const id of ['cu-lobby', 'cu-colors', 'cu-end']) $(id).hidden = true;
     $('cu-actions').replaceChildren();
+    this.clearTopButtons();
     this.controls?.exit?.();
     this.controls = null;
     this.onExit?.();

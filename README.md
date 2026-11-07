@@ -44,7 +44,7 @@ Semua berjalan di meja dengan kamera orang-pertama; tombol **mata** beralih ke t
 
 - **Kartu Kilat** (2–4): cocokkan warna atau angka/simbol. Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
 - **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang salah membuka **Kotak Kejutan** — confetti biasa, atau *DOR!* dan tersingkir. Bertahan paling akhir menang.
-- **Catur** (1v1): aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
+- **Catur** (1v1): bidak berbentuk koin dengan ikon tiap jenis agar mudah dibaca; aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
 - **Dam** (1v1): papan 8×8, wajib makan, makan beruntun, raja terbang.
 - **Ludo** (2, 3, atau 4): dadu 3D, keluar dengan 6, petak aman, makan bidak lawan.
 
@@ -54,9 +54,9 @@ Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player
 
 Lapangan ada di utara perkemahan (lihat peta). Satu pertandingan per lapangan.
 
-- **Sepak Bola 1v1 / 2v2** (kontrol ala game bola konsol): 3 menit atau yang pertama mencetak 5 gol, tiap gawang dijaga **kiper otomatis**.
+- **Sepak Bola 1v1 / 2v2** (kontrol ala game bola konsol): 3 menit atau yang pertama mencetak 5 gol.
   - Dekati bola untuk **menguasainya** — bola menempel di kaki saat menggiring (lari sedikit lebih lambat).
-  - **Tembak**: tahan lalu lepas. Arah mengikuti hadapan pemain (otomatis ke dalam gawang), makin lama ditahan makin keras; meteran merah = melambung di atas mistar. Kiper menangkap tembakan pelan dan menepis yang keras — incar pojok.
+  - **Tembak**: tahan lalu lepas. Arah mengikuti hadapan pemain (otomatis ke dalam gawang), makin lama ditahan makin keras; meteran merah = melambung di atas mistar. Tembakan jauh kurang akurat.
   - **Umpan**: otomatis ke kawan yang paling searah hadapanmu (1v1: menyodok bola ke depan).
   - **Rebut**: tombol tembak saat lawan menguasai bola = menerjang (peluang berhasil), **sleding** selalu melepaskan bola dan menjatuhkan lawan.
   - Kamera otomatis mengarah ke gawang lawan bila tidak diputar.
@@ -127,7 +127,7 @@ Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyia
 | `vc` (player state) | status voice: 0 tidak ikut, 1 mendengar, 2 mikrofon menyala | reliable |
 | `cg` (player state bandar) | state meja game | reliable |
 | `sp` (player state tuan rumah) | state pertandingan (tim, skor, fase, servis, penalti) | reliable |
-| `sb` / `sbt` (player state tuan rumah) | bola `[x,y,z,vx,vy,vz,t,hitN,pemilik]` / posisi bot & kiper | unreliable |
+| `sb` / `sbt` (player state tuan rumah) | bola `[x,y,z,vx,vy,vz,t,hitN,pemilik]` / posisi bot | unreliable |
 | `chat`, `act`, `bonk` (RPC) | pesan chat, animasi aksi, bonk | reliable |
 | `cg`, `cg-inv`, `sp-a`, `sp-inv`, `sp-tk` (RPC) | aksi & undangan game meja / lapangan, sleding | reliable |
 | `vs` (RPC) | sinyal WebRTC voice chat (offer/answer) | reliable |
@@ -154,7 +154,7 @@ src/
   sports/fields.js           visual lapangan bola, tenis, bulu tangkis
   sports/physics.js          fisika bola/kok, solusi lintasan pukulan
   sports/football.js         tembakan & umpan otomatis, penguasaan bola, penalti tebak arah
-  sports/SportHost.js        aturan pertandingan, skor, bot & kiper otomatis (di perangkat tuan rumah)
+  sports/SportHost.js        aturan pertandingan, skor, bot (di perangkat tuan rumah)
   sports/Sports.js           lobi, undangan, prediksi bola, tendang/pukul, papan skor
   net/PlayroomNetwork.js     koneksi Playroom (publik / privat / undangan)
   net/LocalNetwork.js        mode offline (BroadcastChannel antar tab)

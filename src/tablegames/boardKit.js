@@ -145,6 +145,103 @@ export function chessGeometry(type) {
   return g;
 }
 
+// ---------- Bidak catur bentuk koin dengan ikon ----------
+// Ikon digambar di kotak 100×100 (silhouette sederhana per jenis bidak).
+function drawChessIcon(g, type) {
+  const poly = (pts) => {
+    g.beginPath();
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.fill();
+  };
+  const circle = (x, y, r) => {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  };
+  const base = () => g.fillRect(26, 72, 48, 12);
+  switch (type) {
+    case 'P':
+      circle(50, 30, 13);
+      poly([[41, 42], [59, 42], [66, 72], [34, 72]]);
+      base();
+      break;
+    case 'R':
+      poly([[26, 18], [36, 18], [36, 26], [45, 26], [45, 18], [55, 18], [55, 26], [64, 26], [64, 18], [74, 18], [74, 36], [26, 36]]);
+      g.fillRect(34, 36, 32, 36);
+      base();
+      break;
+    case 'N':
+      poly([[34, 72], [36, 60], [44, 50], [34, 50], [24, 54], [18, 46], [30, 28], [42, 18], [48, 10], [54, 18], [64, 22], [74, 38], [76, 58], [70, 72]]);
+      base();
+      break;
+    case 'B':
+      circle(50, 14, 6);
+      g.beginPath();
+      g.moveTo(50, 18);
+      g.quadraticCurveTo(70, 34, 64, 54);
+      g.lineTo(36, 54);
+      g.quadraticCurveTo(30, 34, 50, 18);
+      g.fill();
+      g.fillRect(38, 56, 24, 7);
+      poly([[40, 63], [60, 63], [64, 72], [36, 72]]);
+      base();
+      break;
+    case 'Q':
+      poly([[30, 66], [20, 28], [32, 46], [36, 20], [44, 42], [50, 14], [56, 42], [64, 20], [68, 46], [80, 28], [70, 66]]);
+      for (const [x, y] of [[20, 26], [36, 18], [50, 12], [64, 18], [80, 26]]) circle(x, y, 5);
+      base();
+      break;
+    default: // K
+      g.fillRect(46, 6, 8, 24);
+      g.fillRect(38, 12, 24, 8);
+      poly([[30, 66], [24, 38], [40, 32], [50, 40], [60, 32], [76, 38], [70, 66]]);
+      base();
+  }
+}
+
+const discTex = new Map();
+function chessTopTexture(piece) {
+  if (discTex.has(piece)) return discTex.get(piece);
+  const white = piece[0] === 'w';
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = white ? '#f8f3e6' : '#2f333b';
+  g.fillRect(0, 0, 128, 128);
+  g.lineWidth = 7;
+  g.strokeStyle = white ? '#c9a66b' : '#8c96a3';
+  g.beginPath();
+  g.arc(64, 64, 56, 0, Math.PI * 2);
+  g.stroke();
+  g.save();
+  g.translate(64 - 40, 64 - 40);
+  g.scale(0.8, 0.8);
+  g.fillStyle = white ? '#2b2f36' : '#f8f3e6';
+  drawChessIcon(g, piece[1]);
+  g.restore();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  discTex.set(piece, tex);
+  return tex;
+}
+
+let discGeo = null;
+/**
+ * Bidak catur berbentuk koin dengan ikon di permukaan atas. piece: 'wK', 'bP', dst.
+ * Ikon tegak bila rotation.y = π/2 untuk pemain putih (sisi +Z papan), -π/2 untuk hitam.
+ */
+export function chessDisc(piece) {
+  discGeo ||= new THREE.CylinderGeometry(0.031, 0.033, 0.014, 28).translate(0, 0.007, 0);
+  const side = pieceMaterial(piece[0] === 'w' ? '#e9dfc8' : '#24272e');
+  const top = new THREE.MeshLambertMaterial({ map: chessTopTexture(piece) });
+  const m = new THREE.Mesh(discGeo, [side, top, side]);
+  m.castShadow = true;
+  m.rotation.y = Math.PI / 2;
+  return m;
+}
+
 export function checkerGeometry(king) {
   const key = king ? 'damK' : 'dam';
   if (pieceGeoCache.has(key)) return pieceGeoCache.get(key);

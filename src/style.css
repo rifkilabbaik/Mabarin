@@ -1146,10 +1146,13 @@ body[data-input='touch'] .sp-help { display: none; }
 .sp-final { margin: -4px 0 12px; font-size: 22px; font-weight: 800; }
 #sp-msg { top: 36%; }
 @media (max-width: 520px) {
-  .sp-names { display: none; }
+  /* layar potret: cukup skor dua warna + info singkat */
+  .sp-names, .sp-kicks { display: none !important; }
   .sp-top { left: calc(12px + var(--safe-l)); transform: none; top: calc(58px + var(--safe-t)); }
-  .sp-bar { min-width: 196px; max-width: 196px; }
-  .sp-team { min-width: 52px; }
+  .sp-bar { min-width: 0; max-width: none; grid-template-columns: 46px auto 46px; }
+  .sp-team { min-width: 0; padding: 6px 0; justify-content: center !important; }
+  .sp-team b { font-size: 22px; }
+  .sp-mid { padding: 0 10px; font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (max-height: 500px) and (pointer: coarse) {
   .sp-bar { min-width: min(360px, calc(100vw - 90px)); }
@@ -1160,3 +1163,11 @@ body[data-input='touch'] .sp-help { display: none; }
 #btn-mic.on { background: #2f9e44; color: #fff; }
 #btn-mic.speaking { box-shadow: 0 0 0 3px #b2f2bb, 0 0 14px rgba(178, 242, 187, 0.8); }
 body.sport-pk .joy-base, body.sport-pk #btn-jump { display: none !important; }
+/* Tombol di bar atas meja (Menyerah) */
+.cu-topbtn { width: auto; padding: 0 14px; gap: 6px; }
+.cu-topbtn span { font-weight: 750; }
+.cu-topbtn[hidden] { display: none; }
+@media (max-width: 520px) {
+  .cu-topbtn { width: 40px; padding: 0; }
+  .cu-topbtn span { display: none; }
+}

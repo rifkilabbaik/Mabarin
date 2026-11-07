@@ -9,16 +9,11 @@ import {
   chargeWindow, shotAngles, REACH, teamSize,
 } from './SportHost.js';
 import { CARRY, CLAIM_R, OVER, shotVelocity, passVelocity, pickPassTarget, pkDiveZ } from './football.js';
-import { sanitizeLook } from '../character/looks.js';
 
 const $ = (id) => document.getElementById(id);
 const INVITE_MS = 30000;
 const HELD_ITEM = { bola: 'hand', tenis: 'racket', badminton: 'birdie' };
 const CHARGE_TIME = 1.1;
-const KEEPER_LOOK = [
-  sanitizeLook({ body: 'tall', hair: 'spiky', top: 'shirt', topColor: '#ffd43b', bottom: 'shorts', bottomColor: '#1d2333', hat: 'cap' }),
-  sanitizeLook({ body: 'tall', hair: 'bob', top: 'shirt', topColor: '#69db7c', bottom: 'shorts', bottomColor: '#1d2333', hat: 'cap' }),
-];
 const PK_KEYS = { ArrowLeft: -1, KeyA: -1, ArrowUp: 0, KeyW: 0, ArrowDown: 0, KeyS: 0, ArrowRight: 1, KeyD: 1 };
 const DIR_NAME = { '-1': 'kiri', 0: 'tengah', 1: 'kanan' };
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -801,7 +796,7 @@ export class Sports {
     const isHost = this.host && this.host.state.id === m.id;
     if (isHost) {
       copyBall(cb.pred, this.host.ball);
-      cb.held = this.host.gkHold ? -3 : this.host.held;
+      cb.held = this.host.held;
       if (this.host.hitN !== cb.hitN) {
         if (cb.hitN >= 0 && now > cb.ownUntil) this.hitSound(m, cb);
         cb.hitN = this.host.hitN;
@@ -901,11 +896,7 @@ export class Sports {
     if (!Array.isArray(list)) return;
     for (const e of list) {
       if (!Array.isArray(e) || !e.slice(1, 5).every(Number.isFinite)) continue;
-      let p = m.players.find((q) => q.id === e[0] && q.bot);
-      if (!p && (e[0] === 'gk:0' || e[0] === 'gk:1') && m.sport === 'bola') {
-        const t = e[0] === 'gk:0' ? 0 : 1;
-        p = { id: `${m.id}:${e[0]}`, name: `Kiper ${TEAM_NAMES[t]}`, color: TEAM_COLORS[t], look: KEEPER_LOOK[t] };
-      }
+      const p = m.players.find((q) => q.id === e[0] && q.bot);
       if (!p) continue;
       seen.add(p.id);
       let v = this.botViews.get(p.id);
@@ -1082,7 +1073,7 @@ export class Sports {
     if (football) {
       const st = this.ballState(m);
       // menggiring sedikit lebih lambat
-      L.speedMul = st?.mine ? 0.9 : 1;
+      L.speedMul = st?.mine ? 0.82 : 1;
       if (st?.oppOwns && !st.mine) this.setHitLabel('Rebut', 'hand');
       else this.setHitLabel('Tembak', 'kick');
       $('sp-pass').classList.toggle('dim', !(st?.mine || st?.near));
@@ -1235,8 +1226,8 @@ export class Sports {
     if (m.phase === 'lobby') mid = 'Lobi';
     else if (m.phase === 'end') mid = 'Selesai';
     else if (m.sport === 'bola' && m.mode !== 'pinalti') mid = `${Math.floor(m.left / 60)}:${String(m.left % 60).padStart(2, '0')}`;
-    else if (m.mode === 'pinalti') mid = m.pk?.shooter >= 0 ? `Tendang: ${this.short(m.players[m.pk.shooter])}` : 'Penalti';
-    else if (m.rally) mid = m.rally.stage === 'serve' ? `Servis: ${this.short(m.players[m.rally.server])}` : 'Reli';
+    else if (m.mode === 'pinalti') mid = m.pk ? `Penalti ${Math.min(m.pk.kicks[m.pk.team]?.length ?? 0, 98) + 1}` : 'Penalti';
+    else if (m.rally) mid = m.rally.stage === 'serve' ? (m.players[m.rally.server]?.id === this.myId ? 'Servismu' : 'Servis') : 'Reli';
     $('sp-clock').textContent = mid;
 
     $('sp-lobby').hidden = m.phase !== 'lobby';
@@ -1279,11 +1270,6 @@ export class Sports {
       $('sp-final').textContent = `${m.score[0]} – ${m.score[1]}`;
       $('sp-again').hidden = !isHost || teamSize(m, 0) < 1 || teamSize(m, 1) < 1;
     }
-  }
-
-  short(p) {
-    if (!p) return '';
-    return p.id === this.myId ? 'kamu' : p.name;
   }
 }
 

@@ -323,7 +323,6 @@ export class SportHost {
 
   end(team, extra = {}) {
     const s = this.state;
-    this.gkHold = null;
     s.phase = 'end';
     s.winner = team;
     this.live = false;
@@ -367,9 +366,7 @@ export class SportHost {
     Object.assign(b, newBall());
     b.y = this.P.r;
     this.held = -1;
-    this.gkHold = null;
     this.noClaim = new Map();
-    this.initKeepers();
     this.hitN++;
     this.sendBallNow = true;
     this.live = true;
@@ -604,7 +601,7 @@ export class SportHost {
     const s = this.state;
     if (s.phase !== 'play' || !this.live) return false;
     if (s.sport === 'bola') {
-      if (s.mode === 'pinalti' || kind === 'serve' || this.gkHold) return false; // penalti: lewat aksi 'pk'
+      if (s.mode === 'pinalti' || kind === 'serve') return false; // penalti: lewat aksi 'pk'
       return this.held < 0 || this.held === idx; // bola lepas, atau milik sendiri
     }
     if (this.held >= 0) return idx === this.held && kind === 'serve';
@@ -656,7 +653,7 @@ export class SportHost {
   /** Menguasai bola lepas (bola menempel di kaki). p = posisi pemain. */
   claim(idx, p) {
     const s = this.state, b = this.ball, pl = s.players[idx];
-    if (!pl || s.sport !== 'bola' || s.mode === 'pinalti' || s.phase !== 'play' || !this.live || this.held >= 0 || this.gkHold) return false;
+    if (!pl || s.sport !== 'bola' || s.mode === 'pinalti' || s.phase !== 'play' || !this.live || this.held >= 0) return false;
     const now = Date.now();
     if (now < (this.noClaim.get(pl.id) || 0)) return false;
     if (b.y > 1.0 || Math.hypot(b.vx, b.vz) > 17) return false;
@@ -667,7 +664,7 @@ export class SportHost {
     const bot = pl.bot && this.bots.get(pl.id);
     if (bot) {
       bot.ownT = 0;
-      bot.shootAt = 9 + Math.random() * 6;
+      bot.shootAt = 6 + Math.random() * 4.5;
     }
     return true;
   }
@@ -702,113 +699,6 @@ export class SportHost {
     }
     this.push({ k: 'steal', p: pl.id, from: owner.id, ok, how: kind });
     return ok;
-  }
-
-  // ---------- Kiper otomatis (mode 1v1 & 2v2) ----------
-  initKeepers() {
-    const L2 = this.f.L / 2;
-    this.keepers = this.state.mode === 'pinalti' ? [] : [0, 1].map((team) => {
-      const out = -attackDir(team); // arah gawang sendiri
-      return { team, id: `gk:${team}`, x: out * (L2 - 0.6), z: 0, vx: 0, vz: 0, ry: -out * Math.PI / 2, spd: 0, react: 0.2, dive: false, actN: 0, actK: '', stun: 0 };
-    });
-  }
-
-  updateKeepers(dt) {
-    if (!this.keepers?.length) return;
-    const s = this.state, b = this.ball, f = this.f;
-    const L2 = f.L / 2, gw = f.goalW / 2;
-    const now = Date.now();
-    for (const k of this.keepers) {
-      const out = -attackDir(k.team);
-      const homeX = out * (L2 - 0.6);
-      let tx = homeX, tz = Math.max(-gw + 0.5, Math.min(gw - 0.5, b.z * 0.45)), speed = 4.5;
-      const incoming = b.vx * out > 4 && this.held < 0 && !this.gkHold && this.live;
-      if (incoming) {
-        k.react -= dt;
-        const t = (homeX - b.x) / b.vx;
-        if (k.react <= 0 && t > 0 && t < 1.5) {
-          tz = Math.max(-gw - 0.3, Math.min(gw + 0.3, b.z + b.vz * t));
-          speed = 6.5;
-          k.dive = true;
-        }
-      } else {
-        k.react = 0.24 + Math.random() * 0.14;
-        k.dive = false;
-      }
-      if (this.gkHold?.k === k) speed = 0;
-      const dx = tx - k.x, dz = tz - k.z, d = Math.hypot(dx, dz);
-      const sp = Math.min(speed, d * 5);
-      const tvx = d > 0.03 ? (dx / d) * sp : 0, tvz = d > 0.03 ? (dz / d) * sp : 0;
-      const a = 1 - Math.exp(-(k.dive ? 18 : 8) * dt);
-      k.vx += (tvx - k.vx) * a;
-      k.vz += (tvz - k.vz) * a;
-      k.x += k.vx * dt;
-      k.z += k.vz * dt;
-      k.x = out > 0 ? Math.max(L2 - 1.6, Math.min(L2 - 0.2, k.x)) : Math.min(-L2 + 1.6, Math.max(-L2 + 0.2, k.x));
-      k.z = Math.max(-gw - 0.8, Math.min(gw + 0.8, k.z));
-      k.spd = Math.hypot(k.vx, k.vz);
-      k.ry = -out * Math.PI / 2;
-      if (!this.live || this.gkHold) continue;
-      // menangkap / menepis bola
-      const bd = Math.hypot(b.x - k.x, b.z - k.z);
-      if (this.held < 0 && bd < 0.75 && b.y < 2.1) {
-        const v = Math.hypot(b.vx, b.vy, b.vz);
-        if (v < 16) this.keeperCatch(k);
-        else {
-          b.vx = -b.vx * 0.3;
-          b.vz += (b.z - k.z) * 3 + (Math.random() - 0.5) * 3;
-          b.vy = 2.2;
-          b.x = k.x - out * 0.8;
-          this.hitN++;
-          this.sendBallNow = true;
-          k.actN++;
-          k.actK = 'wave';
-          this.push({ k: 'save', team: k.team, how: 'parry' });
-        }
-      } else if (this.held >= 0 && s.players[this.held]?.team !== k.team && bd < 0.7 && now > (k.grabCd || 0)) {
-        // menyambar bola dari kaki penyerang yang terlalu dekat
-        k.grabCd = now + 800;
-        if (Math.random() < 0.55) {
-          this.noClaim.set(s.players[this.held].id, now + 700);
-          this.held = -1;
-          this.keeperCatch(k);
-        }
-      }
-    }
-    if (this.gkHold && now > this.gkHold.until) this.keeperDistribute();
-  }
-
-  keeperCatch(k) {
-    const b = this.ball;
-    this.gkHold = { k, until: Date.now() + 1100 };
-    b.vx = b.vy = b.vz = 0;
-    this.hitN++;
-    this.sendBallNow = true;
-    k.actN++;
-    k.actK = 'wave';
-    this.push({ k: 'save', team: k.team, how: 'catch' });
-  }
-
-  /** Kiper mengumpan ke kawan terdekat (atau menendang jauh ke depan). */
-  keeperDistribute() {
-    const s = this.state, b = this.ball, k = this.gkHold.k;
-    this.gkHold = null;
-    const bodies = this.bodies();
-    const dir = attackDir(k.team);
-    const mates = s.players.map((p, i) => (p.team === k.team ? bodies[i] : null)).filter(Boolean);
-    b.x = k.x + dir * 0.6;
-    b.z = k.z;
-    b.y = this.P.r;
-    const tg = pickPassTarget(b.x, b.z, dir > 0 ? Math.PI / 2 : -Math.PI / 2, mates);
-    const v = tg ? passVelocity(b.x, b.z, tg.x, tg.z) : kickVelocity(dir > 0 ? Math.PI / 2 : -Math.PI / 2, 0.35, 18);
-    b.vx = v.vx;
-    b.vy = v.vy;
-    b.vz = v.vz;
-    b.rolling = false;
-    this.hitN++;
-    this.sendBallNow = true;
-    k.actN++;
-    k.actK = 'kick';
   }
 
   // ---------- Bot ----------
@@ -868,10 +758,6 @@ export class SportHost {
     const opps = s.players.map((q, i) => i).filter((i) => s.players[i].team !== p.team && bodies[i]);
     const owner = this.held >= 0 ? s.players[this.held] : null;
     const ownerPos = owner ? bodies[this.held] : null;
-    if (this.gkHold) {
-      const sp = spawnFor(s, idx);
-      return { tx: sp.x * 0.8 + (this.gkHold.k.team === p.team ? dir * 4 : 0), tz: sp.z, speed: 5 };
-    }
     const myD = Math.hypot(bot.x - b.x, bot.z - b.z);
     const closestOfTeam = !mates.some((i) => Math.hypot(bodies[i].x - b.x, bodies[i].z - b.z) < myD - 0.5);
 
@@ -889,7 +775,7 @@ export class SportHost {
         }
       }
       const dg = Math.hypot(dir * L2 - b.x, b.z);
-      if (bot.ownT > 0.35 && bot.cd <= 0 && dg < (bot.shootAt || 12)) {
+      if (bot.ownT > 0.35 && bot.cd <= 0 && dg < (bot.shootAt || 8)) {
         const aimZ = (Math.random() < 0.5 ? -1 : 1) * (gw - 0.5 - Math.random() * 0.9);
         const face = Math.atan2(dir * L2 - b.x, aimZ - b.z);
         this.botHit(bot, idx, 'kick', shotVelocity(p.team, b.x, b.z, face, 0.4 + Math.random() * 0.45));
@@ -901,7 +787,7 @@ export class SportHost {
           if (tg) this.botHit(bot, idx, 'kick', passVelocity(b.x, b.z, tg.x, tg.z));
         }
       }
-      return { tx, tz, speed: 6.4 };
+      return { tx, tz, speed: 5.8 };
     }
     // --- kawan menguasai bola: cari ruang di depan ---
     if (owner && owner.team === p.team && ownerPos) {
@@ -915,7 +801,10 @@ export class SportHost {
           this.steal(idx, 'tackle', { x: bot.x, z: bot.z });
           bot.cd = 1.1;
         }
-        return { tx: b.x, tz: b.z, speed: 6.8 };
+        // jaga dari sisi gawang sendiri (menghalangi tembakan), lalu menekan
+        const gx = -dir * L2 - b.x, gz = -b.z, gl = Math.hypot(gx, gz) || 1;
+        const off = myD > 1.6 ? 1.1 : 0;
+        return { tx: b.x + (gx / gl) * off, tz: b.z + (gz / gl) * off, speed: 6.9 };
       }
       return { tx: -dir * L2 + (b.x + dir * L2) * 0.45, tz: b.z * 0.5, speed: 6 };
     }
@@ -1043,7 +932,7 @@ export class SportHost {
       bot.stun = Math.max(0, bot.stun - dt);
       const dx = goal.tx - bot.x, dz = goal.tz - bot.z;
       const d = Math.hypot(dx, dz);
-      const sp = bot.stun > 0 ? 0 : Math.min(goal.speed, d * 4);
+      const sp = bot.stun > 0 ? 0 : Math.min(goal.speed, 1.5 * Math.min(1, d * 4) + d * 6); // tetap bisa mengejar target yang bergerak
       const tvx = d > 0.05 ? (dx / d) * sp : 0, tvz = d > 0.05 ? (dz / d) * sp : 0;
       const k = 1 - Math.exp(-(bot.stun > 0 ? 2 : bot.dive ? 16 : 9) * dt);
       bot.vx += (tvx - bot.vx) * k;
@@ -1124,13 +1013,7 @@ export class SportHost {
     if (s.phase === 'play') this.rules(now);
 
     const b = this.ball;
-    if (this.gkHold) {
-      const k = this.gkHold.k;
-      b.x = k.x + attackDir(k.team) * 0.3;
-      b.z = k.z;
-      b.y = 1.0;
-      b.vx = b.vy = b.vz = 0;
-    } else if (this.held >= 0 && s.sport === 'bola') this.carry(b);
+    if (this.held >= 0 && s.sport === 'bola') this.carry(b);
     else if (this.held >= 0) {
       // pemegang bola (servis)
       const p = s.players[this.held];
@@ -1152,29 +1035,27 @@ export class SportHost {
       }
     }
     this.updateBots(dt);
-    if (s.phase === 'play') this.updateKeepers(dt);
 
     this.ballTimer += dt;
     if ((this.sendBallNow && this.ballTimer >= 1 / 40) || this.ballTimer >= 1 / 20) {
       this.ballTimer = 0;
       this.sendBallNow = false;
-      this.publishBall([r3(b.x), r3(b.y), r3(b.z), r2(b.vx), r2(b.vy), r2(b.vz), Math.round(performance.now()), this.hitN, this.gkHold ? -3 : this.held]);
+      this.publishBall([r3(b.x), r3(b.y), r3(b.z), r2(b.vx), r2(b.vy), r2(b.vz), Math.round(performance.now()), this.hitN, this.held]);
     }
     this.botTimer += dt;
-    if ((this.bots.size || this.keepers?.length) && this.botTimer >= 1 / 15) {
+    if (this.bots.size && this.botTimer >= 1 / 15) {
       this.botTimer = 0;
       this.publishBots(this.botList());
     }
   }
 
-  /** Posisi bot & kiper untuk disiarkan: [id, x, z, ry, speed, pusing, nomorAksi, aksi]. */
+  /** Posisi bot untuk disiarkan: [id, x, z, ry, speed, pusing, nomorAksi, aksi]. */
   botList() {
     const list = [];
     for (const p of this.state.players) {
       const bot = p.bot && this.bots.get(p.id);
       if (bot) list.push([p.id, r2(bot.x), r2(bot.z), r2(bot.ry), r2(bot.spd), bot.stun > 0 ? 1 : 0, bot.actN, bot.actK]);
     }
-    if (this.state.phase !== 'lobby') for (const k of this.keepers || []) list.push([k.id, r2(k.x), r2(k.z), r2(k.ry), r2(k.spd), 0, k.actN, k.actK]);
     return list;
   }
 
