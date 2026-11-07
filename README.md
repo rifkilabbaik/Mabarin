@@ -25,7 +25,9 @@ Tanpa akun, tanpa server sendiri: game di-host gratis di **GitHub Pages**, konek
 | Lompat | `Spasi` | Tombol panah atas |
 | Dash / Sleding | `Q` / `C` (saat lari) | Tombol dash / sleding (di lapangan) |
 | Item | `1`–`6` pilih, klik / `F` pakai | Tombol item & tombol pakai |
-| Tendang / pukul (lapangan) | Tahan klik / `F`, lepas untuk menendang | Tahan tombol Tendang / Pukul |
+| Tembak / pukul (lapangan) | Tahan klik / `F`, lepas | Tahan tombol Tembak / Pukul |
+| Umpan (sepak bola) | `E` / klik kanan | Tombol Umpan |
+| Penalti | Tahan `←` `↑` `→` (penendang) / tekan (kiper) | Tombol Kiri / Tengah / Kanan |
 | Duduk | `E` | Tombol Duduk (muncul dekat kursi) |
 | Game | `G` | Tombol kartu (kanan atas) |
 | Mikrofon | `V` | Tombol mikrofon (kanan atas) |
@@ -52,9 +54,16 @@ Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player
 
 Lapangan ada di utara perkemahan (lihat peta). Satu pertandingan per lapangan.
 
-- **Arahkan dengan kamera, tahan untuk tenaga**: arah tendangan/pukulan mengikuti arah kamera; makin lama ditahan makin keras. Untuk sepak bola, kamera lebih mendatar = bola melambung.
-- **Sepak Bola 1v1 / 2v2**: 3 menit atau yang pertama mencetak 5 gol. Bola terdorong saat disentuh (menggiring), **sleding** merebut bola dan menjatuhkan lawan.
-- **Adu Penalti**: 5 tendangan bergantian + sudden death. Kiper bergerak di garis gawang — pakai **dash** untuk menepis.
+- **Sepak Bola 1v1 / 2v2** (kontrol ala game bola konsol): 3 menit atau yang pertama mencetak 5 gol, tiap gawang dijaga **kiper otomatis**.
+  - Dekati bola untuk **menguasainya** — bola menempel di kaki saat menggiring (lari sedikit lebih lambat).
+  - **Tembak**: tahan lalu lepas. Arah mengikuti hadapan pemain (otomatis ke dalam gawang), makin lama ditahan makin keras; meteran merah = melambung di atas mistar. Kiper menangkap tembakan pelan dan menepis yang keras — incar pojok.
+  - **Umpan**: otomatis ke kawan yang paling searah hadapanmu (1v1: menyodok bola ke depan).
+  - **Rebut**: tombol tembak saat lawan menguasai bola = menerjang (peluang berhasil), **sleding** selalu melepaskan bola dan menjatuhkan lawan.
+  - Kamera otomatis mengarah ke gawang lawan bila tidak diputar.
+- **Adu Penalti** (tebak arah): 5 tendangan bergantian + sudden death.
+  - Penendang **menahan** tombol Kiri / Tengah / Kanan lalu melepasnya; lama menahan = tenaga. Terlalu keras = melambung.
+  - Kiper menebak Kiri / Tengah / Kanan sebelum bola ditendang. Tebakan benar = ditepis, kecuali tendangan keras ke pojok (kadang tetap tembus). Tebakan salah = gol.
+- **Tenis & bulu tangkis**: arah pukulan mengikuti kamera, tahan untuk tenaga.
 - **Tenis**: servis dari belakang garis, harus masuk kotak servis (2 kesempatan). Bola boleh memantul sekali. Pertama mencapai 7 poin (selisih 2). Cincin kuning menunjukkan perkiraan jatuhnya bola; meteran hijau = masih masuk.
 - **Bulu Tangkis**: kok melambat cepat di udara, tidak memantul. Pertama mencapai 11 poin (selisih 2, maks. 15).
 
@@ -118,7 +127,7 @@ Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyia
 | `vc` (player state) | status voice: 0 tidak ikut, 1 mendengar, 2 mikrofon menyala | reliable |
 | `cg` (player state bandar) | state meja game | reliable |
 | `sp` (player state tuan rumah) | state pertandingan (tim, skor, fase, servis, penalti) | reliable |
-| `sb` / `sbt` (player state tuan rumah) | bola `[x,y,z,vx,vy,vz,t,hitN,held]` / posisi bot lapangan | unreliable |
+| `sb` / `sbt` (player state tuan rumah) | bola `[x,y,z,vx,vy,vz,t,hitN,pemilik]` / posisi bot & kiper | unreliable |
 | `chat`, `act`, `bonk` (RPC) | pesan chat, animasi aksi, bonk | reliable |
 | `cg`, `cg-inv`, `sp-a`, `sp-inv`, `sp-tk` (RPC) | aksi & undangan game meja / lapangan, sleding | reliable |
 | `vs` (RPC) | sinyal WebRTC voice chat (offer/answer) | reliable |
@@ -144,7 +153,8 @@ src/
   tablegames/games/          kilat, gertak, catur, dam, ludo (+ file aturan)
   sports/fields.js           visual lapangan bola, tenis, bulu tangkis
   sports/physics.js          fisika bola/kok, solusi lintasan pukulan
-  sports/SportHost.js        aturan pertandingan, skor, bot (di perangkat tuan rumah)
+  sports/football.js         tembakan & umpan otomatis, penguasaan bola, penalti tebak arah
+  sports/SportHost.js        aturan pertandingan, skor, bot & kiper otomatis (di perangkat tuan rumah)
   sports/Sports.js           lobi, undangan, prediksi bola, tendang/pukul, papan skor
   net/PlayroomNetwork.js     koneksi Playroom (publik / privat / undangan)
   net/LocalNetwork.js        mode offline (BroadcastChannel antar tab)

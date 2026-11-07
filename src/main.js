@@ -125,7 +125,12 @@ const input = new InputManager({
     else items.use();
   },
   onUseEnd: () => state === 'playing' && sports.releaseHit(),
-  onInteract: () => state === 'playing' && !sports.active && items.interact(),
+  onInteract: () => {
+    if (state !== 'playing') return;
+    if (sports.active) sports.pass();
+    else items.interact();
+  },
+  onAlt: () => state === 'playing' && sports.active && sports.pass(),
   onDash: () => state === 'playing' && input.enabled && sports.dash(),
   onSlide: () => state === 'playing' && input.enabled && sports.slide(),
   onVoice: () => state === 'playing' && voice.toggle(),

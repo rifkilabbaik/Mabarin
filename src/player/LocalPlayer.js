@@ -37,6 +37,7 @@ export class LocalPlayer {
     this.slideCd = 0;
     this.gaze = { yaw: 0, pitch: 0 };
     this.immune = false;
+    this.speedMul = 1; // pengali kecepatan (mis. saat menggiring bola)
     this.lastStepPhase = 0;
     this.syncMesh();
   }
@@ -156,6 +157,7 @@ export class LocalPlayer {
     const wading = !this.swimming && ground < w.waterLevel - 0.3;
     let maxSpeed = this.swimming ? P.swimSpeed : input.run ? P.runSpeed : P.walkSpeed;
     if (wading) maxSpeed *= 0.7;
+    maxSpeed *= this.speedMul;
     const coasting = stunned || this.slideT > 0 || this.dashT > 0;
     const targetVX = coasting ? vel.x * 0.6 : wx * maxSpeed * mag;
     const targetVZ = coasting ? vel.z * 0.6 : wz * maxSpeed * mag;

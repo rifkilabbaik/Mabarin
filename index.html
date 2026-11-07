@@ -173,9 +173,18 @@
         <button id="sp-leave" class="icon-btn" type="button" aria-label="Tinggalkan pertandingan" title="Keluar" data-icon="logout"></button>
       </div>
       <div id="sp-charge" aria-hidden="true"><span class="sp-zone"></span><span class="sp-fill"></span></div>
-      <button id="sp-slide" class="touch-btn sp-skill slide" type="button" aria-label="Sleding" data-icon="slide"></button>
-      <button id="sp-dash" class="touch-btn sp-skill dash" type="button" aria-label="Dash" data-icon="dash"></button>
-      <button id="sp-hit" class="touch-btn use" type="button" aria-label="Tendang / pukul"></button>
+      <button id="sp-slide" class="touch-btn sp-skill sp-act slide" type="button" aria-label="Sleding" data-icon="slide"></button>
+      <button id="sp-dash" class="touch-btn sp-skill sp-act dash" type="button" aria-label="Dash" data-icon="dash"></button>
+      <button id="sp-hit" class="touch-btn use sp-act" type="button" aria-label="Tembak / pukul"></button>
+      <button id="sp-pass" class="touch-btn sp-act sp-pass" type="button" aria-label="Umpan"></button>
+      <div id="sp-pk" hidden>
+        <p id="sp-pk-hint"></p>
+        <div class="sp-pk-row">
+          <button type="button" data-d="-1"><i data-icon="arrowRight" class="flip"></i><span>Kiri</span></button>
+          <button type="button" data-d="0"><i data-icon="arrowRight" class="up"></i><span>Tengah</span></button>
+          <button type="button" data-d="1"><i data-icon="arrowRight"></i><span>Kanan</span></button>
+        </div>
+      </div>
       <div id="sp-lobby" class="cu-panel" hidden>
         <h3><i id="sp-icon" data-icon="ball"></i><span id="sp-title">Olahraga</span></h3>
         <div class="sp-teams">
@@ -223,7 +232,8 @@
           <dt><kbd>E</kbd></dt><dd>Duduk / berdiri</dd>
           <dt><kbd>Q</kbd></dt><dd>Dash</dd>
           <dt><kbd>C</kbd></dt><dd>Sleding (saat lari)</dd>
-          <dt>Tahan <kbd>F</kbd> / klik</dt><dd>Tendang / pukul (di lapangan)</dd>
+          <dt>Tahan <kbd>F</kbd> / klik</dt><dd>Tembak / pukul (di lapangan)</dd>
+          <dt><kbd>E</kbd> / klik kanan</dt><dd>Umpan (sepak bola)</dd>
           <dt><kbd>G</kbd></dt><dd>Game</dd>
           <dt><kbd>Enter</kbd></dt><dd>Chat</dd>
           <dt><kbd>V</kbd></dt><dd>Mikrofon (voice chat)</dd>

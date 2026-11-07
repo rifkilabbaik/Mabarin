@@ -2,17 +2,25 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { Character } from '../character/Character.js';
 import { icon } from '../ui/icons.js';
-import { clamp, damp, dampAngle } from '../utils/math.js';
+import { clamp, damp, dampAngle, wrapAngle } from '../utils/math.js';
 import { BALLS, newBall, copyBall, advance, solveShot, kickVelocity, pushBall } from './physics.js';
 import {
   SPORT_DEFS, TEAM_SIDE, TEAM_COLORS, TEAM_NAMES, SportHost, spawnFor, clampToArea, racketTarget,
   chargeWindow, shotAngles, REACH, teamSize,
 } from './SportHost.js';
+import { CARRY, CLAIM_R, OVER, shotVelocity, passVelocity, pickPassTarget, pkDiveZ } from './football.js';
+import { sanitizeLook } from '../character/looks.js';
 
 const $ = (id) => document.getElementById(id);
 const INVITE_MS = 30000;
 const HELD_ITEM = { bola: 'hand', tenis: 'racket', badminton: 'birdie' };
 const CHARGE_TIME = 1.1;
+const KEEPER_LOOK = [
+  sanitizeLook({ body: 'tall', hair: 'spiky', top: 'shirt', topColor: '#ffd43b', bottom: 'shorts', bottomColor: '#1d2333', hat: 'cap' }),
+  sanitizeLook({ body: 'tall', hair: 'bob', top: 'shirt', topColor: '#69db7c', bottom: 'shorts', bottomColor: '#1d2333', hat: 'cap' }),
+];
+const PK_KEYS = { ArrowLeft: -1, KeyA: -1, ArrowUp: 0, KeyW: 0, ArrowDown: 0, KeyS: 0, ArrowRight: 1, KeyD: 1 };
+const DIR_NAME = { '-1': 'kiri', 0: 'tengah', 1: 'kanan' };
 const r2 = (v) => Math.round(v * 100) / 100;
 
 /**
@@ -43,6 +51,13 @@ export class Sports {
     this.swingT = 0;
     this.touchAt = 0;
     this.tackled = false;
+    this.claimAt = 0;
+    this.noClaimUntil = 0;
+    this.tackleCd = 0;
+    this.camManualAt = 0;
+    this.lastCamYaw = null;
+    this.keepChoice = null;
+    this.pkKey = null;
     this.lastReset = -1;
     this.lastEvN = -1;
     this.lastPhase = null;
@@ -114,14 +129,14 @@ export class Sports {
     const f = this.fields[sport];
     if (id === this.myId) {
       const p = this.local.position, v = this.local.velocity;
-      return { x: p.x - f.x, y: p.y - f.y, z: p.z - f.z, vx: v.x, vz: v.z };
+      return { x: p.x - f.x, y: p.y - f.y, z: p.z - f.z, vx: v.x, vz: v.z, ry: this.local.facing };
     }
     const bv = this.botViews.get(id);
-    if (bv) return { x: bv.x - f.x, y: 0, z: bv.z - f.z, vx: 0, vz: 0 };
+    if (bv) return { x: bv.x - f.x, y: 0, z: bv.z - f.z, vx: Math.sin(bv.ry) * bv.spd, vz: Math.cos(bv.ry) * bv.spd, ry: bv.ry };
     const rp = this.remotes.get(id);
     if (!rp?.hasPose) return null;
     const r = rp.render;
-    return { x: r.x - f.x, y: r.y - f.y, z: r.z - f.z, vx: Math.sin(r.ry) * r.spd, vz: Math.cos(r.ry) * r.spd };
+    return { x: r.x - f.x, y: r.y - f.y, z: r.z - f.z, vx: Math.sin(r.ry) * r.spd, vz: Math.cos(r.ry) * r.spd, ry: r.ry };
   }
 
   myIndex(m = this.match) {
@@ -276,8 +291,25 @@ export class Sports {
       el.addEventListener('pointerleave', end);
     };
     hold($('sp-hit'), () => this.pressHit(), () => this.releaseHit());
+    hold($('sp-pass'), () => this.pass());
     hold($('sp-dash'), () => this.dash());
     hold($('sp-slide'), () => this.slide());
+    // adu penalti: tombol kiri / tengah / kanan
+    for (const b of $('sp-pk').querySelectorAll('button')) {
+      const d = Number(b.dataset.d);
+      hold(b, () => this.pkPress(d), () => this.pkRelease(d));
+    }
+    const typing = (e) => /INPUT|TEXTAREA/.test(e.target?.tagName || '');
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat || typing(e) || !(e.code in PK_KEYS) || !this.pkRole()) return;
+      this.pkKey = e.code;
+      this.pkPress(PK_KEYS[e.code]);
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code !== this.pkKey) return;
+      this.pkKey = null;
+      this.pkRelease(PK_KEYS[e.code]);
+    });
   }
 
   // ---------- Masuk / keluar ----------
@@ -311,9 +343,18 @@ export class Sports {
     const mode = def.modes.find((x) => x.id === m.mode);
     $('sp-title').textContent = `${def.name} · ${mode?.name || ''}`;
     const bola = m.sport === 'bola';
-    $('sp-hit').innerHTML = `${icon(bola ? 'kick' : def.icon)}<span class="lbl">${bola ? 'Tendang' : 'Pukul'}</span>`;
-    $('sp-help').innerHTML = `<kbd>F</kbd>/klik tahan: ${bola ? 'tendang' : 'pukul'} · <kbd>Q</kbd> dash${bola ? ' · <kbd>C</kbd> sleding' : ''}`;
+    $('sport-ui').dataset.mode = m.mode;
+    document.body.classList.toggle('sport-pk', m.mode === 'pinalti');
+    this.hitLabel = '';
+    this.setHitLabel(bola ? 'Tembak' : 'Pukul', bola ? 'kick' : def.icon);
+    $('sp-pass').innerHTML = `${icon('arrowRight')}<span class="lbl">Umpan</span>`;
+    $('sp-help').innerHTML = m.mode === 'pinalti'
+      ? 'Penendang: tahan <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> lalu lepas · Kiper: tebak <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd>'
+      : bola
+        ? 'Tahan <kbd>F</kbd>/klik: tembak · <kbd>E</kbd>/klik kanan: umpan · <kbd>F</kbd> tanpa bola: rebut · <kbd>Q</kbd> dash · <kbd>C</kbd> sleding'
+        : '<kbd>F</kbd>/klik tahan: pukul · <kbd>Q</kbd> dash';
     $('sp-slide').hidden = !bola;
+    $('sp-pass').hidden = !bola;
     this.input.exitLock();
     this.onEnter?.();
   }
@@ -321,11 +362,13 @@ export class Sports {
   exit(reason) {
     if (!this.match) return;
     this.match = null;
+    this.local.speedMul = 1;
+    $('sp-pk').hidden = true;
     this.charging = false;
     this.swingT = 0;
     this.target.visible = false;
     this.local.immune = false;
-    document.body.classList.remove('in-sport');
+    document.body.classList.remove('in-sport', 'sport-pk');
     $('sport-ui').hidden = true;
     $('sp-lobby').hidden = true;
     $('sp-end').hidden = true;
@@ -347,27 +390,205 @@ export class Sports {
   }
 
   // ---------- Input ----------
+  setHitLabel(text, ic) {
+    const key = text + ic;
+    if (key === this.hitLabel) return;
+    this.hitLabel = key;
+    $('sp-hit').innerHTML = `${icon(ic)}<span class="lbl">${text}</span>`;
+  }
+
   pressHit() {
     if (!this.playing) return;
+    const m = this.match;
+    if (m.sport === 'bola') {
+      if (m.mode === 'pinalti') return; // penalti memakai tombol arah
+      const st = this.ballState(m);
+      if (st && st.oppOwns) {
+        this.tackle(m, st);
+        return;
+      }
+    }
     this.charging = true;
+    this.chargeKind = 'hit';
     this.chargeAt = performance.now();
     this.charge = 0;
   }
 
   releaseHit() {
-    if (!this.charging) return;
+    if (!this.charging || this.chargeKind !== 'hit') return;
     this.charge = Math.min(1, (performance.now() - this.chargeAt) / 1000 / CHARGE_TIME);
     this.charging = false;
-    this.swing(this.charge);
+    if (this.match?.sport === 'bola') this.shoot(this.charge);
+    else this.swing(this.charge);
   }
 
   dash() {
+    if (this.match?.mode === 'pinalti') return;
     if (this.local?.dash() && this.match) this.net.sendEvent('act', { k: 'dash' });
   }
 
   slide() {
-    if (this.match && this.match.sport !== 'bola') return;
+    if (this.match && (this.match.sport !== 'bola' || this.match.mode === 'pinalti')) return;
     this.local?.slide();
+  }
+
+  // ---------- Sepak bola: kuasai, giring, umpan, tembak, rebut ----------
+  /** Siapa yang menguasai bola (dengan prediksi klaim kita sendiri). */
+  holderOf(cb, idx, now = performance.now()) {
+    return idx >= 0 && now < cb.claimUntil ? idx : cb.held;
+  }
+
+  ballState(m) {
+    const cb = this.balls.get(m.id);
+    const idx = this.myIndex(m);
+    if (!cb || idx < 0) return null;
+    const team = m.players[idx].team;
+    const holder = this.holderOf(cb, idx);
+    const me = this.local2(m);
+    const b = this.ballLocal(cb);
+    const d = Math.hypot(b.x - me.x, b.z - me.z);
+    const near = cb.held === -1 && d < REACH.bola + (this.local.slideT > 0 ? 0.3 : 0) && b.y - me.y < 0.95;
+    return { cb, idx, team, me, b, d, mine: holder === idx, near, oppOwns: holder >= 0 && m.players[holder]?.team !== team };
+  }
+
+  /** Posisi bola di kaki kita. */
+  feetBall(m) {
+    const me = this.local2(m);
+    const a = this.local.facing;
+    return { x: me.x + Math.sin(a) * CARRY, y: BALLS.bola.r, z: me.z + Math.cos(a) * CARRY };
+  }
+
+  kickBall(m, st, v, power) {
+    const b = st.mine ? this.feetBall(m) : st.b;
+    this.local.character.playAction('kick');
+    this.net.sendEvent('act', { k: 'kick' });
+    this.audio.play('kick', { strength: 0.35 + power * 0.65 });
+    st.cb.held = -1;
+    st.cb.claimUntil = 0;
+    this.noClaimUntil = performance.now() + 350;
+    this.sendHit(m, st.cb, 'kick', b, v);
+  }
+
+  /** Tembak ke gawang lawan: arah dari hadapan pemain, tenaga dari lama menahan. */
+  shoot(c) {
+    const m = this.match;
+    if (!m || m.phase !== 'play') return;
+    const st = this.ballState(m);
+    if (!st) return;
+    if (st.mine || st.near) {
+      const b = st.mine ? this.feetBall(m) : st.b;
+      this.kickBall(m, st, shotVelocity(st.team, b.x, b.z, this.local.facing, c), c);
+      return;
+    }
+    // bola belum sampai: tendang langsung saat bola datang (sepersekian detik)
+    this.local.character.playAction('kick');
+    this.net.sendEvent('act', { k: 'kick' });
+    this.swingT = 0.22;
+    this.swingC = c;
+  }
+
+  /** Umpan ke kawan yang paling searah hadapan; tanpa kawan = sodok bola ke depan. */
+  pass() {
+    const m = this.match;
+    if (!m || m.phase !== 'play' || m.sport !== 'bola' || m.mode === 'pinalti') return;
+    const st = this.ballState(m);
+    if (!st || !(st.mine || st.near)) return;
+    const b = st.mine ? this.feetBall(m) : st.b;
+    const mates = m.players.filter((p) => p.team === st.team && p.id !== this.myId).map((p) => this.posOf(p.id, m.sport));
+    const tg = pickPassTarget(b.x, b.z, this.local.facing, mates);
+    const v = tg ? passVelocity(b.x, b.z, tg.x, tg.z) : kickVelocity(this.local.facing, 0.02, 9);
+    this.kickBall(m, st, v, 0.3);
+  }
+
+  /** Rebut bola: menerjang ke arah bola yang dikuasai lawan. */
+  tackle(m, st) {
+    const now = performance.now();
+    if (now < this.tackleCd) return;
+    this.tackleCd = now + 900;
+    const L = this.local;
+    if (st.d < 3) L.facing = Math.atan2(st.b.x - st.me.x, st.b.z - st.me.z);
+    L.velocity.x = Math.sin(L.facing) * 8.5;
+    L.velocity.z = Math.cos(L.facing) * 8.5;
+    L.dashT = 0.16;
+    L.syncMesh();
+    L.character.playAction('kick');
+    this.net.sendEvent('act', { k: 'kick' });
+    this.audio.play('whoosh', { volume: 0.6 });
+    if (st.d < 1.9) this.sendSteal(m, st.idx, 'tackle');
+  }
+
+  sendSteal(m, idx, kind) {
+    const me = this.local2(m);
+    if (this.host && this.host.state.id === m.id) this.host.steal(idx, kind, me);
+    else this.net.sendEvent('sp-a', { m: m.id, a: 'steal', k: kind, p: [r2(me.x), r2(me.z)] });
+  }
+
+  /** Menguasai bola lepas yang menyentuh kaki. */
+  autoClaim(m, cb, now) {
+    if (m.mode === 'pinalti' || cb.held !== -1 || now < cb.claimUntil || now < this.noClaimUntil || now < this.claimAt) return;
+    const L = this.local;
+    if (L.slideT > 0 || L.stunT > 0) return;
+    const b = this.ballLocal(cb);
+    const me = this.local2(m);
+    if (b.y - me.y > 0.8 || Math.hypot(b.x - me.x, b.z - me.z) > CLAIM_R) return;
+    if (Math.hypot(cb.pred.vx - L.velocity.x, cb.pred.vz - L.velocity.z) > 15) return;
+    this.claimAt = now + 250;
+    const idx = this.myIndex(m);
+    if (this.host && this.host.state.id === m.id) {
+      if (this.host.claim(idx, me)) cb.held = idx;
+      return;
+    }
+    cb.claimUntil = now + 500;
+    this.net.sendEvent('sp-a', { m: m.id, a: 'own', p: [r2(me.x), r2(me.z)] });
+  }
+
+  // ---------- Adu penalti ----------
+  pkRole() {
+    const m = this.match;
+    if (!m || m.mode !== 'pinalti' || m.phase !== 'play' || m.pk?.stage !== 'aim') return null;
+    const idx = this.myIndex(m);
+    return m.pk.shooter === idx ? 'shooter' : m.pk.keeper === idx ? 'keeper' : null;
+  }
+
+  pkPress(d) {
+    const role = this.pkRole();
+    if (role === 'keeper') {
+      this.keepChoice = d;
+      this.act({ a: 'keep', d: -d }); // kanan kiper = sisi -z lapangan
+      this.audio.play('click');
+      this.renderPk();
+    } else if (role === 'shooter' && !this.charging) {
+      this.charging = true;
+      this.chargeKind = 'pk';
+      this.pkDir = d;
+      this.chargeAt = performance.now();
+      this.charge = 0;
+      this.renderPk();
+    }
+  }
+
+  pkRelease(d) {
+    if (!this.charging || this.chargeKind !== 'pk' || d !== this.pkDir) return;
+    this.charging = false;
+    const c = Math.min(1, (performance.now() - this.chargeAt) / 1000 / CHARGE_TIME);
+    if (this.pkRole() !== 'shooter') return;
+    this.local.character.playAction('kick');
+    this.net.sendEvent('act', { k: 'kick' });
+    this.act({ a: 'pk', d, c: Math.round(c * 100) / 100 }); // kanan penendang = sisi +z lapangan
+    this.renderPk();
+  }
+
+  renderPk() {
+    const role = this.pkRole();
+    const el = $('sp-pk');
+    el.hidden = !role;
+    if (!role) return;
+    el.dataset.role = role;
+    const pick = role === 'keeper' ? this.keepChoice : this.charging && this.chargeKind === 'pk' ? this.pkDir : null;
+    for (const b of el.querySelectorAll('button')) b.classList.toggle('on', Number(b.dataset.d) === pick);
+    $('sp-pk-hint').textContent = role === 'keeper'
+      ? this.keepChoice === null ? 'Tebak arah tendangan lawan' : `Kamu menjaga ${DIR_NAME[this.keepChoice]}`
+      : 'Tahan arah tendangan, lepas untuk menendang';
   }
 
   // ---------- Tendang / pukul ----------
@@ -407,7 +628,7 @@ export class Sports {
   }
 
   tryContact(m, cb) {
-    if (cb.held >= 0) return false;
+    if (cb.held !== -1) return false;
     const idx = this.myIndex(m);
     const team = m.players[idx]?.team;
     if (team === undefined) return false;
@@ -418,16 +639,16 @@ export class Sports {
     const c = this.swingC;
     let v, kind;
     if (m.sport === 'bola') {
-      const pk = m.mode === 'pinalti' ? m.pk : null;
-      if (pk && !((pk.stage === 'aim' && pk.shooter === idx) || (pk.stage === 'flight' && pk.keeper === idx))) return false;
+      if (m.mode === 'pinalti') return false;
       const reach = REACH.bola + (this.local.slideT > 0 ? 0.3 : 0);
-      if (h < 0.95 && d < reach) {
-        const elev = clamp((0.42 - this.swingPitch) * 1.1, 0, 0.75) * Math.min(1, 0.35 + c);
-        v = kickVelocity(this.swingYaw, elev, 5.5 + c * 20.5);
-      } else if (h >= 0.95 && h < 2.1 && d < 0.85) {
-        v = kickVelocity(this.swingYaw, 0.12, 6 + c * 7); // sundulan
+      if (h < 0.95 && d < reach) v = shotVelocity(team, b.x, b.z, this.local.facing, c); // tendangan langsung
+      else if (h >= 0.95 && h < 2.1 && d < 0.85) {
+        const s = shotVelocity(team, b.x, b.z, this.local.facing, 0.3); // sundulan
+        v = { vx: s.vx * 0.6, vy: 1.5, vz: s.vz * 0.6 };
       } else return false;
       kind = 'kick';
+      cb.held = -1;
+      this.noClaimUntil = performance.now() + 350;
       this.audio.play('kick', { strength: 0.4 + c * 0.6 });
     } else {
       const r = m.rally;
@@ -478,18 +699,10 @@ export class Sports {
 
   /** Tubuh kita mendorong bola (menggiring, menghalangi, menepis). */
   bodyTouch(m, cb, now) {
-    if (m.sport !== 'bola' || cb.held >= 0) return;
+    if (m.sport !== 'bola' || m.mode === 'pinalti' || cb.held !== -1 || now < cb.claimUntil || now < this.noClaimUntil) return;
     const idx = this.myIndex(m);
     const L = this.local;
     let R = CONFIG.player.radius + BALLS.bola.r, H = 1.4, pow = 1;
-    const pk = m.mode === 'pinalti' ? m.pk : null;
-    if (pk) {
-      const moving = Math.hypot(cb.pred.vx, cb.pred.vz) > 1;
-      if (pk.keeper !== idx || !(pk.stage === 'flight' || (pk.stage === 'aim' && moving))) return;
-      R += 0.25;
-      H = 1.9;
-      pow = 1.25;
-    }
     if (L.slideT > 0) {
       R += 0.3;
       H = 0.7;
@@ -520,9 +733,18 @@ export class Sports {
     const L = this.local;
     if (L.slideT <= 0) {
       this.tackled = false;
+      this.slideStole = false;
       return;
     }
-    if (this.tackled || m.sport !== 'bola' || m.mode === 'pinalti') return;
+    if (m.sport !== 'bola' || m.mode === 'pinalti') return;
+    if (!this.slideStole) {
+      const st = this.ballState(m);
+      if (st?.oppOwns && st.d < 1.5) {
+        this.slideStole = true;
+        this.sendSteal(m, st.idx, 'slide');
+      }
+    }
+    if (this.tackled) return;
     const idx = this.myIndex(m);
     const team = m.players[idx].team;
     const me = this.local2(m);
@@ -567,7 +789,7 @@ export class Sports {
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(BALLS[m.sport].r * 1.3, 14), new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.3, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2;
     this.scene.add(mesh, shadow);
-    cb = { mesh, shadow, sport: m.sport, pred: newBall(), off: new THREE.Vector3(), lastT: -1, hitN: -1, held: -1, ownUntil: 0, prevVy: 0 };
+    cb = { mesh, shadow, sport: m.sport, pred: newBall(), off: new THREE.Vector3(), lastT: -1, hitN: -1, held: -1, ownUntil: 0, claimUntil: 0, prevVy: 0 };
     cb.pred.y = BALLS[m.sport].r;
     this.balls.set(m.id, cb);
     return cb;
@@ -579,7 +801,7 @@ export class Sports {
     const isHost = this.host && this.host.state.id === m.id;
     if (isHost) {
       copyBall(cb.pred, this.host.ball);
-      cb.held = this.host.held;
+      cb.held = this.host.gkHold ? -3 : this.host.held;
       if (this.host.hitN !== cb.hitN) {
         if (cb.hitN >= 0 && now > cb.ownUntil) this.hitSound(m, cb);
         cb.hitN = this.host.hitN;
@@ -608,10 +830,12 @@ export class Sports {
             cb.hitN = sb[7];
             cb.ownUntil = 0;
           }
+          cb.held = sb[8] | 0;
+          const myIdx = this.myIndex(m);
+          if (cb.held === myIdx && myIdx >= 0) cb.claimUntil = 0; // klaim kita dikonfirmasi
         }
-        cb.held = sb[8];
       }
-      if (cb.held < 0) advance(cb.pred, m.sport, f, dt);
+      if (cb.held === -1 && !(now < cb.claimUntil)) advance(cb.pred, m.sport, f, dt);
     }
     cb.off.multiplyScalar(Math.exp(-7 * dt));
 
@@ -621,7 +845,20 @@ export class Sports {
 
     const mesh = cb.mesh;
     let x = f.x + cb.pred.x + cb.off.x, y = f.y + cb.pred.y + cb.off.y, z = f.z + cb.pred.z + cb.off.z;
-    if (cb.held >= 0 && m.players[cb.held]?.id === this.myId) {
+    const holder = this.holderOf(cb, this.myIndex(m), now);
+    if (m.sport === 'bola' && holder >= 0 && m.players[holder]) {
+      // bola menempel di kaki pemilik (posisi yang kita lihat, tanpa jeda tambahan)
+      const o = this.posOf(m.players[holder].id, m.sport);
+      if (o) {
+        x = f.x + o.x + Math.sin(o.ry) * CARRY;
+        z = f.z + o.z + Math.cos(o.ry) * CARRY;
+        y = f.y + BALLS.bola.r;
+        cb.pred.x = x - f.x;
+        cb.pred.z = z - f.z;
+        cb.pred.y = BALLS.bola.r;
+        cb.off.set(0, 0, 0);
+      }
+    } else if (cb.held >= 0 && m.players[cb.held]?.id === this.myId) {
       // bola di tangan kita sendiri: ikuti posisi lokal tanpa jeda
       const side = TEAM_SIDE[m.players[cb.held].team];
       x = this.local.position.x - side * 0.35;
@@ -664,7 +901,11 @@ export class Sports {
     if (!Array.isArray(list)) return;
     for (const e of list) {
       if (!Array.isArray(e) || !e.slice(1, 5).every(Number.isFinite)) continue;
-      const p = m.players.find((q) => q.id === e[0] && q.bot);
+      let p = m.players.find((q) => q.id === e[0] && q.bot);
+      if (!p && (e[0] === 'gk:0' || e[0] === 'gk:1') && m.sport === 'bola') {
+        const t = e[0] === 'gk:0' ? 0 : 1;
+        p = { id: `${m.id}:${e[0]}`, name: `Kiper ${TEAM_NAMES[t]}`, color: TEAM_COLORS[t], look: KEEPER_LOOK[t] };
+      }
       if (!p) continue;
       seen.add(p.id);
       let v = this.botViews.get(p.id);
@@ -673,9 +914,10 @@ export class Sports {
         const ch = new Character({ name: p.name, color: p.color, look: p.look, showName: true });
         ch.setItem(HELD_ITEM[m.sport]);
         this.scene.add(ch.root);
-        v = { ch, x: tx, z: tz, ry: e[3], actN: e[6], stun: 0 };
+        v = { ch, x: tx, z: tz, ry: e[3], actN: e[6], stun: 0, spd: 0 };
         this.botViews.set(p.id, v);
       }
+      v.spd = e[4];
       v.x = damp(v.x, tx, 14, dt);
       v.z = damp(v.z, tz, 14, dt);
       if (Math.hypot(v.x - tx, v.z - tz) > 6) {
@@ -791,15 +1033,35 @@ export class Sports {
     if (m.phase === 'play' && m.reset !== this.lastReset) {
       this.lastReset = m.reset;
       this.teleport(spawnFor(m, idx), f);
+      this.keepChoice = null;
+      this.charging = false;
+      if (m.mode === 'pinalti') this.input.exitLock(); // tombol arah bisa diklik
     }
     this.handleEvent(m);
+    const football = m.sport === 'bola' && m.mode !== 'pinalti';
+    const L = this.local;
 
     if (m.phase === 'play' && cb) {
       // batas gerak
-      const L = this.local;
       const o = { x: L.position.x - f.x, z: L.position.z - f.z };
       clampToArea(m, o, team, idx);
-      if (cb.held === idx) {
+      if (m.mode === 'pinalti') {
+        const sp = spawnFor(m, idx);
+        const pk = m.pk;
+        L.velocity.x = L.velocity.z = 0;
+        L.facing = sp.rot;
+        if (pk.keeper === idx && pk.dive !== null && pk.dive !== undefined && pk.stage !== 'aim') {
+          // kiper melompat ke arah tebakannya
+          if (this.divedFor !== m.reset) {
+            this.divedFor = m.reset;
+            L.velocity.y = 4.2;
+            L.grounded = false;
+            L.dashT = 0.3;
+          }
+          const tz = pkDiveZ(pk.dive);
+          o.z += clamp(tz - o.z, -9 * dt, 9 * dt);
+        } else o.z = sp.z;
+      } else if (cb.held === idx && m.sport !== 'bola') {
         const sp = spawnFor(m, idx);
         o.x = sp.x;
         o.z = sp.z;
@@ -813,8 +1075,30 @@ export class Sports {
         this.swingT -= dt;
         this.tryContact(m, cb);
       }
+      if (football) this.autoClaim(m, cb, now);
       this.bodyTouch(m, cb, now);
       this.tackles(m);
+    }
+    if (football) {
+      const st = this.ballState(m);
+      // menggiring sedikit lebih lambat
+      L.speedMul = st?.mine ? 0.9 : 1;
+      if (st?.oppOwns && !st.mine) this.setHitLabel('Rebut', 'hand');
+      else this.setHitLabel('Tembak', 'kick');
+      $('sp-pass').classList.toggle('dim', !(st?.mine || st?.near));
+      // kamera pelan-pelan mengarah ke gawang lawan bila tidak sedang diputar pemain
+      if (m.phase === 'play') {
+        if (this.lastCamYaw !== null && Math.abs(wrapAngle(this.camRig.yaw - this.lastCamYaw)) > 1e-4) this.camManualAt = now;
+        if (now - this.camManualAt > 1500) this.camRig.yaw = dampAngle(this.camRig.yaw, (team === 0 ? Math.PI / 2 : -Math.PI / 2) + Math.PI, 1.6, dt);
+        this.lastCamYaw = this.camRig.yaw;
+      }
+    }
+    if (m.mode === 'pinalti') {
+      const sig = `${this.pkRole()}|${this.keepChoice}|${this.charging}|${this.pkDir}`;
+      if (sig !== this.pkSig) {
+        this.pkSig = sig;
+        this.renderPk();
+      }
     }
 
     // meteran tenaga
@@ -879,7 +1163,20 @@ export class Sports {
         break;
       case 'miss':
         this.audio.play('whistle');
-        this.flash(ev.why === 'timeout' ? 'Waktu habis' : ev.why === 'save' ? 'Ditepis!' : 'Meleset!');
+        this.flash(ev.why === 'timeout' ? 'Waktu habis' : ev.why === 'save' ? 'Ditepis kiper!' : ev.why === 'over' ? 'Melambung!' : 'Meleset!');
+        break;
+      case 'steal':
+        if (ev.p === this.myId) {
+          this.flash(ev.ok ? 'Bola direbut!' : 'Gagal merebut');
+          if (ev.ok) this.audio.play('kick', { strength: 0.4 });
+        } else if (ev.from === this.myId && ev.ok) {
+          this.flash('Bola direbut lawan!');
+          this.noClaimUntil = performance.now() + 700;
+        }
+        break;
+      case 'save':
+        this.audio.play('kick', { strength: 0.5 });
+        this.flash(ev.how === 'catch' ? 'Ditangkap kiper!' : 'Ditepis kiper!');
         break;
       case 'out':
         this.audio.play('whistle');

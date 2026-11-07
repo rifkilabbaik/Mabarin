@@ -15,7 +15,8 @@ const KEY_MAP = {
  *  - HP/Tablet : joystick virtual (kiri), geser area kanan untuk kamera, pinch untuk zoom, tombol lompat.
  */
 export class InputManager {
-  constructor({ surface, jumpButton, onModeChange, onPointerLockChange, onSlot, onUse, onUseEnd, onInteract, onDash, onSlide, onVoice }) {
+  constructor({ surface, jumpButton, onModeChange, onPointerLockChange, onSlot, onUse, onUseEnd, onInteract, onDash, onSlide, onVoice, onAlt }) {
+    this.onAlt = onAlt;
     this.onVoice = onVoice;
     this.onSlot = onSlot;
     this.onUse = onUse;
@@ -114,6 +115,7 @@ export class InputManager {
         }
         if (this.pointerLocked) {
           if (e.button === 0) this.onUse?.();
+          else if (e.button === 2) this.onAlt?.();
           return;
         }
         this.requestLock();

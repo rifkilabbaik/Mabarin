@@ -1088,8 +1088,49 @@ body.in-sport #btn-interact, body.in-sport #prompt, body.in-sport #item-name { d
 body[data-input='touch'] #sp-charge { bottom: calc(190px + var(--safe-b)); }
 .sp-skill { width: 56px; height: 56px; }
 .sp-skill svg, .sp-skill .ic { width: 26px; height: 26px; }
-.sp-skill.dash { right: calc(196px + var(--safe-r)); bottom: calc(30px + var(--safe-b)); }
-.sp-skill.slide { right: calc(124px + var(--safe-r)); bottom: calc(112px + var(--safe-b)); }
+.sp-skill.dash { right: calc(124px + var(--safe-r)); bottom: calc(112px + var(--safe-b)); }
+.sp-skill.slide { right: calc(40px + var(--safe-r)); bottom: calc(128px + var(--safe-b)); }
+.sp-pass { right: calc(196px + var(--safe-r)); bottom: calc(28px + var(--safe-b)); width: 64px; height: 64px; flex-direction: column; }
+.sp-pass .ic { width: 24px; height: 24px; }
+.sp-pass .lbl { font-size: 10px; font-weight: 750; margin-top: 1px; }
+.sp-pass.dim { opacity: 0.45; }
+.sp-pass[hidden] { display: none !important; }
+#sport-ui[data-mode='pinalti'] .sp-act { display: none !important; }
+#sp-pk {
+  position: absolute;
+  left: 50%;
+  bottom: calc(34px + var(--safe-b));
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: auto;
+}
+#sp-pk[hidden] { display: none; }
+#sp-pk p { margin: 0 0 8px; font-weight: 800; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
+.sp-pk-row { display: flex; gap: 10px; }
+.sp-pk-row button {
+  width: 92px;
+  height: 74px;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(20, 24, 36, 0.55);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  touch-action: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.sp-pk-row button .ic { width: 28px; height: 28px; }
+.sp-pk-row .flip .ic { transform: scaleX(-1); }
+.sp-pk-row .up .ic { transform: rotate(-90deg); }
+.sp-pk-row button.on, .sp-pk-row button.pressed { background: #2f80ed; border-color: #fff; transform: scale(0.96); }
+#sp-pk[data-role='keeper'] .sp-pk-row button.on { background: #f08c00; }
+#sport-ui[data-mode='pinalti'] #sp-charge { bottom: calc(150px + var(--safe-b)); }
 .sp-skill[hidden] { display: none !important; }
 #sp-hit .lbl { font-size: 10.5px; font-weight: 750; margin-top: 2px; }
 #sp-hit .ic { width: 30px; height: 30px; }
@@ -1118,3 +1159,4 @@ body[data-input='touch'] .sp-help { display: none; }
 /* ---------------- Voice chat ---------------- */
 #btn-mic.on { background: #2f9e44; color: #fff; }
 #btn-mic.speaking { box-shadow: 0 0 0 3px #b2f2bb, 0 0 14px rgba(178, 242, 187, 0.8); }
+body.sport-pk .joy-base, body.sport-pk #btn-jump { display: none !important; }
