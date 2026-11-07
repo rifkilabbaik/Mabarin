@@ -70,12 +70,23 @@ export async function connectPlayroom({ mode }) {
         cb(payload, sender?.id);
       });
     },
+    // Keluar room secara "manual" (Playroom tidak akan me-reload halaman).
+    leave() {
+      clearSessionFlags();
+      try { pr.Multiplayer?.().leaveRoom(); } catch { /* sudah terputus */ }
+    },
   };
 }
 
 const KEY_CONNECTING = 'lpw-connecting';
 const KEY_SESSION = 'lpw-session';
 const KEY_REJOIN = 'lpw-rejoin';
+
+export function clearSessionFlags() {
+  for (const k of [KEY_CONNECTING, KEY_SESSION, KEY_REJOIN]) {
+    try { sessionStorage.removeItem(k); } catch { /* abaikan */ }
+  }
+}
 
 function sessionSet(key, value) {
   try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* abaikan */ }

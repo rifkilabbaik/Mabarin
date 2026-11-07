@@ -1,7 +1,8 @@
 import { CONFIG } from '../config.js';
 import { CapsuleCharacter } from '../character/CapsuleCharacter.js';
 import { damp, dampAngle, lerp, lerpAngle } from '../utils/math.js';
-import { FLAG_GROUNDED, FLAG_SWIM } from './LocalPlayer.js';
+import { FLAG_GROUNDED, FLAG_SIT, FLAG_SWIM } from './LocalPlayer.js';
+import { ITEM_IDS } from '../character/items.js';
 
 // Pemain lain. Posisi di-interpolasi dari snapshot (dengan jeda kecil) supaya gerakan mulus
 // walau paket datang tidak teratur.
@@ -13,6 +14,7 @@ export class RemotePlayer {
     this.character = new CapsuleCharacter({
       name: prof.name || 'Pemain',
       color: normalizeColor(prof.color),
+      look: prof.look,
       showName: true,
     });
     this.character.root.visible = false;
@@ -36,10 +38,20 @@ export class RemotePlayer {
   readProfile() {
     const p = this.handle.getState('profile');
     if (!p) return;
-    const sig = `${p.name}|${p.color}`;
+    const sig = `${p.name}|${p.color}|${JSON.stringify(p.look || null)}`;
     if (sig === this.profileSig) return;
     this.profileSig = sig;
-    this.character.setProfile(p.name, normalizeColor(p.color));
+    this.character.setProfile(String(p.name || 'Pemain').slice(0, 16), normalizeColor(p.color));
+    this.character.setLook(p.look); // divalidasi oleh sanitizeLook
+  }
+
+  readItem() {
+    const id = this.handle.getState('item');
+    if (ITEM_IDS.includes(id)) this.character.setItem(id);
+  }
+
+  get sitting() {
+    return (this.render.flags & FLAG_SIT) !== 0;
   }
 
   readMovement(now) {
@@ -63,6 +75,7 @@ export class RemotePlayer {
 
   update(dt, now) {
     this.readProfile();
+    this.readItem();
     this.readMovement(now);
     if (!this.buffer.length) return;
 
@@ -129,6 +142,7 @@ export class RemotePlayer {
       speed: r.spd,
       grounded: (r.flags & FLAG_GROUNDED) !== 0,
       swimming: (r.flags & FLAG_SWIM) !== 0,
+      sitting: (r.flags & FLAG_SIT) !== 0,
       vy: this.vy,
     });
   }
@@ -144,7 +158,7 @@ export class RemotePlayer {
 
 function normalizeColor(c) {
   if (!c) return '#4dabf7';
-  if (typeof c === 'string') return c;
+  if (typeof c === 'string') return /^#[0-9a-f]{6}$/i.test(c) ? c : '#4dabf7';
   if (c.hexString) return c.hexString;
   return '#4dabf7';
 }

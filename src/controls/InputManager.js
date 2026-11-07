@@ -15,7 +15,10 @@ const KEY_MAP = {
  *  - HP/Tablet : joystick virtual (kiri), geser area kanan untuk kamera, pinch untuk zoom, tombol lompat.
  */
 export class InputManager {
-  constructor({ surface, jumpButton, onModeChange, onPointerLockChange }) {
+  constructor({ surface, jumpButton, onModeChange, onPointerLockChange, onSlot, onUse, onInteract }) {
+    this.onSlot = onSlot;
+    this.onUse = onUse;
+    this.onInteract = onInteract;
     this.surface = surface;
     this.enabled = true;
     this.keys = new Set();
@@ -63,6 +66,12 @@ export class InputManager {
       if (!this.enabled || isTyping(e)) return;
       if (KEY_MAP[e.code] || e.code === 'Space') e.preventDefault();
       if (e.code === 'Space' && !e.repeat) this.jumpQueued = true;
+      if (!e.repeat) {
+        const digit = /^Digit([1-6])$/.exec(e.code);
+        if (digit) this.onSlot?.(Number(digit[1]) - 1);
+        else if (e.code === 'KeyF') this.onUse?.();
+        else if (e.code === 'KeyE') this.onInteract?.();
+      }
       this.keys.add(e.code);
       if (KEY_MAP[e.code]) this.setMode('desktop');
     });
@@ -80,11 +89,13 @@ export class InputManager {
       if (!this.enabled) return;
       if (e.pointerType === 'mouse') {
         this.setMode('desktop');
-        if (!this.pointerLocked) {
-          this.requestLock();
-          // fallback: drag-to-look bila Pointer Lock tidak tersedia
-          this.mouseDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        if (this.pointerLocked) {
+          if (e.button === 0) this.onUse?.();
+          return;
         }
+        this.requestLock();
+        // fallback: drag-to-look bila Pointer Lock tidak tersedia
+        this.mouseDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
         return;
       }
       e.preventDefault();

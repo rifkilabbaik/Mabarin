@@ -117,6 +117,9 @@ export function createLocalNetwork({ channel = 'lowpoly-world-local' } = {}) {
     onDisconnect() {
       return () => {};
     },
+    leave() {
+      post({ type: 'bye', id });
+    },
     isHost: () => true,
     getRoomState: (key) => roomState[key],
     setRoomState: (key, value) => {

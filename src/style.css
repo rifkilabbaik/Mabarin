@@ -197,7 +197,8 @@ body[data-input='touch'] .touch-btn { display: flex; }
   position: absolute;
   left: calc(12px + var(--safe-l));
   bottom: calc(16px + var(--safe-b));
-  width: min(400px, calc(100% - 24px));
+  width: min(400px, 30vw);
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -379,6 +380,7 @@ body[data-input='touch'] #minimap-btn { width: 104px; height: 104px; }
 body[data-state='playing'] #start-screen { display: none; }
 
 .card {
+  position: relative;
   width: min(420px, 100%);
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -521,3 +523,310 @@ body[data-input='touch'] .controls-info[data-for='touch'] { display: inline; }
 @media (max-height: 560px) and (min-width: 761px) {
   #start-screen { justify-content: center; padding-right: calc(16px + var(--safe-r)); }
 }
+
+/* ---------------- Menu HUD ---------------- */
+#hud-menu {
+  position: absolute;
+  top: calc(58px + var(--safe-t));
+  right: calc(12px + var(--safe-r));
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--glass-strong);
+  color: #fff;
+  pointer-events: auto;
+  z-index: 4;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+#hud-menu[hidden] { display: none; }
+#hud-menu button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: 10px;
+  font-weight: 650;
+  font-size: 14.5px;
+}
+#hud-menu button:hover, #hud-menu button:focus-visible { background: rgba(255, 255, 255, 0.12); }
+#hud-menu button[hidden] { display: none; }
+#hud-menu .danger { color: #ffa8a8; }
+#hud-menu .vol { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; font-size: 13.5px; font-weight: 650; }
+#hud-menu input[type='range'] { width: 100%; accent-color: #74c0fc; }
+
+/* ---------------- Hotbar (PC) ---------------- */
+#hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + var(--safe-b));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+#hotbar .slot {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+#hotbar .slot.active { border-color: #fff; background: rgba(255, 255, 255, 0.3); transform: translateY(-3px); }
+#hotbar .key {
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+  opacity: 0.8;
+}
+body[data-input='touch'] #hotbar { display: none; }
+
+#item-name {
+  position: absolute;
+  left: 50%;
+  bottom: calc(80px + var(--safe-b));
+  transform: translateX(-50%);
+  color: #fff;
+  font-weight: 750;
+  font-size: 15px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#item-name.show { animation: name-flash 1.6s ease-out; }
+@keyframes name-flash { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+body[data-input='touch'] #item-name { bottom: auto; top: 36%; }
+
+#prompt {
+  position: absolute;
+  left: 50%;
+  bottom: calc(110px + var(--safe-b));
+  transform: translateX(-50%);
+  background: var(--glass-strong);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  pointer-events: none;
+}
+#prompt[hidden], body[data-input='touch'] #prompt { display: none; }
+
+#crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  display: none;
+  pointer-events: none;
+}
+#crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #fff;
+}
+body.aiming #crosshair { display: block; }
+
+/* ---------------- Tombol sentuh tambahan ---------------- */
+.touch-btn.use {
+  right: calc(116px + var(--safe-r));
+  bottom: calc(26px + var(--safe-b));
+  width: 72px;
+  height: 72px;
+  flex-direction: column;
+  gap: 0;
+}
+.touch-btn.use .ico { font-size: 26px; line-height: 1; }
+.touch-btn.use .lbl { font-size: 10.5px; font-weight: 750; margin-top: 2px; max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.touch-btn.item {
+  right: calc(40px + var(--safe-r));
+  bottom: calc(128px + var(--safe-b));
+  width: 52px;
+  height: 52px;
+  font-size: 24px;
+}
+#item-menu {
+  position: absolute;
+  right: calc(12px + var(--safe-r));
+  bottom: calc(188px + var(--safe-b));
+  display: grid;
+  grid-template-columns: repeat(3, 76px);
+  gap: 6px;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--glass-strong);
+  pointer-events: auto;
+  z-index: 3;
+}
+#item-menu[hidden] { display: none; }
+#item-menu button {
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 6px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+#item-menu button.active { border-color: #fff; }
+#item-menu .ico { font-size: 24px; }
+#item-menu .lbl { font-size: 10.5px; font-weight: 700; }
+.touch-pill {
+  position: absolute;
+  right: calc(110px + var(--safe-r));
+  bottom: calc(110px + var(--safe-b));
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  background: rgba(20, 24, 36, 0.55);
+  color: #fff;
+  font-weight: 750;
+  font-size: 14px;
+  padding: 9px 14px;
+  display: none;
+}
+body[data-input='touch'] .touch-pill:not([hidden]) { display: block; }
+body[data-input='desktop'] #item-menu { display: none; }
+@media (max-height: 420px) {
+  .touch-btn.item { bottom: calc(112px + var(--safe-b)); }
+  #item-menu { right: calc(100px + var(--safe-r)); bottom: calc(104px + var(--safe-b)); grid-template-columns: repeat(6, 62px); }
+}
+
+/* ---------------- Dialog ---------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 20, 35, 0.5);
+  z-index: 10;
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  width: min(360px, 100%);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.modal-card h3 { margin: 0 0 6px; font-size: 19px; }
+.modal-card p { margin: 0 0 16px; color: var(--muted); font-size: 14.5px; line-height: 1.4; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.btn.danger { background: #e03131; color: #fff; }
+.btn.small { padding: 8px 12px; font-size: 14px; }
+
+/* ---------------- Kartu awal: tombol kustomisasi & suara ---------------- */
+.btn.customize {
+  width: 100%;
+  margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  text-align: left;
+  background: #f1f5fb;
+  border: 2px dashed #c9d6ea;
+}
+.btn.customize small { grid-column: 2; font-weight: 600; color: var(--muted); font-size: 12.5px; }
+.cz-dot { grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 0 3px #fff, 0 0 0 4px #c9d6ea; }
+.sound-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 0;
+  background: #eef2f8;
+  font-size: 18px;
+}
+
+/* ---------------- Panel kustomisasi ---------------- */
+#customize { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+#customize[hidden] { display: none; }
+.cz-panel {
+  position: absolute;
+  top: calc(12px + var(--safe-t));
+  right: calc(12px + var(--safe-r));
+  bottom: calc(12px + var(--safe-b));
+  width: min(400px, 46vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 20px 60px rgba(20, 40, 80, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+.cz-head { display: flex; align-items: center; justify-content: space-between; }
+.cz-head h2 { margin: 0; font-size: 22px; }
+.cz-tabs { display: flex; gap: 6px; overflow-x: auto; }
+.cz-tabs button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #e9eef6;
+  font-weight: 750;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.cz-tabs button[aria-selected='true'] { background: var(--accent); color: #fff; }
+.cz-body { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; }
+.cz-section { margin-bottom: 14px; }
+.cz-section h3 { margin: 0 0 8px; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.cz-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 2px solid #dfe5ef;
+  border-radius: 999px;
+  background: #fff;
+  padding: 8px 13px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.chip[aria-pressed='true'] { border-color: var(--accent); background: #e7f1ff; color: #1c4f9c; }
+.cz-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 8px; }
+.cz-colors .swatch[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--ink); }
+body.customizing #start-screen { display: none; }
+body.customizing #hud { display: none; }
+@media (max-width: 640px) {
+  .cz-panel { left: calc(8px + var(--safe-l)); right: calc(8px + var(--safe-r)); top: auto; bottom: calc(8px + var(--safe-b)); width: auto; height: 54vh; }
+}
+#item-menu:not([hidden]) ~ #btn-interact { display: none !important; }

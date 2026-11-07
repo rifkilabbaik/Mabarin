@@ -199,6 +199,7 @@ function buildCampfire(world, rand, markers) {
     );
     const r = 3.3;
     bench.position.set(Math.cos(a) * r, 0.24, Math.sin(a) * r);
+    markers.benches.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, a, y: y0 + 0.5 });
     bench.rotation.y = -a + Math.PI / 2;
     bench.castShadow = bench.receiveShadow = true;
     group.add(bench);
@@ -245,7 +246,7 @@ export function buildProps(world, rand) {
   const shadows = world.quality !== 'low';
 
   // Penanda untuk peta (src/ui/MapView.js)
-  const markers = { pines: [], rounds: [], rocks: [], tents: [], campfire: { x: 0, z: 0 } };
+  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], campfire: { x: 0, z: 0 } };
   const campfire = buildCampfire(world, rand, markers);
 
   // Pohon (punya collider batang)

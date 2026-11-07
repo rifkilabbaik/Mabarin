@@ -1,5 +1,6 @@
 import { CONFIG } from '../config.js';
 import { ChatLog } from './ChatLog.js';
+import { randomLook, sanitizeLook } from '../character/looks.js';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'lowpoly-world-profile';
@@ -16,17 +17,22 @@ function saveProfile(p) {
 }
 
 export class UI {
-  constructor({ onStart, onColorChange, onChat, onChatOpenChange, onToggleMap }) {
+  constructor({ onStart, onChat, onChatOpenChange, onToggleMap, onCustomize, onExit, onVolume, getVolume, onMenuOpenChange }) {
     this.onStart = onStart;
-    this.onColorChange = onColorChange;
     this.onChat = onChat;
     this.onChatOpenChange = onChatOpenChange;
     this.onToggleMap = onToggleMap;
+    this.onCustomize = onCustomize;
+    this.onExit = onExit;
+    this.onVolume = onVolume;
+    this.getVolume = getVolume;
+    this.onMenuOpenChange = onMenuOpenChange;
     this.chatLog = new ChatLog($('chat-log'));
 
     const saved = loadProfile();
     this.name = saved.name || '';
     this.color = CONFIG.colors.includes(saved.color) ? saved.color : CONFIG.colors[Math.floor(Math.random() * 6)];
+    this.look = saved.look ? sanitizeLook(saved.look) : randomLook();
 
     this.buildStartScreen();
     this.bindHud();
@@ -44,18 +50,18 @@ export class UI {
       if (e.key === 'Enter') (this.inviteRoom ? $('btn-join-invite') : $('btn-public')).click();
     });
 
-    const sw = $('swatches');
-    for (const c of CONFIG.colors) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'swatch';
-      b.style.background = c;
-      b.setAttribute('role', 'radio');
-      b.setAttribute('aria-label', `Warna ${c}`);
-      b.setAttribute('aria-checked', String(c === this.color));
-      b.addEventListener('click', () => this.selectColor(c));
-      sw.appendChild(b);
-    }
+    $('cz-dot').style.background = this.color;
+    $('btn-customize').addEventListener('click', () => this.onCustomize?.());
+    const soundBtn = $('btn-sound');
+    const syncSound = () => {
+      soundBtn.textContent = (this.getVolume?.('music') ?? 1) > 0 ? '🔊' : '🔇';
+    };
+    soundBtn.addEventListener('click', () => {
+      const on = (this.getVolume?.('music') ?? 1) > 0;
+      this.onVolume?.('music', on ? 0 : 0.6);
+      syncSound();
+    });
+    syncSound();
 
     $('btn-public').addEventListener('click', () => this.start('public'));
     $('btn-private').addEventListener('click', () => this.start('private'));
@@ -73,15 +79,17 @@ export class UI {
     $('btn-public').classList.remove('primary');
   }
 
-  selectColor(c) {
-    this.color = c;
-    for (const b of $('swatches').children) b.setAttribute('aria-checked', String(b.style.background === hexToRgb(c)));
-    this.onColorChange?.(c);
+  /** Dipanggil oleh panel kustomisasi. */
+  setAppearance({ color, look }) {
+    this.color = color;
+    this.look = sanitizeLook(look);
+    $('cz-dot').style.background = color;
+    saveProfile({ name: (this.name || '').trim().slice(0, 16), color, look: this.look });
   }
 
   get profile() {
     const name = (this.name || '').trim().slice(0, 16) || `Pemain${Math.floor(Math.random() * 900 + 100)}`;
-    return { name, color: this.color };
+    return { name, color: this.color, look: this.look };
   }
 
   start(mode) {
@@ -115,8 +123,29 @@ export class UI {
     if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled) $('btn-fullscreen').hidden = true;
 
     $('btn-chat').addEventListener('click', () => this.toggleChat());
-    $('btn-invite').addEventListener('click', () => this.shareInvite());
+    $('btn-invite').addEventListener('click', () => {
+      this.toggleMenu(false);
+      this.shareInvite();
+    });
     $('room-pill').addEventListener('click', () => this.shareInvite());
+
+    // Menu ☰
+    $('btn-menu').addEventListener('click', () => this.toggleMenu());
+    $('m-customize').addEventListener('click', () => {
+      this.toggleMenu(false);
+      this.onCustomize?.();
+    });
+    $('m-exit').addEventListener('click', () => {
+      this.toggleMenu(false);
+      this.confirmExit(true);
+    });
+    $('exit-cancel').addEventListener('click', () => this.confirmExit(false));
+    $('exit-ok').addEventListener('click', () => this.onExit?.());
+    for (const kind of ['music', 'sfx']) {
+      const el = $(`vol-${kind}`);
+      el.addEventListener('input', () => this.onVolume?.(kind, Number(el.value) / 100));
+    }
+    $('surface').addEventListener('pointerdown', () => this.toggleMenu(false));
 
     const form = $('chat-form');
     const input = $('chat-input');
@@ -147,6 +176,8 @@ export class UI {
         this.onToggleMap?.();
       } else if (e.key === 'Escape') {
         this.onToggleMap?.(false);
+        this.toggleMenu(false);
+        this.confirmExit(false);
       }
     });
 
@@ -155,6 +186,29 @@ export class UI {
     $('map-overlay').addEventListener('pointerdown', (e) => {
       if (e.target === $('map-overlay')) this.onToggleMap?.(false);
     });
+  }
+
+  toggleMenu(force) {
+    const menu = $('hud-menu');
+    const open = force ?? menu.hidden;
+    if (open === !menu.hidden) return;
+    menu.hidden = !open;
+    $('btn-menu').setAttribute('aria-expanded', String(open));
+    if (open) {
+      for (const kind of ['music', 'sfx']) $(`vol-${kind}`).value = String(Math.round((this.getVolume?.(kind) ?? 1) * 100));
+      document.exitPointerLock?.();
+    }
+    this.onMenuOpenChange?.(open);
+  }
+
+  confirmExit(open) {
+    $('confirm-exit').hidden = !open;
+    if (open) document.exitPointerLock?.();
+    this.onMenuOpenChange?.(open);
+  }
+
+  get menuOpen() {
+    return !$('hud-menu').hidden || !$('confirm-exit').hidden;
   }
 
   toggleChat() {
@@ -263,10 +317,6 @@ export class UI {
   }
 }
 
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
-}
 
 function isTyping(e) {
   const t = e.target;

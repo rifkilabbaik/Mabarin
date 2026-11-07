@@ -15,6 +15,10 @@ export class ThirdPersonCamera {
     this.currentDistance = c.distance;
     this.focus = new THREE.Vector3();
     this.initialized = false;
+    this.aimMode = false; // kamera geser ke bahu saat membidik pistol air
+    this.aimBlend = 0;
+    this.shakeT = 0;
+    this.shakeAmp = 0;
     this._offset = new THREE.Vector3();
     this._probe = new THREE.Vector3();
   }
@@ -32,8 +36,19 @@ export class ThirdPersonCamera {
     return { fx: -s, fz: -c, rx: c, rz: -s };
   }
 
+  shake(amount) {
+    this.shakeAmp = Math.max(this.shakeAmp, amount);
+    this.shakeT = 0.3;
+  }
+
   update(dt, target) {
-    const goal = this._probe.set(target.x, target.y + 1.35, target.z);
+    this.aimBlend = damp(this.aimBlend, this.aimMode ? 1 : 0, 8, dt);
+    const sh = this.aimBlend;
+    const goal = this._probe.set(
+      target.x + Math.cos(this.yaw) * 0.85 * sh,
+      target.y + 1.35 + 0.25 * sh,
+      target.z - Math.sin(this.yaw) * 0.85 * sh
+    );
     if (!this.initialized) {
       this.focus.copy(goal);
       this.initialized = true;
@@ -68,5 +83,12 @@ export class ThirdPersonCamera {
     const minY = Math.max(this.world.getHeight(cam.position.x, cam.position.z), this.world.waterLevel) + 0.35;
     if (cam.position.y < minY) cam.position.y = minY;
     cam.lookAt(this.focus);
+    if (this.shakeT > 0) {
+      this.shakeT -= dt;
+      const a = this.shakeAmp * Math.max(0, this.shakeT / 0.3);
+      cam.position.x += (Math.random() - 0.5) * a;
+      cam.position.y += (Math.random() - 0.5) * a;
+      if (this.shakeT <= 0) this.shakeAmp = 0;
+    }
   }
 }
