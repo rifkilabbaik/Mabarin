@@ -1,8 +1,8 @@
 # Mabarin
 
-Game dunia terbuka **multiplayer** berbasis web (PWA) dengan **Three.js** + **Playroom Kit**.
+Game dunia terbuka **multiplayer** berbasis web (PWA) dengan **Three.js** + jaringan **peer-to-peer** ([Trystero](https://github.com/dmotz/trystero)).
 Art style **low poly** (flat shading) dengan karakter **chibi** yang bisa dikustomisasi.
-Tanpa akun, tanpa server sendiri: game di-host gratis di **GitHub Pages**, koneksi antar pemain lewat **server gratis Playroom Kit**.
+Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitHub Pages**, pemain saling tersambung langsung (WebRTC).
 
 ## Fitur
 
@@ -73,7 +73,7 @@ Fisika bola dihitung oleh pembuat pertandingan (`sb` 20×/detik); pemain lain me
 
 Tekan tombol **mikrofon** (atau `V`) untuk bicara. Semua pemain otomatis bisa *mendengar* pemain yang bicara dalam radius ±26 m (maks. 8 orang terdekat). Ikon mikrofon hijau muncul di atas kepala pemain yang sedang bicara.
 
-- Audio mengalir **langsung antar perangkat** (WebRTC peer-to-peer); Playroom hanya dipakai untuk bertukar sinyal awal.
+- Audio mengalir **langsung antar perangkat** (WebRTC peer-to-peer); jaringan game hanya dipakai untuk bertukar sinyal awal.
 - Memakai **server STUN publik Google** (gratis, tanpa akun) untuk menemukan alamat. **Tidak ada server TURN**, jadi pada sebagian jaringan dengan NAT ketat (beberapa operator seluler, Wi‑Fi kantor/sekolah) suara mungkin tidak tersambung — fitur lain tetap normal.
 - Butuh HTTPS (GitHub Pages sudah HTTPS) dan izin mikrofon.
 
@@ -95,13 +95,19 @@ Workflow `.github/workflows/deploy-pages.yml` mem-build dan men-deploy game seti
 Syarat (sekali saja): **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 Deploy manual: tab **Actions → Deploy ke GitHub Pages → Run workflow**.
 
-### Batasan server Playroom (paket gratis, tanpa akun)
+### Jaringan peer-to-peer (tanpa server, tanpa kuota)
 
-- **Butuh internet.** Koneksi memakai WebSocket ke `ws.joinplayroom.com`. Jaringan yang memblokirnya membuat game gagal terhubung — coba jaringan lain.
-- **Maks. 24 pemain per room** (`src/config.js` → `maxPlayersPerRoom`). Jika Dunia Publik penuh, pakai Room Privat.
-- **Kuota pemakaian.** Paket gratis Playroom punya batas pemakaian (cek joinplayroom.com). Bila habis, game menampilkan pesan *"Kuota gratis server Playroom sedang habis"*.
-- **Riwayat chat tidak permanen** — 50 pesan terakhir disimpan di state room.
-- **Koneksi putus** → Playroom memuat ulang halaman; game otomatis bergabung kembali ke room yang sama.
+Multiplayer memakai **Trystero** (`src/net/P2PNetwork.js`):
+
+1. **Perkenalan** — pemain menemukan satu sama lain lewat puluhan **relay Nostr publik** yang gratis (pesan perkenalan dienkripsi). Tidak perlu akun, API key, atau kartu kredit, dan tidak ada kuota bulanan.
+2. **Bermain** — setelah tersambung, posisi, chat, game meja, olahraga, dan suara mengalir **langsung antar browser** (WebRTC), tidak lewat server mana pun.
+
+Batasan yang perlu diketahui:
+
+- **Maks. 20 pemain per room** (`src/config.js` → `maxPlayersPerRoom`). Dunia Publik yang penuh otomatis pindah ke *publik-2*, *publik-3*, dst. Room ramai memakai jaringan bertingkat (`scale()`) agar HP tidak kewalahan.
+- **Jaringan sangat ketat** (sebagian operator seluler / Wi‑Fi kantor-sekolah dengan NAT simetris) kadang tidak bisa tersambung langsung karena tidak ada server TURN gratis tanpa akun. Bila teman tidak terlihat, coba jaringan lain (mis. Wi‑Fi ⇄ data seluler).
+- **Host** (penyimpan riwayat chat & pengeluar pemain AFK) = pemain yang paling dulu masuk; otomatis pindah bila ia keluar. **Riwayat chat** hilang bila semua pemain keluar.
+- Relay publik dikelola komunitas Nostr; Trystero memakai beberapa sekaligus, jadi satu relay mati tidak masalah.
 
 ## Pengembangan
 
@@ -114,24 +120,25 @@ npm run preview    # cek hasil build
 
 Untuk mencoba di HP pada Wi‑Fi yang sama, buka alamat "Network" yang ditampilkan Vite.
 Pointer Lock, mikrofon, dan service worker (PWA) hanya aktif di **HTTPS** atau `localhost`.
+Untuk menguji multiplayer tanpa internet, jalankan relay Nostr lokal lalu buka `?relay=ws://127.0.0.1:7777`.
 
 ### Cara kerja jaringan
 
-Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyiarkan state:
+Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyiarkan state ke semua pemain lewat kanal data WebRTC (aksi Trystero `st` untuk player state, `ev` untuk event, `rs` untuk state room). Pemain baru langsung menerima salinan lengkap state tiap pemain.
 
 | Data | Isi | Lewat |
 |---|---|---|
-| `profile` (player state) | `{ name, color, look }` | reliable |
-| `m` (player state) | `[x, y, z, rotY, speed, flags, waktuKirim, arahKepalaYaw, arahKepalaPitch]` ±15×/detik | unreliable |
-| `item`, `chairs`, `ia` (player state) | item dipegang, kursi milik pemain, tanda aktivitas AFK | reliable |
-| `vc` (player state) | status voice: 0 tidak ikut, 1 mendengar, 2 mikrofon menyala | reliable |
-| `cg` (player state bandar) | state meja game | reliable |
-| `sp` (player state tuan rumah) | state pertandingan (tim, skor, fase, servis, penalti) | reliable |
-| `sb` / `sbt` (player state tuan rumah) | bola `[x,y,z,vx,vy,vz,t,hitN,pemilik]` / posisi bot | unreliable |
-| `chat`, `act`, `bonk` (RPC) | pesan chat, animasi aksi, bonk | reliable |
-| `cg`, `cg-inv`, `sp-a`, `sp-inv`, `sp-tk` (RPC) | aksi & undangan game meja / lapangan, sleding | reliable |
-| `vs` (RPC) | sinyal WebRTC voice chat (offer/answer) | reliable |
-| `chatlog` (room state, ditulis host) | 50 pesan terakhir | reliable |
+| `profile` (player state) | `{ name, color, look }` | P2P |
+| `m` (player state) | `[x, y, z, rotY, speed, flags, waktuKirim, arahKepalaYaw, arahKepalaPitch]` ±15×/detik | P2P |
+| `item`, `chairs`, `ia` (player state) | item dipegang, kursi milik pemain, tanda aktivitas AFK | P2P |
+| `vc` (player state) | status voice: 0 tidak ikut, 1 mendengar, 2 mikrofon menyala | P2P |
+| `cg` (player state bandar) | state meja game | P2P |
+| `sp` (player state tuan rumah) | state pertandingan (tim, skor, fase, servis, penalti) | P2P |
+| `sb` / `sbt` (player state tuan rumah) | bola `[x,y,z,vx,vy,vz,t,hitN,pemilik]` / posisi bot | P2P |
+| `chat`, `act`, `bonk` (RPC) | pesan chat, animasi aksi, bonk | P2P |
+| `cg`, `cg-inv`, `sp-a`, `sp-inv`, `sp-tk` (RPC) | aksi & undangan game meja / lapangan, sleding | P2P |
+| `vs` (RPC) | sinyal WebRTC voice chat (offer/answer) | P2P |
+| `chatlog` (room state, ditulis host) | 50 pesan terakhir | P2P |
 
 Pemain lain di-render dengan **snapshot interpolation** (jeda 120 ms) memakai cap waktu pengirim.
 
@@ -156,7 +163,7 @@ src/
   sports/football.js         tembakan & umpan otomatis, penguasaan bola, penalti tebak arah
   sports/SportHost.js        aturan pertandingan, skor, bot (di perangkat tuan rumah)
   sports/Sports.js           lobi, undangan, prediksi bola, tendang/pukul, papan skor
-  net/PlayroomNetwork.js     koneksi Playroom (publik / privat / undangan)
+  net/P2PNetwork.js          jaringan peer-to-peer Trystero (publik / privat / undangan, host, kick)
   net/LocalNetwork.js        mode offline (BroadcastChannel antar tab)
   net/VoiceChat.js           voice chat berbasis jarak (WebRTC)
   audio/                     efek suara & musik lofi (Web Audio)

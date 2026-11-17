@@ -10,7 +10,7 @@ export const FLAG_SLIDE = 8;
 export const FLAG_DASH = 16;
 
 // Pemain yang dikendalikan perangkat ini. Fisika dihitung lokal (client-authoritative),
-// lalu posisinya disiarkan ke pemain lain lewat Playroom.
+// lalu posisinya disiarkan ke pemain lain (peer-to-peer).
 export class LocalPlayer {
   constructor({ world, scene, net, name, color, look, onSfx }) {
     this.world = world;

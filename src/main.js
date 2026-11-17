@@ -10,7 +10,7 @@ import { ThirdPersonCamera } from './camera/ThirdPersonCamera.js';
 import { LocalPlayer } from './player/LocalPlayer.js';
 import { RemotePlayer } from './player/RemotePlayer.js';
 import { ItemController } from './player/ItemController.js';
-import { connectPlayroom, getInviteRoomFromUrl, readReloadReason, clearSessionFlags } from './net/PlayroomNetwork.js';
+import { connectP2P, getInviteRoomFromUrl } from './net/P2PNetwork.js';
 import { createLocalNetwork } from './net/LocalNetwork.js';
 import { UI } from './ui/UI.js';
 import { MapView } from './ui/MapView.js';
@@ -230,9 +230,9 @@ function applyViewOffset() {
 
 // ---------- Mulai & keluar ----------
 async function startGame(mode, profile) {
-  ui.setBusy(true, mode === 'offline' ? 'Menyiapkan dunia…' : 'Menghubungkan ke server Playroom…');
+  ui.setBusy(true, mode === 'offline' ? 'Menyiapkan dunia…' : 'Mencari pemain lain…');
   try {
-    net = mode === 'offline' ? createLocalNetwork() : await connectPlayroom({ mode });
+    net = mode === 'offline' ? createLocalNetwork() : await connectP2P({ mode });
   } catch (err) {
     console.error(err);
     ui.setBusy(false);
@@ -304,9 +304,10 @@ async function startGame(mode, profile) {
   state = 'playing';
 
   loadChatHistory();
-  setTimeout(loadChatHistory, 2000); // state room kadang baru tiba sesaat setelah terhubung
+  // riwayat chat dikirim host begitu tersambung (beberapa detik pertama)
+  for (const ms of [2000, 5000, 10000]) setTimeout(loadChatHistory, ms);
 
-  if (net.kind === 'playroom' && !net.isPublic) ui.toast('Room privat siap — undang lewat menu.');
+  if (net.kind === 'p2p' && !net.isPublic) ui.toast('Room privat siap — undang lewat menu.');
   if (isTouchDevice && quality === 'low' && !document.fullscreenElement) {
     ui.toggleFullscreen();
   }
@@ -382,7 +383,6 @@ function updateAfk(now) {
 }
 
 function exitToMenu() {
-  clearSessionFlags();
   try { net?.leave?.(); } catch { /* abaikan */ }
   // muat ulang tanpa kode room di URL => kembali ke layar awal
   location.replace(location.pathname + location.search);
@@ -393,12 +393,14 @@ function connectErrorMessage(err) {
   switch (reason) {
     case 'ROOM_LIMIT_EXCEEDED':
       return `Room sudah penuh (maks. ${CONFIG.maxPlayersPerRoom} pemain). Coba "Buat Room Privat" lalu undang teman.`;
-    case 'QUOTA_EXCEEDED':
-      return 'Kuota gratis server Playroom sedang habis. Coba lagi nanti, atau pilih "Main Offline".';
+    case 'RELAY_FAILED':
+      return 'Tidak bisa menghubungi pemain lain. Periksa koneksi internet (atau coba jaringan lain), lalu coba lagi — atau pilih "Main Offline".';
+    case 'NO_ROOM_CODE':
+      return 'Link undangan tidak valid.';
     case 'PLAYER_KICKED':
       return 'Kamu dikeluarkan dari room.';
     default:
-      return `Gagal terhubung ke server multiplayer: ${reason}. Coba lagi, atau pilih "Main Offline".`;
+      return `Gagal terhubung: ${reason}. Coba lagi, atau pilih "Main Offline".`;
   }
 }
 
@@ -566,15 +568,9 @@ requestAnimationFrame(frame);
 
 registerPWA();
 
-// Playroom me-reload halaman bila koneksi gagal / terputus — tangani di sini.
-const reloadReason = readReloadReason();
 if (sessionStorage.getItem(AFK_FLAG)) {
   sessionStorage.removeItem(AFK_FLAG);
   ui.setStartError('Kamu dikeluarkan karena tidak aktif (AFK).');
-} else if (reloadReason === 'connect-failed') {
-  ui.setStartError('Tidak bisa terhubung ke server Playroom. Periksa koneksi internet lalu coba lagi, atau pilih "Main Offline".');
-} else if (reloadReason === 'rejoin') {
-  ui.start('invite'); // koneksi sempat terputus: sambung ulang otomatis ke room yang sama
 }
 
 // Untuk debugging di console

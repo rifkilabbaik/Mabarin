@@ -1,6 +1,6 @@
 // Jaringan "offline": tanpa server. Memakai BroadcastChannel sehingga beberapa tab
 // di browser yang sama saling melihat — berguna untuk main solo & menguji multiplayer lokal.
-// API-nya meniru PlayerState Playroom (getState / setState / onQuit) agar kode game sama.
+// API-nya sama dengan P2PNetwork (getState / setState / onQuit) agar kode game sama.
 
 class LocalPlayerHandle {
   constructor(id, send) {

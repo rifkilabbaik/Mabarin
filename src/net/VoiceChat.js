@@ -3,7 +3,7 @@ import { icon, iconPath } from '../ui/icons.js';
 import { clamp } from '../utils/math.js';
 
 // Voice chat berbasis jarak: WebRTC peer-to-peer antar pemain yang berdekatan.
-// Sinyal (offer/answer) dikirim lewat event Playroom; audio mengalir langsung antar perangkat.
+// Sinyal (offer/answer) dikirim lewat event jaringan game; audio mengalir langsung antar perangkat.
 // Hanya memakai server STUN publik untuk menemukan alamat (tanpa TURN, jadi sebagian jaringan
 // seluler/kantor dengan NAT ketat mungkin tidak bisa tersambung).
 const RANGE = 26; // mulai tersambung

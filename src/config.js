@@ -1,10 +1,13 @@
 // Konfigurasi global game. Ubah nilai di sini untuk menyesuaikan dunia & gameplay.
 export const CONFIG = {
-  // Multiplayer memakai server gratis Playroom Kit (tanpa akun / Game ID).
-  // Kode room untuk "Dunia Publik" — semua pemain yang memilih dunia publik masuk ke room ini.
-  publicRoomCode: 'LOWPOLYWORLD',
-  maxPlayersPerRoom: 24,
-  connectTimeoutMs: 15000,
+  // Multiplayer peer-to-peer (Trystero): tanpa server sendiri, tanpa akun, tanpa kuota.
+  maxPlayersPerRoom: 20,
+  p2p: {
+    appId: 'mabarin.rifkilabbaik.github.io', // pemain dengan appId yang sama bisa saling bertemu
+    publicShards: 6, // dunia publik penuh => pindah ke publik-2, publik-3, ...
+    relayTimeoutMs: 12000,
+    probeMs: 2500,
+  },
 
   world: {
     seed: 1337, // seed yang sama => dunia identik di semua klien
