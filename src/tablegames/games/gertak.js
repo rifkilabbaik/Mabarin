@@ -5,7 +5,8 @@ import { GERTAK_RANKS, GERTAK_STYLE, makeCard, setCardFace } from '../cardArt.js
 
 // Gertak: permainan gertakan orisinal Mabarin.
 // Tiap ronde ada "kartu meja". Pemain menaruh 1–3 kartu tertutup sambil mengaku semuanya kartu meja.
-// Pemain berikutnya boleh menantang "Bohong!". Yang kalah membuka Kotak Kejutan (peluang 1/6, lalu 1/5, ...).
+// Pemain berikutnya boleh menantang "Bohong!". Yang benar memegang revolver: putar silinder lalu tembak
+// ke yang kalah. Peluru = jumlah kekalahan pemain itu (1/6, 2/6, ...). Kena = tersingkir.
 // Yang tersisa terakhir menang.
 
 const RANK_NAME = { bintang: 'Bintang', bulan: 'Bulan', hati: 'Hati' };
@@ -28,7 +29,7 @@ function deck() {
 class GertakHost extends HostBase {
   constructor(o) {
     super({ ...o, game: 'gertak', min: 2, max: 4, turnMs: 25000 });
-    Object.assign(this.state, { hands: {}, alive: {}, shots: {}, rank: null, pileN: 0, last: null, stage: 'turn', reveal: null });
+    Object.assign(this.state, { hands: {}, alive: {}, shots: {}, rank: null, pileN: 0, last: null, stage: 'turn', reveal: null, gun: null });
     this.lastCards = []; // kartu yang terakhir ditaruh — rahasia sampai ditantang
     this.timer = null;
     this.push();
@@ -63,6 +64,7 @@ class GertakHost extends HostBase {
     s.pileN = 0;
     s.last = null;
     s.reveal = null;
+    s.gun = null;
     s.stage = 'turn';
     this.lastCards = [];
     const startIdx = s.alive[s.players[starter]?.id] ? starter : this.aliveNext(starter);
@@ -91,32 +93,51 @@ class GertakHost extends HostBase {
     s.stage = 'reveal';
     s.reveal = { p: s.last.p, caller: pid, cards: this.lastCards, truthful, loser };
     this.push({ k: 'reveal', p: pid, liar: s.last.p, truthful, loser });
-    this.timer = { at: Date.now() + 2600, fn: () => this.penalty(loser) };
+    const shooter = truthful ? s.last.p : pid; // yang benar memegang revolver
+    this.timer = { at: Date.now() + 2600, fn: () => this.gunStage(shooter, loser) };
   }
 
-  penalty(loser) {
+  /** Revolver: peluru sebanyak kekalahan si kalah (1/6, 2/6, ...). */
+  gunStage(shooter, target) {
     const s = this.state;
-    const shots = s.shots[loser] || 0;
-    const boom = Math.random() < 1 / Math.max(1, 6 - shots);
-    if (boom) s.alive[loser] = false;
-    else s.shots[loser] = shots + 1;
-    s.stage = 'box';
-    this.push({ k: 'box', p: loser, boom, shots: s.shots[loser] });
-    this.timer = {
-      at: Date.now() + 2200,
-      fn: () => {
-        const alive = s.players.filter((p) => s.alive[p.id]);
-        if (alive.length <= 1) return this.end(alive[0]?.id || null);
-        const li = this.index(loser);
-        this.newRound(s.alive[loser] ? li : this.aliveNext(li));
-        this.push({ k: 'round' });
-      },
-    };
+    s.shots[target] = Math.min(6, (s.shots[target] || 0) + 1);
+    s.stage = 'gun';
+    s.gun = { shooter, target, bullets: s.shots[target], spun: false };
+    this.gunAt = Date.now();
+    this.push({ k: 'gun', p: shooter, target, bullets: s.gun.bullets });
+  }
+
+  spin(pid) {
+    const s = this.state;
+    if (s.stage !== 'gun' || s.gun.shooter !== pid || s.gun.spun) return;
+    s.gun.spun = true;
+    this.push({ k: 'spin', p: pid });
+  }
+
+  shoot(pid) {
+    const s = this.state, g = s.gun;
+    if (s.stage !== 'gun' || g.shooter !== pid || !g.spun) return;
+    const boom = Math.random() < g.bullets / 6;
+    if (boom) s.alive[g.target] = false;
+    s.stage = 'shot';
+    this.push({ k: 'shot', p: g.target, by: pid, boom, bullets: g.bullets });
+    this.timer = { at: Date.now() + 2600, fn: () => this.afterShot(g.target) };
+  }
+
+  afterShot(loser) {
+    const s = this.state;
+    const alive = s.players.filter((p) => s.alive[p.id]);
+    if (alive.length <= 1) return this.end(alive[0]?.id || null);
+    const li = this.index(loser);
+    this.newRound(li >= 0 && s.alive[loser] ? li : this.aliveNext(Math.max(0, li)));
+    this.push({ k: 'round' });
   }
 
   onAction(a, from) {
     if (a.a === 'play') this.play(from, a.cards);
     else if (a.a === 'call') this.call(from);
+    else if (a.a === 'spin') this.spin(from);
+    else if (a.a === 'shoot') this.shoot(from);
   }
 
   onTick(now) {
@@ -125,15 +146,31 @@ class GertakHost extends HostBase {
       this.timer = null;
       fn();
     }
+    // revolver dipegang bot / pemain yang terlalu lama
+    const g = this.state.gun;
+    if (this.state.stage === 'gun' && g) {
+      const shooter = this.state.players.find((p) => p.id === g.shooter);
+      const wait = now - this.gunAt;
+      if ((shooter?.bot && wait > 1200) || wait > 15000) this.spin(g.shooter);
+      if ((shooter?.bot && wait > 2600) || wait > 16500) this.shoot(g.shooter);
+    }
     // jaga agar timer giliran tidak berjalan saat pengungkapan
     if (this.state.stage !== 'turn') this.state.turnAt = now;
   }
 
   onLeave(pid, idx) {
-    this.state.alive[pid] = false;
+    const s = this.state;
+    s.alive[pid] = false;
+    const g = s.gun;
     super.onLeave(pid, idx);
-    const alive = this.state.players.filter((p) => this.state.alive[p.id]);
-    if (alive.length <= 1) this.end(alive[0]?.id || null);
+    const alive = s.players.filter((p) => s.alive[p.id]);
+    if (alive.length <= 1) return this.end(alive[0]?.id || null);
+    // penembak / sasaran keluar saat revolver dipegang: lanjut ronde baru
+    if (s.stage === 'gun' && g && (g.shooter === pid || g.target === pid)) {
+      this.timer = null;
+      this.newRound(s.turn);
+      this.push({ k: 'round' });
+    }
   }
 
   onTimeout(p) {
@@ -159,11 +196,36 @@ class GertakHost extends HostBase {
 }
 
 // ---------------- Tampilan meja ----------------
-const confettiColors = ['#ff6b6b', '#fcc419', '#51cf66', '#4dabf7', '#b197fc'];
-const BOX_MAT = new THREE.MeshLambertMaterial({ color: '#7048e8', flatShading: true });
-const BOX_DEAD = new THREE.MeshLambertMaterial({ color: '#868e96', flatShading: true });
-const LAMP_OFF = new THREE.MeshBasicMaterial({ color: '#343a40' });
-const LAMP_ON = new THREE.MeshBasicMaterial({ color: '#ff6b6b' });
+const METAL = new THREE.MeshLambertMaterial({ color: '#3d434b', flatShading: true });
+const GRIP = new THREE.MeshLambertMaterial({ color: '#7a4a24', flatShading: true });
+const DRUM_MAT = new THREE.MeshLambertMaterial({ color: '#5c636d', flatShading: true });
+const DRUM_DEAD = new THREE.MeshLambertMaterial({ color: '#adb5bd', flatShading: true });
+const SLOT_EMPTY = new THREE.MeshBasicMaterial({ color: '#1d2333' });
+const SLOT_LOADED = new THREE.MeshBasicMaterial({ color: '#f2c14e' });
+
+/** Revolver low poly (laras mengarah ke +Z). */
+function makeRevolver() {
+  const g = new THREE.Group();
+  const add = (geo, mat, x, y, z, rx = 0) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.rotation.x = rx;
+    m.castShadow = true;
+    g.add(m);
+    return m;
+  };
+  add(new THREE.CylinderGeometry(0.011, 0.012, 0.15, 8), METAL, 0, 0.012, 0.07, Math.PI / 2);
+  add(new THREE.BoxGeometry(0.03, 0.042, 0.075), METAL, 0, 0.002, -0.01);
+  add(new THREE.BoxGeometry(0.028, 0.075, 0.034), GRIP, 0, -0.045, -0.048, 0.35);
+  add(new THREE.BoxGeometry(0.008, 0.02, 0.012), METAL, 0, 0.03, -0.04, -0.4);
+  const drum = add(new THREE.CylinderGeometry(0.027, 0.027, 0.046, 6), DRUM_MAT, 0, 0.004, 0.0, Math.PI / 2);
+  const flash = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 0), new THREE.MeshBasicMaterial({ color: '#ffd43b', transparent: true }));
+  flash.position.set(0, 0.012, 0.16);
+  flash.visible = false;
+  g.add(flash);
+  g.userData = { drum, flash };
+  return g;
+}
 
 class GertakRenderer {
   constructor(ctx, table) {
@@ -178,42 +240,43 @@ class GertakRenderer {
     this.group.add(this.rankCard);
     this.pile = [];
     this.revealCards = [];
-    this.fans = new Fans(this.group);
-    this.boxes = new Map();
-    this.confetti = [];
+    this.fans = new Fans(this.group, table);
+    this.drums = new Map();
+    this.gun = makeRevolver();
+    this.gun.visible = false;
+    this.group.add(this.gun);
+    this.spinT = 0;
+    this.recoil = 0;
+    this.flashT = 0;
     this.lastEv = -1;
   }
 
-  boxFor(pid) {
-    let b = this.boxes.get(pid);
-    if (b) return b;
+  /** Silinder kecil di depan tiap pemain: lubang kuning = peluru (jumlah kekalahan). */
+  drumFor(pid) {
+    let d = this.drums.get(pid);
+    if (d) return d;
     const g = new THREE.Group();
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, 0.1), BOX_MAT);
-    box.position.y = 0.035;
-    box.castShadow = true;
-    g.add(box);
-    const lamps = [];
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.026, 12), DRUM_MAT);
+    body.position.y = 0.013;
+    body.castShadow = true;
+    g.add(body);
+    const slots = [];
     for (let i = 0; i < 6; i++) {
-      const l = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 4), LAMP_OFF);
-      l.position.set(-0.035 + (i % 3) * 0.035, 0.074, -0.018 + ((i / 3) | 0) * 0.036);
-      g.add(l);
-      lamps.push(l);
+      const a = (i / 6) * Math.PI * 2;
+      const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 8), SLOT_EMPTY);
+      sl.position.set(Math.sin(a) * 0.024, 0.027, Math.cos(a) * 0.024);
+      g.add(sl);
+      slots.push(sl);
     }
     this.group.add(g);
-    b = { g, box, lamps };
-    this.boxes.set(pid, b);
-    return b;
+    d = { g, body, slots };
+    this.drums.set(pid, d);
+    return d;
   }
 
-  burst(pos) {
-    for (let i = 0; i < 40; i++) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.012), new THREE.MeshBasicMaterial({ color: confettiColors[i % 5], side: THREE.DoubleSide }));
-      m.position.copy(pos);
-      m.userData.v = new THREE.Vector3((Math.random() - 0.5) * 2.4, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 2.4);
-      m.userData.life = 1.6;
-      this.group.add(m);
-      this.confetti.push(m);
-    }
+  seatPos(m, pid) {
+    const i = m.players.findIndex((p) => p.id === pid);
+    return i >= 0 ? this.ctx.seatOf(m, i) : null;
   }
 
   update(dt, m, viewerId) {
@@ -232,10 +295,10 @@ class GertakRenderer {
     }
     this.pile.forEach((c, i) => {
       c.visible = i < n;
-      c.position.set(t.x + 0.22, t.y + 0.003 + i * 0.0018, t.z - 0.05 + (i % 3) * 0.01);
+      c.position.set(t.x + 0.2, t.y + 0.003 + i * 0.0018, t.z - 0.12 + (i % 3) * 0.01);
     });
     // kartu yang dibuka saat ditantang
-    const rev = (m.stage === 'reveal' || m.stage === 'box') && m.reveal ? m.reveal.cards : [];
+    const rev = ['reveal', 'gun', 'shot'].includes(m.stage) && m.reveal ? m.reveal.cards : [];
     while (this.revealCards.length < rev.length) {
       const c = makeCard(null);
       c.scale.setScalar(0.15);
@@ -247,44 +310,60 @@ class GertakRenderer {
       if (!c.visible) return;
       setCardFace(c, key(rev[i]));
       c.rotation.set(-Math.PI / 2, 0, 0);
-      c.position.set(t.x - 0.2 + i * 0.12, t.y + 0.006, t.z + 0.18);
+      c.position.set(t.x - 0.13 + i * 0.13, t.y + 0.006, t.z + 0.16);
     });
-    // kartu tertutup di tangan lawan & kotak kejutan
-    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live ? m.hands?.[pid]?.length || 0 : 0));
+    // kartu tertutup lawan (di atas meja) & silinder peluru tiap pemain
+    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live && m.alive?.[pid] !== false ? m.hands?.[pid]?.length || 0 : 0));
     const seen = new Set();
     m.players.forEach((p, i) => {
       if (!live) return;
       seen.add(p.id);
-      const b = this.boxFor(p.id);
+      const d = this.drumFor(p.id);
       const s = this.ctx.seatOf(m, i);
-      b.g.position.set(t.x + (s.x - t.x) * 0.52, t.y, t.z + (s.z - t.z) * 0.52);
-      b.g.rotation.y = s.rot;
+      const dx = s.x - t.x, dz = s.z - t.z, len = Math.hypot(dx, dz) || 1;
+      const ux = dx / len, uz = dz / len;
+      // di sisi kanan pemain, agak ke tengah
+      d.g.position.set(t.x + ux * 0.4 - uz * 0.26, t.y, t.z + uz * 0.4 + ux * 0.26);
       const alive = m.alive?.[p.id] !== false;
-      b.box.material = alive ? BOX_MAT : BOX_DEAD;
-      b.lamps.forEach((l, k) => (l.material = k < (m.shots?.[p.id] || 0) ? LAMP_ON : LAMP_OFF));
+      d.body.material = alive ? DRUM_MAT : DRUM_DEAD;
+      d.slots.forEach((sl, k) => (sl.material = k < (m.shots?.[p.id] || 0) ? SLOT_LOADED : SLOT_EMPTY));
     });
-    for (const [id, b] of this.boxes) {
+    for (const [id, d] of this.drums) {
       if (!seen.has(id)) {
-        b.g.removeFromParent();
-        this.boxes.delete(id);
+        d.g.removeFromParent();
+        this.drums.delete(id);
+      }
+    }
+    // revolver: dipegang yang benar, mengarah ke yang kalah
+    const g = m.gun;
+    const showGun = live && g && (m.stage === 'gun' || m.stage === 'shot');
+    this.gun.visible = !!showGun;
+    if (showGun) {
+      const a = this.seatPos(m, g.shooter), b = this.seatPos(m, g.target);
+      if (a && b) {
+        this.gun.position.set(t.x + (a.x - t.x) * 0.45, t.y + 0.17, t.z + (a.z - t.z) * 0.45);
+        this.gun.lookAt(b.x, t.y + 0.35, b.z);
+        this.gun.rotateX(-this.recoil);
       }
     }
     if (m.ev && m.ev.n !== this.lastEv) {
-      if (this.lastEv !== -1 && m.ev.k === 'box' && m.ev.boom) {
-        const b = this.boxes.get(m.ev.p);
-        if (b) this.burst(b.g.position.clone().setY(t.y + 0.1));
+      if (this.lastEv !== -1) {
+        if (m.ev.k === 'spin') this.spinT = 1.2;
+        if (m.ev.k === 'shot') {
+          this.recoil = 0.5;
+          this.flashT = m.ev.boom ? 0.14 : 0;
+        }
       }
       this.lastEv = m.ev.n;
     }
-    for (const c of this.confetti) {
-      c.userData.life -= dt;
-      c.userData.v.y -= 5 * dt;
-      c.position.addScaledVector(c.userData.v, dt);
-      c.rotation.x += dt * 9;
-      c.rotation.y += dt * 7;
-      if (c.userData.life <= 0) c.removeFromParent();
+    if (this.spinT > 0) {
+      this.spinT = Math.max(0, this.spinT - dt);
+      this.gun.userData.drum.rotation.y += dt * 30 * this.spinT;
     }
-    this.confetti = this.confetti.filter((c) => c.userData.life > 0);
+    this.recoil = Math.max(0, this.recoil - dt * 1.6);
+    this.flashT = Math.max(0, this.flashT - dt);
+    this.gun.userData.flash.visible = this.flashT > 0;
+    this.gun.userData.flash.scale.setScalar(1 + (0.14 - this.flashT) * 8);
   }
 
   dispose() {
@@ -308,6 +387,8 @@ class GertakControls {
       this.ctx.act({ a: 'play', cards: [...this.sel] });
       this.sel.clear();
     }, 'primary', 'cu-play');
+    this.btnSpin = this.ctx.button('refresh', 'Putar', () => this.ctx.act({ a: 'spin' }), 'primary', 'cu-spin');
+    this.btnShoot = this.ctx.button('revolver', 'Tembak', () => this.ctx.act({ a: 'shoot' }), 'kilat', 'cu-shoot');
   }
 
   exit() {
@@ -335,6 +416,9 @@ class GertakControls {
     this.btnPlay.hidden = !mine || !this.sel.size || !ids.length;
     this.btnPlay.querySelector('span').textContent = `Taruh ${this.sel.size} ${RANK_NAME[m.rank] || ''}`;
     this.btnCall.hidden = !mine || !m.last || m.last.p === me;
+    const shooter = m.phase === 'play' && m.stage === 'gun' && m.gun?.shooter === me;
+    this.btnSpin.hidden = !shooter || m.gun.spun;
+    this.btnShoot.hidden = !shooter || !m.gun.spun;
   }
 
   chip(m) {
@@ -368,9 +452,14 @@ class GertakControls {
     } else if (ev.k === 'reveal') {
       this.ctx.playAtTable('kilat', m);
       this.ctx.flash(ev.truthful ? `Jujur! ${name(ev.loser)} kalah` : `Bohong! ${name(ev.liar)} ketahuan`);
-    } else if (ev.k === 'box') {
-      this.ctx.playAtTable(ev.boom ? 'boom' : 'click2', m);
-      this.ctx.flash(ev.boom ? `DUAR! ${name(ev.p)} tersingkir` : `${name(ev.p)} selamat (${ev.shots}/6)`);
+    } else if (ev.k === 'gun') {
+      this.ctx.playAtTable('cock', m);
+      this.ctx.flash(ev.p === this.ctx.myId ? `Putar silinder, tembak ${name(ev.target)} (${ev.bullets}/6)` : `${name(ev.p)} memegang revolver — ${ev.bullets}/6 peluru`);
+    } else if (ev.k === 'spin') {
+      this.ctx.playAtTable('spin', m);
+    } else if (ev.k === 'shot') {
+      this.ctx.playAtTable(ev.boom ? 'gunshot' : 'dryfire', m);
+      this.ctx.flash(ev.boom ? `DOR! ${name(ev.p)} tersingkir` : `Klik… ${name(ev.p)} selamat (${ev.bullets}/6)`);
     } else if (ev.k === 'round') {
       this.ctx.playAtTable('shuffle', m);
       this.ctx.flash(`Kartu meja: ${RANK_NAME[m.rank]}`);

@@ -238,9 +238,13 @@ export class TableGames {
     b.setAttribute('aria-label', b.title);
   }
 
-  /** Game papan memakai kamera bebas/atas; game kartu memakai pandangan orang-pertama. */
+  /** Game papan: kamera bebas penuh + tampak atas. Game kartu: kamera bebas tanpa putar kiri/kanan. */
   isBoardGame(m = this.active) {
     return !!this.module(m)?.topView;
+  }
+
+  defaultCam(m = this.active) {
+    return this.isBoardGame(m) ? { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 } : { yaw: 0, el: 0.78, dist: 1.3, topH: 1.0 };
   }
 
   pick(x, y) {
@@ -373,7 +377,7 @@ export class TableGames {
     this.look = { yaw: 0, pitch: -0.62 };
     this.viewTop = false;
     this.topBlend = 0;
-    this.boardCam = { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 };
+    this.boardCam = this.defaultCam(match);
     this.baseFov = this.camera.fov;
     this.input.setCardMode(true);
     this.input.exitLock();
@@ -384,9 +388,9 @@ export class TableGames {
     $('cards-ui').dataset.game = mod.id;
     $('cu-view').hidden = !mod.topView;
     this.renderViewButton();
-    if (mod.topView && !this.camHintShown) {
+    if (!this.camHintShown) {
       this.camHintShown = true;
-      setTimeout(() => this.ui.toast('Geser kiri/kanan: putar · atas/bawah: tinggi kamera · cubit/scroll: zoom'), 900);
+      setTimeout(() => this.ui.toast(mod.topView ? 'Geser kiri/kanan: putar · atas/bawah: tinggi kamera · cubit/scroll: zoom' : 'Geser atas/bawah: tinggi kamera · cubit/scroll: zoom'), 900);
     }
     $('cu-actions').replaceChildren();
     this.clearTopButtons();
@@ -443,19 +447,15 @@ export class TableGames {
 
   // ---------- Kamera ----------
   applyLook({ yaw, pitch, zoom = 0 }) {
-    if (this.isBoardGame()) {
-      const c = this.boardCam;
-      if (this.viewTop) c.topH = clamp(c.topH * Math.exp(zoom * 0.08), 0.45, 1.9);
-      else {
-        c.yaw += yaw * 1.3; // geser kiri/kanan: memutari papan
-        c.el = clamp(c.el - pitch * 1.3, 0.18, 1.45); // geser atas = kamera lebih tinggi
-        c.dist = clamp(c.dist * Math.exp(zoom * 0.08), 0.42, 2.4);
-      }
+    const c = this.boardCam;
+    if (this.viewTop) {
+      c.topH = clamp(c.topH * Math.exp(zoom * 0.08), 0.45, 1.9);
       return;
     }
-    if (this.topBlend > 0.5) return; // tampak atas: kamera tetap
-    this.look.yaw = clamp(this.look.yaw + yaw, -1.9, 1.9);
-    this.look.pitch = clamp(this.look.pitch - pitch, -1.25, 0.45);
+    const board = this.isBoardGame();
+    if (board) c.yaw += yaw * 1.3; // geser kiri/kanan: memutari papan (game kartu: tidak)
+    c.el = clamp(c.el - pitch * 1.3, board ? 0.18 : 0.3, board ? 1.45 : 1.3); // geser atas = kamera lebih tinggi
+    c.dist = clamp(c.dist * Math.exp(zoom * 0.08), board ? 0.42 : 0.6, board ? 2.4 : 2.1);
   }
 
   updateCamera(dt) {
@@ -467,30 +467,9 @@ export class TableGames {
       cam.fov = fov;
       cam.updateProjectionMatrix();
     }
-    if (this.isBoardGame()) {
-      this.updateBoardCamera(dt, seat);
-      return;
-    }
-    // pose orang-pertama
-    this.eye(this._pa);
-    this._qa.setFromEuler(this._e.set(this.look.pitch, seat.rot + Math.PI + this.look.yaw, 0, 'YXZ'));
-    this.topBlend = damp(this.topBlend, this.viewTop ? 1 : 0, 6, dt);
-    if (this.topBlend > 0.001) {
-      // pose tampak atas: dari sisi kita, menunduk ke papan
-      const t = this.tables[this.active.table];
-      const fx = Math.sin(seat.rot), fz = Math.cos(seat.rot);
-      this._pb.set(t.x - fx * 0.32, t.y + 1.05, t.z - fz * 0.32);
-      const m = new THREE.Matrix4().lookAt(this._pb, new THREE.Vector3(t.x + fx * 0.04, t.y, t.z + fz * 0.04), new THREE.Vector3(fx, 0, fz));
-      this._qb.setFromRotationMatrix(m);
-      cam.position.lerpVectors(this._pa, this._pb, this.topBlend);
-      cam.quaternion.slerpQuaternions(this._qa, this._qb, this.topBlend);
-    } else {
-      cam.position.copy(this._pa);
-      cam.quaternion.copy(this._qa);
-    }
-    // kepala karakter mengikuti arah pandang (terlihat pemain lain)
-    this.local.gaze.yaw = this.topBlend > 0.5 ? 0 : this.look.yaw;
-    this.local.gaze.pitch = this.topBlend > 0.5 ? -0.65 : this.look.pitch + 0.45;
+    this.updateBoardCamera(dt, seat);
+    // kartu di tangan menempel di bawah layar mengikuti kamera
+    this.controls?.hand?.anchor(cam);
   }
 
   /** Kamera bebas (orbit di sekitar papan) dipadukan halus dengan tampak atas. */
@@ -593,8 +572,7 @@ export class TableGames {
       const row = document.createElement('div');
       const out = m.alive && m.alive[p.id] === false;
       row.className = `cp-row${i === m.turn ? ' cur' : ''}${p.id === this.myId ? ' me' : ''}${out ? ' out' : ''}`;
-      const cards = Array.isArray(m.hands?.[p.id]) ? m.hands[p.id].length : null;
-      row.innerHTML = `<img class="cp-av" alt=""><span class="cp-name"></span>${cards !== null ? `<span class="cp-badge" title="Kartu">${cards}</span>` : ''}${
+      row.innerHTML = `<img class="cp-av" alt=""><span class="cp-name"></span>${
         i === m.turn && m.turnMs ? '<span class="cp-time"><svg viewBox="0 0 28 28"><circle class="trk" cx="14" cy="14" r="12"/><circle class="bar" cx="14" cy="14" r="12"/></svg><b></b></span>' : ''
       }`;
       const img = row.querySelector('img');

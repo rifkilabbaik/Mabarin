@@ -208,7 +208,7 @@ class KilatRenderer {
     this.drawGlow.rotation.set(-Math.PI / 2, 0, 0.2);
     this.drawGlow.visible = false;
     this.group.add(this.drawTop, this.drawBox, this.ring, this.drawGlow);
-    this.fans = new Fans(this.group);
+    this.fans = new Fans(this.group, table);
     this.anim = null;
     this.lastEv = -1;
     this.time = 0;

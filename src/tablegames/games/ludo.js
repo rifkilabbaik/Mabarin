@@ -82,6 +82,12 @@ class LudoHost extends HostBase {
       setTimeout(() => {
         if (this.state.rolled && this.isTurn(pid)) this.finishTurn(pid, false);
       }, 900);
+    } else if (!this.cur()?.bot && new Set(s.movable.map((t) => s.tokens[pid][t])).size === 1) {
+      // hanya satu pilihan (atau semua pilihan sama, mis. semua di kandang): jalan otomatis
+      const t = s.movable[0];
+      setTimeout(() => {
+        if (this.state.rolled && this.isTurn(pid) && this.state.movable.includes(t)) this.move(pid, t);
+      }, 750);
     }
   }
 

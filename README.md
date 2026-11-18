@@ -46,13 +46,13 @@ Pembuat meja/pertandingan bisa menambah **Bot** dan menekan **Mulai**. Semua pem
 
 ## Game meja
 
-Game kartu memakai kamera orang-pertama (menunduk melihat kartu di tangan). Game papan (Catur, Dam, Ludo) memakai **kamera bebas**: geser kiri/kanan untuk memutari papan, geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Tombol kamera di bar atas beralih antara kamera bebas dan **tampak atas**.
+Semua game meja memakai **kamera bebas**: geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Di game papan (Catur, Dam, Ludo) geser kiri/kanan juga memutari papan, dan tombol kamera (di menu gear) beralih ke **tampak atas**. Di game kartu (Kartu Kilat, Gertak) kamera tidak berputar ke samping dan kartu di tanganmu selalu di bawah layar. Kartu lawan tergelar di meja di depan masing-masing, jadi sisa kartunya terlihat jelas.
 
 - **Kartu Kilat** (2–4, berdua duduk berhadapan): cocokkan warna atau angka/simbol. Tidak punya kartu cocok? **Ketuk tumpukan kartu** (bertepi kuning berdenyut saat boleh mengambil). Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
-- **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang salah membuka **Kotak Kejutan** — confetti biasa, atau *DOR!* dan tersingkir. Bertahan paling akhir menang.
+- **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang **benar** memegang revolver: **Putar** silinder lalu **Tembak** ke yang salah. Peluru = jumlah kekalahan pemain itu (kalah pertama 1/6, kedua 2/6, dst.; terlihat di silinder kecil di depan tiap pemain). Kena = tersingkir. Bertahan paling akhir menang.
 - **Catur** (1v1): bidak berbentuk koin dengan ikon tiap jenis agar mudah dibaca; aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
 - **Dam** (1v1): papan 8×8, wajib makan, makan beruntun, raja terbang.
-- **Ludo** (2, 3, atau 4): **ketuk dadu** di depanmu untuk melempar — dadu berpindah ke depan pemain yang mendapat giliran. Pion melompat petak demi petak; pion yang dimakan terpental kembali ke kandang. Keluar dengan 6, petak aman bertanda bintang.
+- **Ludo** (2, 3, atau 4): **ketuk dadu** di depanmu untuk melempar — dadu berpindah ke depan pemain yang mendapat giliran. Pion melompat petak demi petak; pion yang dimakan terpental kembali ke kandang. Bila hanya ada satu pilihan langkah, pion berjalan otomatis. Keluar dengan 6, petak aman bertanda bintang.
 
 Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player state `cg`, aksi lewat event `cg`, undangan lewat `cg-inv`.
 

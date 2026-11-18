@@ -3,32 +3,12 @@ import { cardAtlas, makeCard, setCardFace } from './cardArt.js';
 import { damp } from '../utils/math.js';
 
 const HAND_W = 0.1;
-const FAN_W = 0.085;
-const MAX_FAN = 12;
+const FAN_W = 0.13;
+const MAX_FAN = 16;
 
-const countTex = new Map();
-export function countTexture(n) {
-  let t = countTex.get(n);
-  if (t) return t;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgba(20,24,36,0.85)';
-  ctx.beginPath();
-  ctx.arc(32, 32, 28, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = '800 30px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(String(n), 32, 34);
-  t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  countTex.set(n, t);
-  return t;
-}
-
-/** Kartu di tangan sendiri, dipegang di depan mata (tampilan orang-pertama). */
+/** Kartu di tangan sendiri: selalu di bagian bawah layar, mengikuti kamera. */
+const HAND_AT = new THREE.Vector3(0, -0.155, -0.52);
+const HAND_TILT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.35);
 export class HandView {
   constructor(scene) {
     this.group = new THREE.Group();
@@ -44,9 +24,7 @@ export class HandView {
    */
   layout(dt, o) {
     const { material, dimMaterial } = cardAtlas();
-    const fx = Math.sin(o.rot), fz = Math.cos(o.rot);
-    this.group.position.set(o.eye.x + fx * 0.3, o.eye.y - 0.42, o.eye.z + fz * 0.3);
-    this.group.rotation.set(-0.92, o.rot + Math.PI, 0, 'YXZ');
+    this.anchor(o.camera);
     const keep = new Set(o.ids);
     for (const [id, c] of this.cards) {
       if (!keep.has(id)) {
@@ -81,6 +59,13 @@ export class HandView {
     });
   }
 
+  /** Tempelkan kartu ke kamera (dipanggil lagi setelah kamera bergerak agar tidak tertinggal). */
+  anchor(camera) {
+    camera.updateMatrixWorld();
+    this.group.position.copy(HAND_AT).applyMatrix4(camera.matrixWorld);
+    this.group.quaternion.copy(camera.quaternion).multiply(HAND_TILT);
+  }
+
   targets() {
     return [...this.cards.values()].map((c) => c.userData.front);
   }
@@ -91,22 +76,21 @@ export class HandView {
   }
 }
 
-/** Kartu tertutup yang dipegang pemain lain (+ angka jumlah kartu). */
+/** Kartu tertutup milik pemain lain: berdiri di atas meja di depannya, dikipas agar jumlahnya terlihat. */
 export class FanView {
   constructor(parent) {
     this.group = new THREE.Group();
     this.group.rotation.order = 'YXZ';
     this.cards = [];
-    this.badge = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest: false }));
-    this.badge.scale.setScalar(0.11);
-    this.badge.renderOrder = 5;
-    this.group.add(this.badge);
     parent.add(this.group);
   }
 
-  update(seat, count, showBadge = true) {
-    this.group.position.set(seat.x + Math.sin(seat.rot) * 0.36, seat.y + 0.62, seat.z + Math.cos(seat.rot) * 0.36);
-    this.group.rotation.set(-0.35, seat.rot + Math.PI, 0, 'YXZ');
+  update(seat, count, table) {
+    const dx = seat.x - table.x, dz = seat.z - table.z;
+    const len = Math.hypot(dx, dz) || 1;
+    // di atas meja, di depan pemain (terpisah dari badan karakter)
+    this.group.position.set(table.x + (dx / len) * 0.42, table.y + 0.012, table.z + (dz / len) * 0.42);
+    this.group.rotation.set(-Math.PI / 2 + 0.18, seat.rot + Math.PI, 0, 'YXZ'); // hampir rata di meja: terlihat jelas dari kursi mana pun
     const m = Math.min(count, MAX_FAN);
     while (this.cards.length < m) {
       const card = makeCard(null);
@@ -114,18 +98,13 @@ export class FanView {
       this.group.add(card);
       this.cards.push(card);
     }
+    const spacing = Math.min(0.045, 0.46 / Math.max(m - 1, 1));
     this.cards.forEach((card, j) => {
       card.visible = j < m;
       const off = j - (m - 1) / 2;
-      card.position.set(off * 0.028, -Math.abs(off) * 0.004, j * 0.0015);
-      card.rotation.set(0, 0, -off * 0.12);
+      card.position.set(off * spacing, -Math.abs(off) * 0.004, j * 0.0015);
+      card.rotation.set(0, 0, -off * Math.min(0.07, 0.6 / Math.max(m, 1)));
     });
-    this.badge.visible = showBadge && count > 0;
-    if (this.badge.visible) {
-      this.badge.material.map = countTexture(count);
-      this.badge.material.needsUpdate = true;
-      this.badge.position.set(0, 0.16, 0.02);
-    }
   }
 
   dispose() {
@@ -135,8 +114,9 @@ export class FanView {
 
 /** Kumpulan FanView per pemain (kecuali penonton/pemain lokal). */
 export class Fans {
-  constructor(parent) {
+  constructor(parent, table) {
     this.parent = parent;
+    this.table = table;
     this.map = new Map();
   }
 
@@ -147,7 +127,7 @@ export class Fans {
       seen.add(p.id);
       let f = this.map.get(p.id);
       if (!f) this.map.set(p.id, (f = new FanView(this.parent)));
-      f.update(seatOf(i), countOf(p.id));
+      f.update(seatOf(i), countOf(p.id), this.table);
     });
     for (const [id, f] of this.map) {
       if (!seen.has(id)) {
