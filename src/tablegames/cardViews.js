@@ -1,31 +1,34 @@
 import * as THREE from 'three';
 import { cardAtlas, makeCard, setCardFace } from './cardArt.js';
-import { damp } from '../utils/math.js';
 
-const HAND_W = 0.1;
 const FAN_W = 0.2;
 const MAX_FAN = 16;
 const FAN_R = FAN_W * 0.82; // jarak pusat kartu dari poros genggaman
 
-/** Kartu di tangan sendiri: selalu di bagian bawah layar, mengikuti kamera. */
-const HAND_AT = new THREE.Vector3(0, -0.155, -0.52);
-const HAND_TILT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.35);
+const HAND_W = 0.12;
+const HAND_R = 0.3; // jari-jari kipas kartu di tangan sendiri
+const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _qi = new THREE.Quaternion();
+const _e = new THREE.Euler();
+
+/** Kartu di tangan sendiri: dipegang seperti kipas di depan dada (di dunia, tidak ikut kamera), muka menghadap mata kita. */
 export class HandView {
   constructor(scene) {
     this.group = new THREE.Group();
-    this.group.rotation.order = 'YXZ';
     scene.add(this.group);
     this.cards = new Map();
     this.selMat = new THREE.MeshBasicMaterial({ map: cardAtlas().texture, alphaTest: 0.5, color: '#fff3bf' });
+    this.time = 0;
+    this.nextShow = 0;
   }
 
   /**
-   * @param {{ids:string[], eye:THREE.Vector3, rot:number, camera:THREE.Camera, key:(id)=>string,
-   *           look:(id)=>('normal'|'dim'|'selected'), hover:string|null}} o
+   * @param {{ids:string[], eye:THREE.Vector3, seat:{x,y,z,rot}|null, table:{y:number}, key:(id)=>string,
+   *           look:(id)=>('normal'|'dim'|'selected'), hover:string|null, spawn?:THREE.Vector3}} o
    */
   layout(dt, o) {
+    this.time += dt;
     const { material, dimMaterial } = cardAtlas();
-    this.anchor(o.camera);
+    this.place(o);
     const keep = new Set(o.ids);
     for (const [id, c] of this.cards) {
       if (!keep.has(id)) {
@@ -34,41 +37,65 @@ export class HandView {
       }
     }
     const n = o.ids.length;
-    const cam = o.camera;
-    const halfW = 0.52 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect;
-    const spacing = Math.min(0.062, 0.56 / Math.max(n, 1), (halfW * 1.8 - HAND_W) / Math.max(n - 1, 1));
+    const fresh = o.ids.reduce((k, id) => k + (this.cards.has(id) ? 0 : 1), 0);
+    const gap = fresh >= 5 ? 0.11 : 0.34; // bagi kartu awal cepat; ambil kartu satu per satu
+    const k = 1 - Math.exp(-12 * dt);
+    const step = Math.min(0.15, 1.5 / Math.max(n - 1, 1));
     o.ids.forEach((id, i) => {
       let c = this.cards.get(id);
       if (!c) {
         c = makeCard(o.key(id));
         c.scale.setScalar(HAND_W);
-        c.position.set(0, -0.25, 0);
         c.userData.front.userData.cardId = id;
         this.group.add(c);
         this.cards.set(id, c);
+        if (o.spawn) {
+          // terbang dari tumpukan ambil dalam keadaan tertelungkup, lalu terbuka di tangan
+          this.group.updateMatrixWorld(true);
+          c.position.copy(this.group.worldToLocal(_v.copy(o.spawn)));
+          this.group.getWorldQuaternion(_qi).invert();
+          c.quaternion.copy(_qi).multiply(_q.setFromEuler(_e.set(Math.PI / 2, (o.seat?.rot || 0) + Math.PI, 0)));
+          this.nextShow = Math.max(this.nextShow, this.time);
+          c.userData.showAt = this.nextShow;
+          this.nextShow += gap;
+          c.visible = false;
+        } else c.userData.snap = true;
       }
       setCardFace(c, o.key(id));
-      const off = i - (n - 1) / 2;
-      const x = off * spacing;
       const look = o.look(id);
-      const lift = (o.hover === id ? 0.035 : 0) + (look === 'selected' ? 0.05 : look === 'normal' ? 0.012 : 0);
-      c.position.x = damp(c.position.x, x, 14, dt);
-      c.position.y = damp(c.position.y, -Math.abs(x) * 0.2 + lift, 14, dt);
-      c.position.z = damp(c.position.z, i * 0.002 + (o.hover === id ? 0.01 : 0), 14, dt);
-      c.rotation.z = damp(c.rotation.z, -x * 0.9, 14, dt);
+      const hover = o.hover === id;
+      const lift = (hover ? 0.035 : 0) + (look === 'selected' ? 0.05 : look === 'normal' ? 0.012 : 0);
+      // kipas berporos di genggaman; kartu yang bisa dimainkan sedikit terangkat
+      const a = -(i - (n - 1) / 2) * step;
+      _t.set(-(HAND_R + lift) * Math.sin(a), (HAND_R + lift) * Math.cos(a) - HAND_R, i * 0.0022 + (hover ? 0.004 : 0));
+      if (c.userData.showAt > this.time) return;
+      c.visible = true;
+      const kk = c.userData.snap ? 1 : k;
+      c.userData.snap = false;
+      c.position.lerp(_t, kk);
+      c.quaternion.slerp(_q.setFromEuler(_e.set(0, 0, a)), kk);
       c.userData.front.material = look === 'dim' ? dimMaterial : look === 'selected' ? this.selMat : material;
     });
   }
 
-  /** Tempelkan kartu ke kamera (dipanggil lagi setelah kamera bergerak agar tidak tertinggal). */
-  anchor(camera) {
-    camera.updateMatrixWorld();
-    this.group.position.copy(HAND_AT).applyMatrix4(camera.matrixWorld);
-    this.group.quaternion.copy(camera.quaternion).multiply(HAND_TILT);
+  /** Di depan dada, di atas meja, menghadap mata kita. */
+  place(o) {
+    const seat = o.seat;
+    if (!seat) return;
+    const fx = Math.sin(seat.rot), fz = Math.cos(seat.rot);
+    this.group.position.set(seat.x + fx * 0.45, Math.max(seat.y + 0.5, (o.table?.y ?? -Infinity) + 0.13), seat.z + fz * 0.45);
+    this.group.lookAt(o.eye);
   }
 
   targets() {
-    return [...this.cards.values()].map((c) => c.userData.front);
+    return [...this.cards.values()].filter((c) => c.visible).map((c) => c.userData.front);
+  }
+
+  /** Kartu sedang terbang ke tangan (belum sampai). */
+  get arriving() {
+    let k = 0;
+    for (const c of this.cards.values()) if (c.userData.showAt > this.time) k++;
+    return k;
   }
 
   clear() {
@@ -79,7 +106,6 @@ export class HandView {
 
 /** Kartu tertutup milik pemain lain: dipegang di kedua tangan karakternya, cukup besar agar jumlahnya terlihat. */
 const _ha = new THREE.Vector3();
-const _hb = new THREE.Vector3();
 export class FanView {
   constructor(parent) {
     this.group = new THREE.Group();
@@ -90,14 +116,13 @@ export class FanView {
 
   update(seat, count, character, camera, tableY = -Infinity) {
     const fx = Math.sin(seat.rot), fz = Math.cos(seat.rot);
-    const arms = character?.root.visible && character.arms;
-    if (arms) {
-      // pegangan di antara kedua tangan, sedikit ke depan
+    // di depan dada; tinggi mengikuti tangan kiri (tangan kanan dipakai mengambil / menaruh kartu)
+    let y = seat.y + 0.4;
+    if (character?.root.visible && character.arms) {
       character.root.updateMatrixWorld(true);
-      arms[0].userData.hand.getWorldPosition(_ha);
-      arms[1].userData.hand.getWorldPosition(_hb);
-      this.group.position.set((_ha.x + _hb.x) / 2 + fx * 0.05, (_ha.y + _hb.y) / 2 + 0.01, (_ha.z + _hb.z) / 2 + fz * 0.05);
-    } else this.group.position.set(seat.x + fx * 0.44, seat.y + 0.4, seat.z + fz * 0.44);
+      y = character.arms[1].userData.hand.getWorldPosition(_ha).y + 0.01;
+    }
+    this.group.position.set(seat.x + fx * 0.47, y, seat.z + fz * 0.47);
     // jangan sampai tenggelam ke meja (karakter bertubuh pendek)
     this.group.position.y = Math.max(this.group.position.y, tableY + 0.05);
     // muka kartu menghadap pemiliknya; punggungnya diputar sedikit ke arah kamera agar tetap jelas dari samping

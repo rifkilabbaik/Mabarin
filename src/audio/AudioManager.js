@@ -345,25 +345,6 @@ const SFX = {
     a.hiss(t, 0.6, 0.4, out, 'lowpass', 1500, 200);
     [1046.5, 1318.5, 1568, 2093].forEach((f, i) => a.tone('triangle', f, 0, t + 0.15 + i * 0.05, 0.3, 0.05, out));
   },
-  // revolver dikokang
-  cock(a, out, t) {
-    a.tone('square', 900, 0, t, 0.02, 0.08, out);
-    a.tone('square', 600, 0, t + 0.09, 0.025, 0.1, out);
-  },
-  // silinder diputar (bunyi ratchet)
-  spin(a, out, t) {
-    for (let i = 0; i < 14; i++) a.tone('square', 1400 - i * 40, 0, t + i * (0.03 + i * 0.006), 0.012, 0.05, out);
-  },
-  // tembakan
-  gunshot(a, out, t) {
-    a.hiss(t, 0.45, 0.6, out, 'lowpass', 3000, 300);
-    a.tone('sine', 140, 40, t, 0.3, 0.55, out);
-  },
-  // pelatuk tanpa peluru
-  dryfire(a, out, t) {
-    a.tone('square', 1800, 0, t, 0.015, 0.12, out);
-    a.hiss(t, 0.03, 0.1, out, 'highpass', 4000);
-  },
   // pion ludo melompat satu petak
   hop(a, out, t) {
     a.tone('triangle', 620, 420, t, 0.06, 0.1, out);

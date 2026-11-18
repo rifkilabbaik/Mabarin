@@ -160,10 +160,16 @@
       <div id="cu-players" class="cu-players" hidden></div>
       <!-- tombol meja game: tersembunyi, muncul lewat tombol gear -->
       <div class="cu-top" id="cu-tray">
-        <button id="cu-view" class="icon-btn" type="button" aria-label="Lihat papan dari atas" title="Tampak atas" data-icon="eye" hidden></button>
         <button id="cu-leave" class="icon-btn" type="button" aria-label="Tinggalkan meja" title="Keluar dari meja" data-icon="logout"></button>
       </div>
       <button id="cu-gear" class="icon-btn" type="button" aria-label="Pengaturan" title="Pengaturan" data-icon="gear"></button>
+      <!-- ganti kamera: di bawah tombol gear -->
+      <button id="cu-cam" class="icon-btn" type="button" aria-label="Ganti kamera" title="Ganti kamera" aria-haspopup="true" aria-expanded="false" data-icon="camera"></button>
+      <div id="cu-cam-menu" class="cu-cam-menu" role="menu" hidden>
+        <button type="button" role="menuitemradio" data-cam="head"><i data-icon="head"></i>Kamera kepala</button>
+        <button type="button" role="menuitemradio" data-cam="free"><i data-icon="orbit"></i>Kamera bebas</button>
+        <button type="button" role="menuitemradio" data-cam="top"><i data-icon="topView"></i>Kamera atas</button>
+      </div>
       <div id="cu-actions" class="cu-actions"></div>
       <div id="cu-lobby" class="cu-panel" hidden>
         <h3><i data-icon="cards"></i><span>Game</span></h3>

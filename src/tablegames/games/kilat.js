@@ -10,6 +10,10 @@ const sortHand = (ids) => [...ids].sort((a, b) => {
   const A = parse(a), B = parse(b);
   return (A.wild ? 9 : SUIT_ORDER[A.suit]) - (B.wild ? 9 : SUIT_ORDER[B.suit]) || VALUE_ORDER.indexOf(A.value) - VALUE_ORDER.indexOf(B.value) || (a < b ? -1 : 1);
 });
+const PILE_SHOW = 14; // kartu buangan teratas yang terlihat di meja
+const CARD_S = 0.19; // ukuran kartu di meja
+const FLY = 0.42; // lama kartu terbang (detik)
+const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const hash = (str) => { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return h; };
 
 // ---------------- Bandar ----------------
@@ -24,7 +28,8 @@ class KilatHost extends HostBase {
 
   beforePublish() {
     this.state.drawN = this.deck.length;
-    this.state.discard = this.pile.slice(-5);
+    this.state.discard = this.pile.slice(-PILE_SHOW);
+    this.state.pileN = this.pile.length;
   }
 
   setup() {
@@ -195,23 +200,144 @@ class KilatRenderer {
     this.pileSlot = new THREE.Vector3(table.x - side.x * 0.1, table.y, table.z - side.z * 0.1);
     this.pile = [];
     this.drawTop = makeCard(null);
-    this.drawTop.scale.setScalar(0.17);
+    this.drawTop.scale.setScalar(CARD_S);
     this.drawTop.rotation.set(-Math.PI / 2, 0, 0.2);
     this.drawTop.userData.front.userData.isDrawPile = true;
-    this.drawBox = new THREE.Mesh(new THREE.BoxGeometry(0.166, 1, 0.25), new THREE.MeshLambertMaterial({ color: '#d9dde6' }));
+    const edge = new THREE.MeshLambertMaterial({ color: '#d9dde6' });
+    this.drawBox = new THREE.Mesh(new THREE.BoxGeometry(CARD_S * 0.97, 1, CARD_S * 1.45), edge);
     this.drawBox.rotation.y = -0.2;
+    // alas tumpukan buangan: makin tinggi seiring makin banyak kartu dibuang
+    this.pileBase = new THREE.Mesh(new THREE.BoxGeometry(CARD_S * 0.97, 1, CARD_S * 1.45), edge);
+    this.pileBase.rotation.y = 0.15;
     this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.014, 6, 28), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
     this.ring.rotation.x = Math.PI / 2;
     this.ring.position.copy(this.pileSlot).setY(table.y + 0.004);
     // garis tepi berdenyut di tumpukan = boleh ambil kartu
-    this.drawGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.37), new THREE.MeshBasicMaterial({ map: outlineTexture(), transparent: true, depthWrite: false }));
+    this.drawGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.41), new THREE.MeshBasicMaterial({ map: outlineTexture(), transparent: true, depthWrite: false }));
     this.drawGlow.rotation.set(-Math.PI / 2, 0, 0.2);
     this.drawGlow.visible = false;
-    this.group.add(this.drawTop, this.drawBox, this.ring, this.drawGlow);
+    this.group.add(this.drawTop, this.drawBox, this.pileBase, this.ring, this.drawGlow);
     this.fans = new Fans(this.group, table);
     this.anim = null;
     this.lastEv = -1;
     this.time = 0;
+    this.queue = []; // kartu yang akan diambil: { pid, at, deal }
+    this.flights = []; // kartu tertutup yang sedang terbang ke pemain lain
+    this.pool = [];
+    this.lastQueued = new Map();
+  }
+
+  /** Antrekan pengambilan `n` kartu oleh pemain (satu per satu, tangan meraih tumpukan). */
+  queueDraw(pid, n, delay = 0, deal = false) {
+    const gap = deal ? 0.11 : 0.34;
+    const at = Math.max(this.time + delay, this.lastQueued.get(pid) || 0);
+    for (let k = 0; k < n; k++) this.queue.push({ pid, at: at + k * gap, deal });
+    this.lastQueued.set(pid, at + n * gap);
+  }
+
+  /** Kartu yang belum sampai ke tangan pemain (untuk menunda tambahan di kipasnya). */
+  incoming(pid) {
+    let k = 0;
+    for (const q of this.queue) if (q.pid === pid) k++;
+    for (const f of this.flights) if (f.pid === pid) k++;
+    return k;
+  }
+
+  reach(pid, pos) {
+    const ch = this.ctx.characterOf(pid);
+    if (ch?.root.visible) ch.reachTo(pos);
+  }
+
+  sound(name) {
+    this.ctx.audio.playAt(name, this.table.x, this.table.z);
+  }
+
+  /** Titik awal kartu yang dimainkan: dari kartu di tangan kita, kipas lawan, atau depan kursinya. */
+  origin(m, pid, cardId, viewerId, pos, quat) {
+    const own = pid === viewerId ? this.ctx.handCard(cardId) : null;
+    if (own) {
+      own.getWorldPosition(pos);
+      own.getWorldQuaternion(quat);
+      return;
+    }
+    const fan = this.fans.map.get(pid);
+    if (fan) {
+      pos.copy(fan.group.position).y += 0.14;
+      quat.copy(fan.group.quaternion);
+      return;
+    }
+    const idx = m.players.findIndex((p) => p.id === pid);
+    const s = idx >= 0 ? this.ctx.seatOf(m, idx) : this.table;
+    pos.set(s.x + Math.sin(s.rot || 0) * 0.4, (s.y || this.table.y) + 0.55, s.z + Math.cos(s.rot || 0) * 0.4);
+    quat.setFromEuler(_e.set(Math.PI / 2, 0, 0));
+  }
+
+  fanTarget(m, pid, out) {
+    const fan = this.fans.map.get(pid);
+    if (fan) return out.copy(fan.group.position).setY(fan.group.position.y + 0.14);
+    const idx = m.players.findIndex((p) => p.id === pid);
+    if (idx < 0) return out.set(this.table.x, this.table.y + 0.3, this.table.z);
+    const s = this.ctx.seatOf(m, idx);
+    return out.set(s.x + Math.sin(s.rot) * 0.45, s.y + 0.55, s.z + Math.cos(s.rot) * 0.45);
+  }
+
+  onEvent(m, ev, viewerId, discard) {
+    if (ev.k === 'start') {
+      // bagikan kartu ke semua pemain
+      this.queue = [];
+      this.lastQueued.clear();
+      for (const p of m.players) this.queueDraw(p.id, m.hands?.[p.id]?.length || 0, 0.25, true);
+      return;
+    }
+    if ((ev.k === 'play' || ev.k === 'win') && ev.c && discard.length) {
+      const top = this.pile[discard.length - 1];
+      if (top) {
+        const from = new THREE.Vector3(), fromQ = new THREE.Quaternion();
+        this.origin(m, ev.p, ev.c, viewerId, from, fromQ);
+        this.anim = { card: top, t: 0, from, fromQ };
+      }
+      this.reach(ev.p, this.pileSlot);
+      this.sound('card');
+      if (ev.pen) this.queueDraw(ev.p, ev.pen, ev.p === viewerId ? 0 : 0.5);
+      if (ev.draw) this.queueDraw(ev.draw.p, ev.draw.n, ev.draw.p === viewerId ? 0 : 0.45);
+    } else if (ev.k === 'draw') this.queueDraw(ev.p, 1, 0);
+  }
+
+  updateDraws(dt, m, viewerId) {
+    // mulai ambil kartu yang sudah waktunya
+    for (let i = 0; i < this.queue.length; i++) {
+      const q = this.queue[i];
+      if (q.at > this.time) continue;
+      this.queue.splice(i--, 1);
+      if (!m.players.some((p) => p.id === q.pid)) continue;
+      if (!q.deal) this.reach(q.pid, this.drawSlot);
+      if (!q.deal || this.flights.length % 2 === 0) this.sound('card');
+      if (q.pid === viewerId) continue; // kartu kita sendiri diterbangkan oleh tampilan tangan
+      const mesh = this.pool.pop() || makeCard(null);
+      mesh.scale.setScalar(CARD_S);
+      mesh.visible = true;
+      this.group.add(mesh);
+      const from = this.drawTop.position.clone();
+      this.flights.push({ mesh, pid: q.pid, t: 0, from, fromQ: this.drawTop.quaternion.clone() });
+    }
+    // kartu terbang dari tumpukan ke kipas pemain
+    for (let i = 0; i < this.flights.length; i++) {
+      const f = this.flights[i];
+      f.t = Math.min(1, f.t + dt / FLY);
+      const k = 1 - (1 - f.t) ** 3;
+      this.fanTarget(m, f.pid, _v);
+      f.mesh.position.lerpVectors(f.from, _v, k);
+      f.mesh.position.y += Math.sin(k * Math.PI) * 0.16;
+      const fan = this.fans.map.get(f.pid);
+      f.mesh.quaternion.slerpQuaternions(f.fromQ, fan ? fan.group.quaternion : f.fromQ, k);
+      f.mesh.scale.setScalar(CARD_S + (0.2 - CARD_S) * k);
+      if (f.t >= 1) {
+        f.mesh.visible = false;
+        f.mesh.removeFromParent();
+        this.pool.push(f.mesh);
+        this.flights.splice(i--, 1);
+      }
+    }
   }
 
   update(dt, m, viewerId) {
@@ -219,9 +345,19 @@ class KilatRenderer {
     const t = this.table;
     const live = m.phase !== 'lobby';
     const discard = live ? m.discard || [] : [];
+    // tumpukan buangan: kartu-kartu terakhir berserakan sedikit agar jelas terlihat, alasnya makin tinggi
+    const under = Math.max(0, (m.pileN ?? discard.length) - discard.length);
+    const baseH = under * 0.0011;
+    this.pileBase.visible = live && under > 0;
+    if (this.pileBase.visible) {
+      this.pileBase.scale.y = baseH;
+      this.pileBase.position.set(this.pileSlot.x, t.y + baseH / 2, this.pileSlot.z);
+    }
     while (this.pile.length < discard.length) {
       const card = makeCard(null);
-      card.scale.setScalar(0.17);
+      card.scale.setScalar(CARD_S);
+      card.userData.target = new THREE.Vector3();
+      card.userData.tq = new THREE.Quaternion();
       this.group.add(card);
       this.pile.push(card);
     }
@@ -230,30 +366,33 @@ class KilatRenderer {
       card.visible = !!id;
       if (!id) return;
       setCardFace(card, faceKey(id));
-      const h = hash(id);
-      card.rotation.set(-Math.PI / 2, 0, ((h % 100) / 100) * 0.9 - 0.45);
-      card.userData.target = new THREE.Vector3(this.pileSlot.x + (((h >> 3) % 7) - 3) * 0.006, t.y + 0.002 + i * 0.0015, this.pileSlot.z + (((h >> 6) % 7) - 3) * 0.006);
-      if (!(this.anim && this.anim.card === card)) card.position.copy(card.userData.target);
+      const h = Math.abs(hash(id));
+      const spread = i === discard.length - 1 ? 0.4 : 1; // kartu teratas lebih rapi di tengah
+      card.userData.tq.setFromEuler(_e.set(-Math.PI / 2, 0, ((h % 100) / 100 - 0.5) * 1.3 * spread));
+      card.userData.target.set(
+        this.pileSlot.x + (((h >> 3) % 11) - 5) * 0.009 * spread,
+        t.y + baseH + 0.002 + i * 0.0016,
+        this.pileSlot.z + (((h >> 7) % 11) - 5) * 0.009 * spread
+      );
+      if (this.anim && this.anim.card === card) return;
+      card.position.copy(card.userData.target);
+      card.quaternion.copy(card.userData.tq);
     });
     if (m.ev && m.ev.n !== this.lastEv) {
-      if (this.lastEv !== -1 && (m.ev.k === 'play' || m.ev.k === 'win') && discard.length) {
-        const idx = m.players.findIndex((p) => p.id === m.ev.p);
-        const top = this.pile[discard.length - 1];
-        if (idx >= 0 && top) {
-          const s = this.ctx.seatOf(m, idx);
-          this.anim = { card: top, t: 0, from: new THREE.Vector3(s.x + Math.sin(s.rot) * 0.35, s.y + 0.65, s.z + Math.cos(s.rot) * 0.35) };
-        }
-      }
+      if (this.lastEv !== -1) this.onEvent(m, m.ev, viewerId, discard);
       this.lastEv = m.ev.n;
     }
     if (this.anim) {
+      // kartu dimainkan: dari tangan pemain melayang ke tumpukan sambil terbuka
       const a = this.anim;
-      a.t = Math.min(1, a.t + dt / 0.35);
+      a.t = Math.min(1, a.t + dt / FLY);
       const k = 1 - (1 - a.t) ** 3;
       a.card.position.lerpVectors(a.from, a.card.userData.target, k);
-      a.card.position.y += Math.sin(k * Math.PI) * 0.12;
+      a.card.position.y += Math.sin(k * Math.PI) * 0.14;
+      a.card.quaternion.slerpQuaternions(a.fromQ, a.card.userData.tq, k);
       if (a.t >= 1) this.anim = null;
     }
+    this.updateDraws(dt, m, viewerId);
     const n = live ? m.drawN || 0 : 0;
     const hgt = 0.004 + Math.min(n, 90) * 0.0011;
     this.drawBox.visible = this.drawTop.visible = live && n > 0;
@@ -269,7 +408,7 @@ class KilatRenderer {
     this.ring.visible = live && m.phase === 'play';
     if (m.color) this.ring.material.color.set(SUIT_INFO[m.color]?.color || '#fff');
     this.ring.scale.setScalar(1 + Math.sin(this.time * 4) * 0.04);
-    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live ? m.hands?.[pid]?.length || 0 : 0), (pid) => this.ctx.characterOf(pid), this.ctx.camera);
+    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live ? Math.max(0, (m.hands?.[pid]?.length || 0) - this.incoming(pid)) : 0), (pid) => this.ctx.characterOf(pid), this.ctx.camera);
   }
 
   dispose() {
@@ -306,6 +445,7 @@ class KilatControls {
 
   exit() {
     this.hand.clear();
+    this.hand.group.removeFromParent();
     this.colorPanel.hidden = true;
     this.pendingWild = null;
   }
@@ -319,17 +459,18 @@ class KilatControls {
     const ids = m.phase === 'lobby' ? [] : sortHand(m.hands?.[me] || []);
     const mine = this.myTurn(m);
     const top = m.discard?.[m.discard.length - 1];
+    const r = this.ctx.renderer(m);
     this.hand.layout(dt, {
       ids,
       eye: this.ctx.eye(new THREE.Vector3()),
-      rot: this.ctx.seatRot(),
-      camera: this.ctx.camera,
+      seat: this.ctx.mySeat(),
+      table: this.ctx.tableOf(m),
       key: faceKey,
       hover: this.hover,
       look: (id) => (mine ? (canPlay(id, top, m.color) ? 'normal' : 'dim') : 'flat'),
+      spawn: r?.drawTop.visible ? r.drawTop.position : r?.drawSlot,
     });
     const hand = m.hands?.[me] || [];
-    const r = this.ctx.renderer(m);
     if (r) r.canDraw = mine && !m.drew; // ambil kartu dengan mengetuk tumpukan
     this.btnPass.hidden = !mine || !m.drew;
     this.btnKilat.hidden = !mine || hand.length !== 2 || m.kilat?.includes(me);
@@ -388,15 +529,13 @@ class KilatControls {
     const name = this.ctx.playerName;
     const at = (n) => this.ctx.playAtTable(n, m);
     if (ev.k === 'play') {
-      at('card');
       const c = parse(ev.c);
       if (ev.pen) this.ctx.flash(`${name(ev.p)} lupa Kilat! +2`);
       else if (ev.draw) this.ctx.flash(`${name(ev.draw.p)} +${ev.draw.n}`);
       else if (ev.skip) this.ctx.flash(`${name(ev.skip)} dilewati`);
       else if (c.value === 'rev') this.ctx.flash('Arah dibalik');
       else if (c.wild) this.ctx.flash(`Warna ${SUIT_INFO[ev.col]?.name || ''}`);
-    } else if (ev.k === 'draw') at('card');
-    else if (ev.k === 'kilat') {
+    } else if (ev.k === 'kilat') {
       at('kilat');
       this.ctx.flash(`${name(ev.p)}: Kilat!`);
     }

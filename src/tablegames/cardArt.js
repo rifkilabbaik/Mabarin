@@ -2,16 +2,10 @@ import * as THREE from 'three';
 import { SUITS, SUIT_INFO } from './games/kilatRules.js';
 
 // Semua muka kartu digambar sekali ke satu atlas (canvas) → satu tekstur, hemat memori.
-// Berisi kartu Kartu Kilat (warna saja, tanpa simbol) + kartu Gertak.
+// Berisi kartu Kartu Kilat (warna saja, tanpa simbol).
 const CW = 128, CH = 192, COLS = 8, ROWS = 8;
 const VALUES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'rev', 'p2'];
-export const GERTAK_RANKS = ['bintang', 'bulan', 'hati'];
-const KEYS = [...SUITS.flatMap((s) => VALUES.map((v) => `${s}:${v}`)), 'wild', 'wild4', 'back', ...GERTAK_RANKS.map((r) => `g:${r}`), 'g:joker'];
-export const GERTAK_STYLE = {
-  bintang: { bg: '#f59f00', dark: '#c77700', path: 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z' },
-  bulan: { bg: '#5f3dc4', dark: '#3b2a8c', path: 'M15.5 3.2A9 9 0 1 0 20.8 15 7.2 7.2 0 0 1 15.5 3.2z' },
-  hati: { bg: '#e03131', dark: '#a61e1e', path: 'M12 20.5s-8-4.9-8-11A4.6 4.6 0 0 1 12 6.3a4.6 4.6 0 0 1 8 3.2c0 6.1-8 11-8 11z' },
-};
+const KEYS = [...SUITS.flatMap((s) => VALUES.map((v) => `${s}:${v}`)), 'wild', 'wild4', 'back'];
 
 const SKIP = new Path2D('M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8');
 const REV = new Path2D('M4 9h13l-3.5-3.5M20 15H7l3.5 3.5');
@@ -25,42 +19,6 @@ function rr(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
-}
-
-function drawPath(ctx, d, cx, cy, size, color) {
-  ctx.save();
-  ctx.translate(cx - size / 2, cy - size / 2);
-  ctx.scale(size / 24, size / 24);
-  ctx.fillStyle = color;
-  ctx.fill(new Path2D(d));
-  ctx.restore();
-}
-
-function drawGertak(ctx, key, w, h) {
-  const rank = key.slice(2);
-  const joker = rank === 'joker';
-  const st = GERTAK_STYLE[rank];
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, joker ? '#2b2f3a' : st.bg);
-  g.addColorStop(1, joker ? '#3d4252' : st.dark);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  ctx.restore(); // lepas clip
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = '#fff';
-  rr(ctx, 10, 10, w - 20, h - 20, 11);
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(w / 2, h / 2 - 8, 38, 0, Math.PI * 2);
-  ctx.fill();
-  if (joker) quadrants(ctx, w / 2, h / 2 - 8, 32);
-  else drawPath(ctx, st.path, w / 2, h / 2 - 8, 52, st.bg);
-  ctx.fillStyle = '#fff';
-  ctx.font = '800 17px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(joker ? 'JOKER' : rank.toUpperCase(), w / 2, h - 34);
 }
 
 function quadrants(ctx, cx, cy, r) {
@@ -113,12 +71,6 @@ function drawFace(ctx, key, x, y) {
     ctx.strokeStyle = '#f8f9fa';
     rr(ctx, pad + 6, pad + 6, w - pad * 2 - 12, h - pad * 2 - 12, 11);
     ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  if (key.startsWith('g:')) {
-    drawGertak(ctx, key, w, h);
     ctx.restore();
     return;
   }

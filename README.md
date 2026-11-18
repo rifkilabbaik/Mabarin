@@ -10,7 +10,7 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 - **Karakter chibi** dengan animasi jalan, lari, lompat, berenang, duduk, dash, sleding, tendang, pukul raket. Kepala mengikuti arah pandang saat duduk di meja game.
 - **Kustomisasi karakter**: bentuk tubuh (normal / tinggi / pendek / gempal), warna kulit, 8 gaya rambut + warna, 4 gaya mata, atasan / bawahan / sepatu + warna, topi, kacamata, ransel / sayap / jubah, syal / dasi.
 - **Hotbar properti**: Tangan, Palu Bonk, Pedang Kayu, Pistol Air, Kursi, Gitar. Senjata bersifat "bonk" (terpental & pusing, tanpa nyawa). Pemain yang sedang main game tidak bisa di-bonk.
-- **Game meja**: Kartu Kilat & Gertak (tampilan orang-pertama, FOV 70°), Catur, Dam & Ludo (kamera bebas + tampak atas).
+- **Game meja**: Kartu Kilat, Catur, Dam & Ludo dengan tiga pilihan kamera (kepala, bebas, atas).
 - **Kompleks olahraga**: Sepak Bola (1v1, 2v2, adu penalti), Tenis (1v1, ganda), dengan **dash** dan **sleding**.
 - **Voice chat berbasis jarak** (WebRTC): suara makin pelan saat menjauh, kiri/kanan mengikuti posisi.
 - **Minimap & peta pulau**, **chat dengan riwayat** (juga terlihat saat main game), **musik lofi & efek suara** (Web Audio, tanpa file audio).
@@ -20,7 +20,7 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 
 - **PC**: satu *dock* di bawah layar berisi hotbar item + tombol mikrofon, chat, game, dan menu; peta kecil di kanan atas.
 - **HP**: tombol sistem jadi satu kapsul di atas; tombol lompat & aksi sejajar di kanan bawah, tombol pilih item kecil di atasnya.
-- **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** di kanan atas. Ketuk gear untuk memunculkan chat, mikrofon, menu, kamera/menyerah (game papan), dan keluar.
+- **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** (bulat) di kanan atas. Ketuk gear untuk memunculkan chat, mikrofon, menu, menyerah (game papan), dan keluar. Tepat di bawah gear ada **tombol kamera** untuk mengganti tampilan.
 
 ### Kontrol
 
@@ -46,10 +46,17 @@ Pembuat meja/pertandingan bisa menambah **Bot** dan menekan **Mulai**. Semua pem
 
 ## Game meja
 
-Semua game meja memakai **kamera bebas**: geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Di game papan (Catur, Dam, Ludo) geser kiri/kanan juga memutari papan, dan tombol kamera (di menu gear) beralih ke **tampak atas**. Di game kartu (Kartu Kilat, Gertak) kamera tidak berputar ke samping dan kartu di tanganmu selalu di bawah layar. Lawan memegang kartunya seperti kipas di kedua tangan (di atas meja, di depan dada), jadi sisa kartunya terlihat jelas.
+Tombol kamera (di bawah gear) berisi:
+
+- **Kamera kepala** — pandangan dari mata karakter; geser untuk melihat sekeliling, dan kepala karaktermu ikut bergerak (terlihat pemain lain). Bawaan untuk game kartu.
+- **Kamera bebas** — kamera di atas kursimu: geser kiri/kanan **sebatas area** di sisimu, atas/bawah untuk tinggi-rendah, cubit / scroll untuk zoom. Kepalamu sendiri disembunyikan saat kamera tepat di atasnya agar meja tidak tertutup. Bawaan untuk game papan.
+- **Kamera atas** — khusus game papan (Catur, Dam, Ludo): papan dilihat dari atas.
+
+Pilihan kamera terakhir diingat untuk meja berikutnya.
+
+Di game kartu, kartumu **dipegang seperti kipas di depan dada** (tidak ikut kamera) dan mukanya menghadap matamu. Lawan juga memegang kartunya dengan kedua tangan, jadi sisa kartunya terlihat jelas. Saat mengambil atau menaruh kartu, tangan karakter meraih tumpukan dan kartunya melayang ke tangan / ke meja. Kena +2 / +4 berarti mengambil kartu **satu per satu** sebanyak itu, dan di awal permainan kartu dibagikan satu per satu. Kartu yang sudah dibuang menumpuk berserakan di tengah meja dan tumpukannya makin tinggi.
 
 - **Kartu Kilat** (2–4, berdua duduk berhadapan): cocokkan warna atau angka/simbol. Tidak punya kartu cocok? **Ketuk tumpukan kartu** (bertepi kuning berdenyut saat boleh mengambil). Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
-- **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang **benar** memegang revolver: **Putar** silinder lalu **Tembak** ke yang salah. Peluru = jumlah kekalahan pemain itu (kalah pertama 1/6, kedua 2/6, dst.; terlihat di silinder kecil di depan tiap pemain). Kena = tersingkir. Bertahan paling akhir menang.
 - **Catur** (1v1): bidak berbentuk koin dengan ikon tiap jenis agar mudah dibaca; aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
 - **Dam** (1v1): papan 8×8, wajib makan, makan beruntun, raja terbang.
 - **Ludo** (2, 3, atau 4): **ketuk dadu** di depanmu untuk melempar — dadu berpindah ke depan pemain yang mendapat giliran. Pion melompat petak demi petak; pion yang dimakan terpental kembali ke kandang. Bila hanya ada satu pilihan langkah, pion berjalan otomatis. Keluar dengan 6, petak aman bertanda bintang.
@@ -161,9 +168,9 @@ src/
   controls/                  keyboard, Pointer Lock, sentuh, joystick
   camera/ThirdPersonCamera.js
   player/                    pemain lokal (fisika, dash, sleding), pemain lain, logika item
-  tablegames/TableGames.js   pengelola meja: undangan, kamera orang-pertama/tampak atas, UI
+  tablegames/TableGames.js   pengelola meja: undangan, kamera kepala/bebas/atas, UI
   tablegames/HostBase.js     dasar logika bandar (lobi, giliran, timer, bot)
-  tablegames/games/          kilat, gertak, catur, dam, ludo (+ file aturan)
+  tablegames/games/          kilat, catur, dam, ludo (+ file aturan)
   sports/fields.js           visual lapangan bola & tenis
   sports/physics.js          fisika bola/kok, solusi lintasan pukulan
   sports/football.js         tembakan & umpan otomatis, penguasaan bola, penalti tebak arah

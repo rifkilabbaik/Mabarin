@@ -20,7 +20,6 @@ import { AudioManager } from './audio/AudioManager.js';
 import { TableGames } from './tablegames/TableGames.js';
 import { GameMenu } from './ui/GameMenu.js';
 import kilat from './tablegames/games/kilat.js';
-import gertak from './tablegames/games/gertak.js';
 import catur from './tablegames/games/catur.js';
 import dam from './tablegames/games/dam.js';
 import ludo from './tablegames/games/ludo.js';
@@ -140,7 +139,7 @@ const input = new InputManager({
 const voice = new VoiceChat({ audio, ui, button: $('btn-mic') });
 
 // Permainan kartu di meja (tampilan orang-pertama)
-const TABLE_GAMES = [kilat, gertak, catur, dam, ludo];
+const TABLE_GAMES = [kilat, catur, dam, ludo];
 const cards = new TableGames({
   scene, camera, world, audio, ui, input, games: TABLE_GAMES,
   onEnter: () => {

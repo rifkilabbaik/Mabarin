@@ -284,6 +284,7 @@ const STAR_GEO = new THREE.OctahedronGeometry(0.07, 0);
 const STAR_MAT = new THREE.MeshBasicMaterial({ color: '#ffd43b' });
 const ACTION_DUR = { swing: 0.42, slash: 0.34, shoot: 0.2, strum: 0.4, wave: 1.3, kick: 0.35, racket: 0.32 };
 const ease = (t) => t * t * (3 - 2 * t);
+const _reach = new THREE.Vector3();
 const seg = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
 
 /** Karakter chibi low poly. API sama dengan karakter kapsul lama. */
@@ -448,6 +449,17 @@ export class Character {
     this.action = { kind, t: 0, dur: ACTION_DUR[kind] };
   }
 
+  /** Tangan kanan meraih titik di dunia lalu kembali (mengambil / menaruh kartu di meja). */
+  reachTo(world, dur = 0.6) {
+    this.root.updateMatrixWorld(true);
+    const v = this.torso.worldToLocal(_reach.copy(world)).sub(this.arms[0].position);
+    const len = v.length() || 1;
+    // lengan menggantung ke -y; Rz lalu Rx mengarahkannya ke target
+    const rz = Math.asin(clamp(v.x / len, -0.95, 0.95));
+    const rx = Math.atan2(-v.z, -v.y);
+    this.action = { kind: 'reach', t: 0, dur, rx: clamp(rx, -2.4, 0.3), rz };
+  }
+
   dizzy(seconds = 1.6) {
     this.dizzyT = Math.max(this.dizzyT, seconds);
     if (!this.stars) {
@@ -592,6 +604,11 @@ export class Character {
       } else if (a.kind === 'wave') {
         armRz = -2.6 + Math.sin(a.t * 15) * 0.25;
         armRx = -0.2;
+      } else if (a.kind === 'reach') {
+        const go = ease(seg(p, 0, 0.38)), back = ease(seg(p, 0.58, 1));
+        armRx = lerp(lerp(armRx, a.rx, go), armRx, back);
+        armRz = lerp(lerp(armRz, a.rz, go), armRz, back);
+        lean += 0.2 * go * (1 - back); // badan sedikit condong ke meja
       } else if (a.kind === 'kick') {
         const wind = ease(seg(p, 0, 0.35)), hit = ease(seg(p, 0.35, 0.6)), back = ease(seg(p, 0.65, 1));
         legR = lerp(lerp(lerp(legR, 0.9, wind), -1.5, hit), 0, back);
@@ -632,7 +649,7 @@ export class Character {
     }
     this.head.rotation.y = damp(this.head.rotation.y, this.gaze.yaw, 10, dt);
     // saat memegang kartu kepala tidak menunduk, supaya kipas kartu tidak tertutup kepala
-    const headX = this.holdCards && s.sitting ? Math.min(-this.gaze.pitch, 0.08) : -this.gaze.pitch;
+    const headX = this.holdCards && s.sitting ? Math.min(-this.gaze.pitch, 0.16) : -this.gaze.pitch;
     this.head.rotation.x = damp(this.head.rotation.x, headX, 10, dt);
 
     if (this.backAnim.cape) {

@@ -7,9 +7,21 @@ import { clamp, damp } from '../utils/math.js';
 
 const $ = (id) => document.getElementById(id);
 const INVITE_MS = 30000;
+const FREE_YAW = 0.9; // kamera bebas hanya bisa digeser kiri/kanan sebatas ini (radian)
+const CAM_MODES = ['head', 'free', 'top'];
+const ease = (t) => t * t * (3 - 2 * t);
+
+function loadCamPref() {
+  try {
+    const v = JSON.parse(localStorage.getItem('mb-cam') || '{}');
+    return { cards: CAM_MODES.includes(v.cards) ? v.cards : 'head', board: CAM_MODES.includes(v.board) ? v.board : 'free' };
+  } catch {
+    return { cards: 'head', board: 'free' };
+  }
+}
 
 /**
- * Pengelola semua game meja (Kartu Kilat, Gertak, Catur, Dam, Ludo):
+ * Pengelola semua game meja (Kartu Kilat, Catur, Dam, Ludo):
  * daftar meja aktif, undangan, duduk di kursi, kamera orang-pertama / tampak atas,
  * panel lobi & hasil, bot, serta meneruskan klik ke modul game.
  */
@@ -29,11 +41,13 @@ export class TableGames {
     this.active = null;
     this.controls = null;
     this.seatIndex = -1;
+    // kamera meja: 'head' (orang-pertama, kepala ikut bergerak), 'free' (orbit terbatas, tinggi, zoom), 'top' (game papan)
+    this.camMode = 'free';
+    this.camPref = loadCamPref();
     this.look = { yaw: 0, pitch: -0.62 };
-    this.topBlend = 0;
-    this.viewTop = false;
-    // kamera game papan: bebas (orbit, tinggi, zoom) atau tampak atas
     this.boardCam = { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 };
+    this.camT = 1;
+    this.camFrom = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
     this.camHintShown = false;
     this.raycaster = new THREE.Raycaster();
     this.invite = null;
@@ -123,13 +137,15 @@ export class TableGames {
         b.querySelector('span').textContent = label;
         b.hidden = true;
         b.addEventListener('click', onClick);
-        $('cu-view').before(b);
+        $('cu-leave').before(b);
         this.topButtons.push(b);
         return b;
       },
-      setTopView: (on) => {
-        this.viewTop = on;
-      },
+      setTopView: (on) => this.setCamMode(on ? 'top' : 'free'),
+      /** Kartu di tangan (HandView) milik pemain lokal, untuk animasi dari tangan ke meja. */
+      handCard: (id) => this.controls?.hand?.cards?.get(id) || null,
+      mySeat: () => this.local?.seat || null,
+      tableOf: (m) => this.tables[m.table],
       /** Karakter pemain di meja (bot, pemain lain, atau kita sendiri). */
       characterOf: (pid) => {
         if (pid === this.myId) return this.local?.character || null;
@@ -197,17 +213,27 @@ export class TableGames {
       this.setTray(!$('cards-ui').classList.contains('tray-open'));
       this.audio.play('click');
     });
-    $('cu-view').addEventListener('click', () => {
-      this.viewTop = !this.viewTop;
-      this.renderViewButton();
+    $('cu-cam').addEventListener('click', () => {
+      this.toggleCamMenu($('cu-cam-menu').hidden);
       this.audio.play('click');
     });
+    for (const b of $('cu-cam-menu').querySelectorAll('[data-cam]')) {
+      b.addEventListener('click', () => {
+        this.setCamMode(b.dataset.cam, true);
+        this.toggleCamMenu(false);
+        this.audio.play('click');
+      });
+    }
 
     const surface = $('surface');
     let down = null;
     surface.addEventListener('pointerdown', (e) => {
       if (this.active) down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
-      if (this.active) this.setTray(false); // ketuk area game menutup tombol
+      if (this.active) {
+        // ketuk area game menutup tombol & menu kamera
+        this.setTray(false);
+        this.toggleCamMenu(false);
+      }
     });
     surface.addEventListener('pointerup', (e) => {
       if (!this.active || !down || down.id !== e.pointerId) return;
@@ -227,6 +253,17 @@ export class TableGames {
   setTray(open) {
     $('cards-ui').classList.toggle('tray-open', open);
     $('cu-gear').classList.toggle('on', open);
+    if (open) this.toggleCamMenu(false);
+  }
+
+  toggleCamMenu(open) {
+    $('cu-cam-menu').hidden = !open;
+    $('cu-cam').classList.toggle('on', open);
+    $('cu-cam').setAttribute('aria-expanded', String(open));
+    if (open) {
+      $('cards-ui').classList.remove('tray-open');
+      $('cu-gear').classList.remove('on');
+    }
   }
 
   /** Tombol chat, mikrofon & menu ikut masuk ke baki tombol meja (di samping tombol keluar). */
@@ -236,21 +273,44 @@ export class TableGames {
     else for (const id of ['btn-mic', 'btn-chat', 'btn-games', 'btn-menu']) $('sys-btns').appendChild($(id));
   }
 
-  renderViewButton() {
-    const b = $('cu-view');
-    const top = this.viewTop;
-    b.innerHTML = icon(top ? 'orbit' : 'topView');
-    b.title = top ? 'Kamera bebas' : 'Tampak atas';
-    b.setAttribute('aria-label', b.title);
+  get viewTop() {
+    return this.camMode === 'top';
   }
 
-  /** Game papan: kamera bebas penuh + tampak atas. Game kartu: kamera bebas tanpa putar kiri/kanan. */
+  /** Ganti mode kamera dengan transisi halus. `remember`: simpan pilihan untuk meja berikutnya. */
+  setCamMode(mode, remember = false) {
+    if (!CAM_MODES.includes(mode)) return;
+    if (mode === 'top' && !this.isBoardGame()) mode = 'free';
+    if (remember) {
+      this.camPref[this.isBoardGame() ? 'board' : 'cards'] = mode;
+      try {
+        localStorage.setItem('mb-cam', JSON.stringify(this.camPref));
+      } catch {}
+    }
+    if (mode !== this.camMode) {
+      this.camMode = mode;
+      this.camT = 0;
+      this.camFrom.pos.copy(this.camera.position);
+      this.camFrom.quat.copy(this.camera.quaternion);
+    }
+    this.renderCamMenu();
+  }
+
+  renderCamMenu() {
+    for (const b of $('cu-cam-menu').querySelectorAll('[data-cam]')) {
+      b.hidden = b.dataset.cam === 'top' && !this.isBoardGame();
+      b.classList.toggle('on', b.dataset.cam === this.camMode);
+      b.setAttribute('aria-checked', String(b.dataset.cam === this.camMode));
+    }
+  }
+
+  /** Game papan punya kamera atas; game kartu tidak. */
   isBoardGame(m = this.active) {
     return !!this.module(m)?.topView;
   }
 
   defaultCam(m = this.active) {
-    return this.isBoardGame(m) ? { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 } : { yaw: 0, el: 0.78, dist: 1.3, topH: 1.0 };
+    return this.isBoardGame(m) ? { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 } : { yaw: 0, el: 0.95, dist: 1.9, topH: 1.0 };
   }
 
   pick(x, y) {
@@ -381,8 +441,6 @@ export class TableGames {
     this.active = match;
     this.lastEvN = match.ev?.n ?? -1;
     this.look = { yaw: 0, pitch: -0.62 };
-    this.viewTop = false;
-    this.topBlend = 0;
     this.boardCam = this.defaultCam(match);
     this.baseFov = this.camera.fov;
     this.input.setCardMode(true);
@@ -392,11 +450,13 @@ export class TableGames {
     document.body.classList.add('in-cards');
     $('cards-ui').hidden = false;
     $('cards-ui').dataset.game = mod.id;
-    $('cu-view').hidden = !mod.topView;
-    this.renderViewButton();
+    // mulai dari kamera dunia lalu meluncur ke kamera meja
+    this.camMode = '';
+    this.setCamMode(this.camPref[mod.topView ? 'board' : 'cards']);
+    this.toggleCamMenu(false);
     if (!this.camHintShown) {
       this.camHintShown = true;
-      setTimeout(() => this.ui.toast(mod.topView ? 'Geser kiri/kanan: putar · atas/bawah: tinggi kamera · cubit/scroll: zoom' : 'Geser atas/bawah: tinggi kamera · cubit/scroll: zoom'), 900);
+      setTimeout(() => this.ui.toast('Geser: lihat sekeliling · cubit/scroll: zoom · tombol kamera: ganti tampilan'), 900);
     }
     $('cu-actions').replaceChildren();
     this.clearTopButtons();
@@ -429,6 +489,7 @@ export class TableGames {
       this.local.facing = seat.rot + Math.PI;
     }
     this.local.character.root.visible = true;
+    this.local.character.head.visible = true;
     this.local.immune = false;
     this.local.gaze.yaw = this.local.gaze.pitch = 0;
     this.camera.up.set(0, 1, 0);
@@ -445,6 +506,7 @@ export class TableGames {
     this.clearTopButtons();
     this.borrowSysButtons(false);
     this.setTray(false);
+    this.toggleCamMenu(false);
     this.controls?.exit?.();
     this.controls = null;
     this.onExit?.();
@@ -454,14 +516,19 @@ export class TableGames {
   // ---------- Kamera ----------
   applyLook({ yaw, pitch, zoom = 0 }) {
     const c = this.boardCam;
-    if (this.viewTop) {
+    if (this.camMode === 'top') {
       c.topH = clamp(c.topH * Math.exp(zoom * 0.08), 0.45, 1.9);
       return;
     }
+    if (this.camMode === 'head') {
+      this.look.yaw = clamp(this.look.yaw + yaw, -1.9, 1.9);
+      this.look.pitch = clamp(this.look.pitch - pitch, -1.25, 0.45);
+      return;
+    }
     const board = this.isBoardGame();
-    if (board) c.yaw += yaw * 1.3; // geser kiri/kanan: memutari papan (game kartu: tidak)
-    c.el = clamp(c.el - pitch * 1.3, board ? 0.18 : 0.3, board ? 1.45 : 1.3); // geser atas = kamera lebih tinggi
-    c.dist = clamp(c.dist * Math.exp(zoom * 0.08), board ? 0.42 : 0.6, board ? 2.4 : 2.1);
+    c.yaw = clamp(c.yaw + yaw * 1.3, -FREE_YAW, FREE_YAW); // geser kiri/kanan: sebatas area di sisi kita
+    c.el = clamp(c.el - pitch * 1.3, board ? 0.18 : 0.3, board ? 1.45 : 1.4); // geser atas = kamera lebih tinggi
+    c.dist = clamp(c.dist * Math.exp(zoom * 0.08), board ? 0.42 : 0.6, 2.4);
   }
 
   updateCamera(dt) {
@@ -473,37 +540,12 @@ export class TableGames {
       cam.fov = fov;
       cam.updateProjectionMatrix();
     }
-    this.updateBoardCamera(dt, seat);
-    // kartu di tangan menempel di bawah layar mengikuti kamera
-    this.controls?.hand?.anchor(cam);
-  }
-
-  /** Kamera bebas (orbit di sekitar papan) dipadukan halus dengan tampak atas. */
-  updateBoardCamera(dt, seat) {
-    const cam = this.camera;
-    const t = this.tables[this.active.table];
-    const c = this.boardCam;
-    const target = this._tg || (this._tg = new THREE.Vector3());
-    target.set(t.x, t.y + 0.02, t.z);
-    const up = this._up || (this._up = new THREE.Vector3(0, 1, 0));
-    const m4 = this._m4 || (this._m4 = new THREE.Matrix4());
-    // bebas: dari sisi kursi kita (+ putaran), ketinggian & jarak bisa diatur
-    const th = seat.rot + Math.PI + c.yaw;
-    const h = c.dist * Math.cos(c.el);
-    this._pa.set(t.x + Math.sin(th) * h, t.y + c.dist * Math.sin(c.el), t.z + Math.cos(th) * h);
-    this._qa.setFromRotationMatrix(m4.lookAt(this._pa, target, up));
-    // tampak atas: menunduk ke papan, bagian atas layar = arah depan kursi kita
-    this.topBlend = damp(this.topBlend, this.viewTop ? 1 : 0, 6, dt);
-    if (this.topBlend > 0.001) {
-      const fx = Math.sin(seat.rot), fz = Math.cos(seat.rot);
-      this._pb.set(t.x - fx * 0.3 * c.topH, t.y + c.topH, t.z - fz * 0.3 * c.topH);
-      const fwd = this._fw || (this._fw = new THREE.Vector3());
-      fwd.set(fx, 0, fz);
-      const look = this._lk || (this._lk = new THREE.Vector3());
-      look.set(t.x + fx * 0.04, t.y, t.z + fz * 0.04);
-      this._qb.setFromRotationMatrix(m4.lookAt(this._pb, look, fwd));
-      cam.position.lerpVectors(this._pa, this._pb, this.topBlend);
-      cam.quaternion.slerpQuaternions(this._qa, this._qb, this.topBlend);
+    this.cameraPose(seat, this._pa, this._qa);
+    this.camT = Math.min(1, this.camT + dt / 0.5);
+    if (this.camT < 1) {
+      const k = ease(this.camT);
+      cam.position.lerpVectors(this.camFrom.pos, this._pa, k);
+      cam.quaternion.slerpQuaternions(this.camFrom.quat, this._qa, k);
     } else {
       cam.position.copy(this._pa);
       cam.quaternion.copy(this._qa);
@@ -511,9 +553,48 @@ export class TableGames {
     // tampilkan karakter sendiri kecuali kamera terlalu dekat dengan kepalanya
     const ch = this.local.character;
     const hx = seat.x - cam.position.x, hy = seat.y + ch.dims.seatedEye - cam.position.y, hz = seat.z - cam.position.z;
-    ch.root.visible = Math.hypot(hx, hy, hz) > 0.6;
-    this.local.gaze.yaw = 0;
-    this.local.gaze.pitch = -0.6;
+    const near = Math.hypot(hx, hy, hz);
+    ch.root.visible = near > 0.6;
+    // kamera tepat di atas kepala: sembunyikan kepala sendiri agar kartu & meja tidak tertutup (badan & tangan tetap terlihat)
+    ch.head.visible = near > 1.15;
+    // kamera kepala: kepala karakter mengikuti arah pandang (terlihat pemain lain)
+    if (this.camMode === 'head') {
+      this.local.gaze.yaw = this.look.yaw;
+      this.local.gaze.pitch = this.look.pitch + 0.45;
+    } else {
+      this.local.gaze.yaw = 0;
+      this.local.gaze.pitch = -0.5;
+    }
+  }
+
+  /** Posisi & arah kamera untuk mode sekarang. */
+  cameraPose(seat, pos, quat) {
+    const t = this.tables[this.active.table];
+    const c = this.boardCam;
+    const m4 = this._m4 || (this._m4 = new THREE.Matrix4());
+    const up = this._up || (this._up = new THREE.Vector3(0, 1, 0));
+    if (this.camMode === 'head') {
+      // orang-pertama dari mata karakter
+      this.eye(pos);
+      quat.setFromEuler(this._e.set(this.look.pitch, seat.rot + Math.PI + this.look.yaw, 0, 'YXZ'));
+      return;
+    }
+    if (this.camMode === 'top') {
+      // menunduk ke papan, bagian atas layar = arah depan kursi kita
+      const fx = Math.sin(seat.rot), fz = Math.cos(seat.rot);
+      pos.set(t.x - fx * 0.3 * c.topH, t.y + c.topH, t.z - fz * 0.3 * c.topH);
+      const fwd = this._fw || (this._fw = new THREE.Vector3());
+      const look = this._lk || (this._lk = new THREE.Vector3());
+      quat.setFromRotationMatrix(m4.lookAt(pos, look.set(t.x + fx * 0.04, t.y, t.z + fz * 0.04), fwd.set(fx, 0, fz)));
+      return;
+    }
+    // bebas: dari sisi kursi kita (+ geser terbatas), ketinggian & jarak bisa diatur
+    const target = this._tg || (this._tg = new THREE.Vector3());
+    target.set(t.x, t.y + 0.02, t.z);
+    const th = seat.rot + Math.PI + c.yaw;
+    const h = c.dist * Math.cos(c.el);
+    pos.set(t.x + Math.sin(th) * h, t.y + c.dist * Math.sin(c.el), t.z + Math.cos(th) * h);
+    quat.setFromRotationMatrix(m4.lookAt(pos, target, up));
   }
 
   // ---------- UI ----------
@@ -646,6 +727,8 @@ export class TableGames {
     const holders = new Set();
     for (const m of matches) if (!this.module(m)?.topView && m.phase !== 'lobby') for (const p of m.players) holders.add(p.id);
     if (this.remotes) for (const rp of this.remotes.values()) rp.character.holdCards = holders.has(rp.id);
+    // karakter sendiri ikut memegang kipas kartunya (terlihat di kamera bebas)
+    if (this.local) this.local.character.holdCards = holders.has(this.myId) && !!this.controls?.hand;
     this.tables.forEach((t, i) => {
       const ts = this.tableState[i];
       const m = byTable.get(i) || null;
@@ -727,7 +810,8 @@ export class TableGames {
     if (!this.active) return;
     this.active = mine;
     const idx = mine.players.findIndex((p) => p.id === this.myId);
-    if (idx !== this.seatIndex) this.sitAt(idx);
+    // kursi bisa berubah walau urutan sama (mis. berdua berhadapan lalu ada pemain ketiga)
+    if (idx !== this.seatIndex || this.seatOf(mine, idx) !== this.local.seat) this.sitAt(idx);
     this.handleEvent(mine);
     const myTurn = mine.phase === 'play' && mine.players[mine.turn]?.id === this.myId;
     if (myTurn && !this.lastTurnMine) this.audio.play('turn');

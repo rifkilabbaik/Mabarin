@@ -1333,4 +1333,42 @@ body.in-cards .hud-top-left, body.in-cards #dock { display: none !important; }
 #cu-tray .cu-topbtn { width: 40px; padding: 0; }
 #cu-tray .cu-topbtn span { display: none; }
 #cu-leave { color: #ffa8a8; }
+#cu-cam {
+  position: absolute;
+  top: calc(64px + var(--safe-t));
+  right: calc(12px + var(--safe-r));
+  width: 44px; height: 44px; min-height: 44px;
+  background: var(--hud-glass);
+  pointer-events: auto;
+}
+#cu-cam svg { width: 23px; height: 23px; }
+#cu-cam.on { background: #2f80ed; }
+.cu-cam-menu {
+  position: absolute;
+  top: calc(64px + var(--safe-t));
+  right: calc(64px + var(--safe-r));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 16px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+  z-index: 3;
+}
+.cu-cam-menu[hidden] { display: none; }
+.cu-cam-menu button {
+  display: flex; align-items: center; gap: 9px;
+  min-height: 40px; padding: 0 14px 0 10px;
+  border: 0; border-radius: 11px;
+  background: transparent; color: #fff;
+  font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap;
+  cursor: pointer;
+}
+.cu-cam-menu button:hover { background: rgba(255, 255, 255, 0.14); }
+.cu-cam-menu button.on { background: #2f80ed; }
+.cu-cam-menu button[hidden] { display: none; }
+.cu-cam-menu .ic { width: 20px; height: 20px; }
 body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
