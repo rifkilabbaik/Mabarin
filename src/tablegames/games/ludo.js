@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HostBase } from '../HostBase.js';
-import { boardFrame, boardGroup, canvasPlane, cellPos, pawnGeometry, pieceMaterial } from '../boardKit.js';
+import { boardFrame, boardGroup, canvasPlane, cellPos, outlineGeometry, pawnGeometry, pieceMaterial } from '../boardKit.js';
 
 // ---------- Aturan ----------
 // Lintasan 52 petak searah jarum jam pada grid 15×15 (x = kolom, y = baris).
@@ -21,10 +21,10 @@ seg(range(9, 14).map((y) => [8, y]));
 seg([[7, 14]]);
 // Tiap warna: indeks petak start, jalur rumah (5 petak), area kandang.
 const SEATS = [
-  { start: 1, home: range(13, 9).map((y) => [7, y]), base: [1.5, 10.5], color: '#e03131', name: 'Merah' },
-  { start: 14, home: range(1, 5).map((x) => [x, 7]), base: [1.5, 1.5], color: '#2f9e44', name: 'Hijau' },
-  { start: 27, home: range(1, 5).map((y) => [7, y]), base: [10.5, 1.5], color: '#f59f00', name: 'Kuning' },
-  { start: 40, home: range(13, 9).map((x) => [x, 7]), base: [10.5, 10.5], color: '#1c7ed6', name: 'Biru' },
+  { start: 1, home: range(13, 9).map((y) => [7, y]), finish: [7, 8], base: [1.5, 10.5], color: '#e03131', name: 'Merah' },
+  { start: 14, home: range(1, 5).map((x) => [x, 7]), finish: [6, 7], base: [1.5, 1.5], color: '#2f9e44', name: 'Hijau' },
+  { start: 27, home: range(1, 5).map((y) => [7, y]), finish: [7, 6], base: [10.5, 1.5], color: '#f59f00', name: 'Kuning' },
+  { start: 40, home: range(13, 9).map((x) => [x, 7]), finish: [8, 7], base: [10.5, 10.5], color: '#1c7ed6', name: 'Biru' },
 ];
 const SAFE = new Set([1, 14, 27, 40, 9, 22, 35, 48]);
 const FINISH = 56; // 0..50 lintasan, 51..55 jalur rumah, 56 selesai
@@ -183,8 +183,7 @@ function cellOf(seat, prog, tokenIndex) {
   }
   if (prog <= 50) return TRACK[(S.start + prog) % 52];
   if (prog < FINISH) return S.home[prog - 51];
-  // selesai: berkumpul di tengah
-  return [7 + ((tokenIndex % 2) - 0.5) * 0.6, 7 + (((tokenIndex / 2) | 0) - 0.5) * 0.6];
+  return S.finish; // selesai: bertumpuk di segitiga warnanya di tengah papan
 }
 
 function drawBoard(g, px) {
@@ -265,6 +264,8 @@ const FACE_NUM = [3, 4, 1, 6, 2, 5];
 const UP_ROT = { 1: [0, 0], 6: [Math.PI, 0], 2: [-Math.PI / 2, 0], 5: [Math.PI / 2, 0], 3: [0, Math.PI / 2], 4: [0, -Math.PI / 2] };
 
 const HOP = 0.17; // detik per petak
+const STACK = 0.04; // tinggi tiap pion yang bertumpuk dalam satu petak
+const PAWN_S = 1.25;
 const DIE_R = SIZE / 2 + 0.075; // dadu di tepi papan, di depan pemain yang mendapat giliran
 const ease = (k) => k * k * (3 - 2 * k);
 
@@ -280,11 +281,14 @@ class LudoRenderer {
     this.die.castShadow = true;
     this.die.userData.isDie = true;
     this.group.add(this.die);
-    // cincin penanda "ketuk dadu"
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 28), new THREE.MeshBasicMaterial({ color: '#ffe066', transparent: true, opacity: 0.9, depthWrite: false }));
-    this.ring.rotation.x = -Math.PI / 2;
-    this.ring.visible = false;
-    this.group.add(this.ring);
+    // garis tepi kuning: dadu boleh dilempar / pion boleh dijalankan
+    this.glow = new THREE.MeshBasicMaterial({ color: '#ffe066', side: THREE.BackSide, transparent: true, depthWrite: false });
+    this.dieEdge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), this.glow);
+    this.dieEdge.scale.setScalar(1.3);
+    this.dieEdge.visible = false;
+    this.die.add(this.dieEdge);
+    this.pawnEdgeGeo = outlineGeometry('ludo', pawnGeometry(), 0.006);
+    this.arrivals = 0;
     this.dieAngle = null;
     this.dieSlide = null;
     this.rollT = 0;
@@ -332,13 +336,17 @@ class LudoRenderer {
         let rec = this.tokens.get(key);
         if (!rec) {
           const mesh = new THREE.Mesh(pawnGeometry(), pieceMaterial(SEATS[seat].color));
-          mesh.scale.setScalar(1.25);
+          mesh.scale.setScalar(PAWN_S);
           mesh.castShadow = true;
           mesh.userData = { owner: p.id, index: i };
+          const edge = new THREE.Mesh(this.pawnEdgeGeo, this.glow);
+          edge.visible = false;
+          edge.raycast = () => {};
+          mesh.add(edge);
           const [cx, cy] = cellOf(seat, prog, i);
           this.pos(cx, cy, mesh.position);
           this.group.add(mesh);
-          rec = { mesh, prog, anim: null, seat, i };
+          rec = { mesh, edge, prog, anim: null, seat, i, arrive: this.arrivals++ };
           this.tokens.set(key, rec);
         }
         if (prog !== rec.prog) {
@@ -351,6 +359,7 @@ class LudoRenderer {
             walkLeft = Math.max(walkLeft, pts.length * HOP + (from < 0 ? HOP : 0));
           } else rec.anim = null;
           rec.prog = prog;
+          rec.arrive = this.arrivals++; // yang datang belakangan ditumpuk di atas
         }
         if (rec.anim?.type === 'walk') walkLeft = Math.max(walkLeft, (rec.anim.pts.length - rec.anim.k) * HOP);
       });
@@ -367,27 +376,51 @@ class LudoRenderer {
     }
   }
 
+  /** Tinggi tumpukan tiap pion: pion dalam satu petak yang sama ditumpuk ke atas (kandang tidak). */
+  stackHeights() {
+    const cells = new Map();
+    for (const rec of this.tokens.values()) {
+      if (rec.prog < 0) {
+        rec.stackY = 0;
+        continue;
+      }
+      const key = cellOf(rec.seat, rec.prog, rec.i).join(',');
+      if (!cells.has(key)) cells.set(key, []);
+      cells.get(key).push(rec);
+    }
+    for (const list of cells.values()) {
+      list.sort((a, b) => a.arrive - b.arrive);
+      list.forEach((rec, k) => (rec.stackY = k * STACK));
+    }
+  }
+
   animateTokens(dt, m) {
+    this.stackHeights();
+    const pulse = 0.8 + Math.sin(this.time * 6) * 0.2;
+    this.glow.opacity = pulse;
     for (const rec of this.tokens.values()) {
       const mesh = rec.mesh;
       const a = rec.anim;
       if (a?.type === 'walk') {
-        // melompat petak demi petak
+        // melompat petak demi petak; mulai dari atas tumpukan asal, mendarat di atas tumpukan tujuan
+        if (a.y0 === undefined) a.y0 = mesh.position.y;
         const dur = a.big && a.k === 0 ? HOP * 2 : HOP;
         a.t += dt / dur;
         const fromP = a.k === 0 ? a.from : a.pts[a.k - 1];
         const toP = a.pts[a.k];
         const e = ease(Math.min(1, a.t));
+        const last = a.k === a.pts.length - 1;
         mesh.position.lerpVectors(fromP, toP, e);
-        mesh.position.y = Math.sin(e * Math.PI) * (a.big && a.k === 0 ? 0.07 : 0.03);
-        mesh.scale.set(1.25, 1.25 * (1 - Math.sin(e * Math.PI) * -0.12), 1.25);
+        mesh.position.y = (a.k === 0 ? a.y0 * (1 - e) : 0) + (last ? rec.stackY * e : 0) + Math.sin(e * Math.PI) * (a.big && a.k === 0 ? 0.07 : 0.03);
+        mesh.scale.set(PAWN_S, PAWN_S * (1 + Math.sin(e * Math.PI) * 0.12), PAWN_S);
         if (a.t >= 1) {
           a.k++;
           a.t = 0;
           this.play('hop');
           if (a.k >= a.pts.length) {
             rec.anim = null;
-            mesh.position.y = 0;
+            mesh.position.y = rec.stackY;
+            mesh.scale.setScalar(PAWN_S);
             if (a.finish) this.play('chime');
           }
         }
@@ -404,7 +437,7 @@ class LudoRenderer {
         a.t = Math.min(1, a.t + dt / 0.75);
         const e = ease(a.t);
         mesh.position.lerpVectors(a.from, a.to, e);
-        mesh.position.y = Math.sin(a.t * Math.PI) * 0.2;
+        mesh.position.y = a.from.y * (1 - e) + Math.sin(a.t * Math.PI) * 0.2;
         mesh.rotation.x = a.t * Math.PI * 4;
         mesh.rotation.z = a.t * Math.PI * 2;
         if (a.t >= 1) {
@@ -414,22 +447,23 @@ class LudoRenderer {
           this.play('plop');
         }
       } else {
-        // diam di petak (bertumpuk: geser sedikit)
+        // diam tepat di tengah petak (bertumpuk ke atas bila berbagi petak)
         const [cx, cy] = cellOf(rec.seat, rec.prog, rec.i);
         const target = this.pos(cx, cy, this._v);
-        mesh.position.x += (target.x + (rec.i - 1.5) * 0.004 - mesh.position.x) * Math.min(1, dt * 12);
-        mesh.position.z += (target.z - mesh.position.z) * Math.min(1, dt * 12);
-        mesh.position.y = 0;
+        const k = Math.min(1, dt * 12);
+        mesh.position.x += (target.x - mesh.position.x) * k;
+        mesh.position.z += (target.z - mesh.position.z) * k;
+        mesh.position.y += (rec.stackY - mesh.position.y) * k;
       }
-      const hi = !a && this.highlight?.has(rec.i) && mesh.userData.owner === this.ctx.myId;
-      if (a?.type !== 'walk') mesh.scale.setScalar(hi ? 1.25 + Math.sin(this.time * 8) * 0.12 : 1.25);
+      // pion yang bisa dijalankan: garis tepi kuning berdenyut (ukuran pion tetap)
+      rec.edge.visible = !a && !!this.highlight?.has(rec.i) && mesh.userData.owner === this.ctx.myId;
     }
   }
 
   updateDie(dt, m) {
     const live = m.phase === 'play' || m.phase === 'end';
     this.die.visible = live;
-    this.ring.visible = false;
+    this.dieEdge.visible = false;
     if (!live) return;
     // dadu pindah ke depan pemain yang mendapat giliran (memutari tepi papan)
     const target = this.seatAngle(m, m.turn);
@@ -462,13 +496,8 @@ class LudoRenderer {
       const [rx, rz] = UP_ROT[m.die];
       this.die.rotation.set(rx, 0, rz);
     }
-    // giliran kita & belum melempar: dadu memantul pelan + cincin berdenyut
-    if (this.prompt && !this.rollT && !this.dieSlide) {
-      this.die.position.y = 0.03 + Math.abs(Math.sin(this.time * 4)) * 0.025;
-      this.ring.visible = true;
-      this.ring.position.set(this.die.position.x, 0.003, this.die.position.z);
-      this.ring.scale.setScalar(1 + Math.sin(this.time * 6) * 0.12);
-    }
+    // giliran kita & belum melempar: dadu bergaris tepi kuning
+    this.dieEdge.visible = !!this.prompt && this.rollT <= 0 && !this.dieSlide;
   }
 
   update(dt, m) {

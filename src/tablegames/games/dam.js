@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HostBase } from '../HostBase.js';
-import { Markers, boardFrame, boardGroup, canvasPlane, cellPos, checkerGeometry, pickCell, pieceMaterial } from '../boardKit.js';
+import { Captures, Markers, animatePieces, boardFrame, boardGroup, canvasPlane, cellPos, checkerGeometry, crownMesh, pickCell, pieceMaterial, syncBoard } from '../boardKit.js';
 import { applyDam, colorOf, damBot, initialDam, legalDam } from './damRules.js';
 
 const SIZE = 0.6;
@@ -10,12 +10,12 @@ const opp = (c) => (c === 'w' ? 'b' : 'w');
 class DamHost extends HostBase {
   constructor(o) {
     super({ ...o, game: 'dam', min: 2, max: 2, turnMs: 60000 });
-    Object.assign(this.state, { board: null, chain: -1, last: null, quiet: 0 });
+    Object.assign(this.state, { board: null, chain: -1, last: null, quiet: 0, taken: { w: [], b: [] } });
     this.push();
   }
 
   setup() {
-    Object.assign(this.state, { board: initialDam(), chain: -1, last: null, quiet: 0 });
+    Object.assign(this.state, { board: initialDam(), chain: -1, last: null, quiet: 0, taken: { w: [], b: [] } });
     this.setTurn(0);
   }
 
@@ -29,6 +29,7 @@ class DamHost extends HostBase {
     if (!this.isTurn(pid)) return;
     const mv = legalDam(s.board, c, s.chain).find((m) => m.from === from && m.to === to);
     if (!mv) return;
+    if (mv.cap !== undefined) s.taken[c].push(s.board[mv.cap]); // disimpan di belakang papan
     const res = applyDam(s.board, mv);
     s.board = res.board;
     s.chain = res.chain;
@@ -82,59 +83,67 @@ class DamRenderer {
     this.anims = [];
     this.sig = '';
     this.lastEv = -1;
+    // bidak yang dimakan disimpan berjajar di belakang papan, di sisi pemain yang memakan
+    this.captures = new Captures(this.group, {
+      make: (p) => this.addPiece(p),
+      perRow: 6,
+      gap: 0.088,
+      rowGap: 0.088,
+      edge: SIZE / 2 + 0.085,
+      onLand: () => ctx.audio.playAt('plop', table.x, table.z),
+    });
   }
 
   pos(sq, out = new THREE.Vector3()) {
     return cellPos(sq % 8, (sq / 8) | 0, 8, SIZE, out);
   }
 
+  addPiece(p) {
+    const mesh = new THREE.Mesh(checkerGeometry(false), pieceMaterial(COLORS[colorOf(p)]));
+    mesh.scale.setScalar(1.35);
+    mesh.castShadow = true;
+    this.setPiece(mesh, p);
+    this.group.add(mesh);
+    return mesh;
+  }
+
+  /** Raja: dua keping bertumpuk + mahkota emas. */
+  setPiece(mesh, p) {
+    const king = p === 'W' || p === 'B';
+    mesh.geometry = checkerGeometry(king);
+    if (king && !mesh.userData.crown) mesh.add((mesh.userData.crown = crownMesh()));
+    if (!king && mesh.userData.crown) {
+      mesh.userData.crown.removeFromParent();
+      mesh.userData.crown = null;
+    }
+    mesh.userData.piece = p;
+  }
+
   sync(m) {
     const board = m.board || [];
-    const sig = board.join(',');
+    const sig = `${board.join(',')}|${m.taken?.w.length ?? 0},${m.taken?.b.length ?? 0}`;
     if (sig === this.sig) return;
     this.sig = sig;
     const ev = m.ev;
-    if (ev?.n !== this.lastEv && ev?.from !== undefined && this.meshes.has(ev.from)) {
-      const mesh = this.meshes.get(ev.from);
-      this.meshes.delete(ev.from);
-      this.meshes.set(ev.to, mesh);
-      this.anims.push({ mesh, from: mesh.position.clone(), to: this.pos(ev.to), t: 0 });
-    }
+    const isMove = ev && ev.n !== this.lastEv && ev.from !== undefined;
     this.lastEv = ev?.n;
-    for (let sq = 0; sq < 64; sq++) {
-      const p = board[sq];
-      let mesh = this.meshes.get(sq);
-      if (mesh && mesh.userData.piece !== p) {
-        if (p && colorOf(p) === colorOf(mesh.userData.piece) && mesh.userData.piece !== p) {
-          mesh.geometry = checkerGeometry(true); // naik jadi raja
-          mesh.userData.piece = p;
-        } else {
-          mesh.removeFromParent();
-          this.meshes.delete(sq);
-          mesh = null;
-        }
-      }
-      if (p && !mesh) {
-        mesh = new THREE.Mesh(checkerGeometry(p === 'W' || p === 'B'), pieceMaterial(COLORS[colorOf(p)]));
-        mesh.scale.setScalar(1.35);
-        mesh.castShadow = true;
-        mesh.userData.piece = p;
-        this.pos(sq, mesh.position);
-        this.group.add(mesh);
-        this.meshes.set(sq, mesh);
-      }
-    }
+    syncBoard(this.meshes, board, {
+      ev: isMove ? ev : null,
+      capSide: isMove && ev.cap !== undefined ? colorOf(board[ev.to]) : null,
+      captures: this.captures,
+      anims: this.anims,
+      pos: (sq, out) => this.pos(sq, out),
+      make: (p) => this.addPiece(p),
+      retype: (mesh, p) => this.setPiece(mesh, p),
+      colorOf,
+    });
+    this.captures.sync(m.board ? m.taken : null);
   }
 
   update(dt, m) {
     this.sync(m);
-    for (const a of this.anims) {
-      a.t = Math.min(1, a.t + dt / 0.28);
-      const k = a.t * a.t * (3 - 2 * a.t);
-      a.mesh.position.lerpVectors(a.from, a.to, k);
-      a.mesh.position.y = Math.sin(k * Math.PI) * 0.03;
-    }
-    this.anims = this.anims.filter((a) => a.t < 1);
+    this.anims = animatePieces(this.anims, dt, 0.05, 0.38);
+    this.captures.update(dt);
     this.markers.begin();
     if (m.last) for (const sq of [m.last.from, m.last.to]) this.markers.add(this.pos(sq), '#ffd43b');
     for (const x of this.extraMarks || []) this.markers.add(x.pos, x.color, x.kind);

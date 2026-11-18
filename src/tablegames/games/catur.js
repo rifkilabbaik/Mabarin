@@ -1,21 +1,21 @@
 import * as THREE from 'three';
 import { HostBase } from '../HostBase.js';
-import { Markers, boardFrame, boardGroup, canvasPlane, cellPos, chessDisc, pickCell } from '../boardKit.js';
+import { Captures, Markers, animatePieces, boardFrame, boardGroup, canvasPlane, cellPos, chessPiece, pickCell, setChessPiece, syncBoard } from '../boardKit.js';
 import { applyChess, chessBot, chessResult, inCheck, initialChess, legalChess } from './chessRules.js';
 
 const SIZE = 0.6;
-const COLORS = { w: '#f8f3e6', b: '#3b3f48' };
 
 class CaturHost extends HostBase {
   constructor(o) {
     super({ ...o, game: 'catur', min: 2, max: 2, turnMs: 90000 });
-    Object.assign(this.state, { chess: null, last: null });
+    Object.assign(this.state, { chess: null, last: null, taken: { w: [], b: [] } });
     this.push();
   }
 
   setup() {
     this.state.chess = initialChess();
     this.state.last = null;
+    this.state.taken = { w: [], b: [] }; // bidak yang dimakan masing-masing warna
     this.setTurn(0); // putih jalan dulu
   }
 
@@ -30,12 +30,13 @@ class CaturHost extends HostBase {
     if (!mv) return;
     const next = applyChess(s.chess, mv);
     const cap = !!next.captured;
+    if (next.captured) s.taken[this.colorOf(pid)].push(next.captured);
     delete next.captured;
     s.chess = next;
     s.last = { from, to };
     const result = chessResult(next);
-    if (result === 'mate') return this.end(pid, { why: 'mate', from, to });
-    if (result) return this.end(null, { why: result, from, to });
+    if (result === 'mate') return this.end(pid, { why: 'mate', from, to, cap });
+    if (result) return this.end(null, { why: result, from, to, cap });
     this.setTurn(this.next());
     this.push({ k: 'move', p: pid, from, to, cap, check: inCheck(next) });
   }
@@ -82,6 +83,21 @@ class CaturRenderer {
     this.anims = [];
     this.lastEv = -1;
     this.boardSig = '';
+    // bidak yang dimakan disimpan berjajar di belakang papan, di sisi pemain yang memakan
+    this.captures = new Captures(this.group, {
+      make: (p) => this.addPiece(p),
+      perRow: 8,
+      gap: 0.068,
+      rowGap: 0.075,
+      edge: SIZE / 2 + 0.08,
+      onLand: () => this.ctx.audio.playAt('plop', table.x, table.z),
+    });
+  }
+
+  addPiece(p) {
+    const mesh = chessPiece(p);
+    this.group.add(mesh);
+    return mesh;
   }
 
   pos(sq, out = new THREE.Vector3()) {
@@ -90,49 +106,30 @@ class CaturRenderer {
 
   syncPieces(m) {
     const board = m.chess?.board || [];
-    const sig = board.join(',');
+    const taken = m.chess ? m.taken : null;
+    const sig = `${board.join(',')}|${taken?.w.length ?? 0},${taken?.b.length ?? 0}`;
     if (sig === this.boardSig) return;
     this.boardSig = sig;
     const ev = m.ev;
-    if (ev?.n !== this.lastEv && (ev?.k === 'move' || (ev?.k === 'win' && ev.from !== undefined)) && this.meshes.has(ev.from)) {
-      const mesh = this.meshes.get(ev.from);
-      this.meshes.get(ev.to)?.removeFromParent();
-      this.meshes.delete(ev.from);
-      this.meshes.set(ev.to, mesh);
-      this.anims.push({ mesh, from: mesh.position.clone(), to: this.pos(ev.to), t: 0 });
-    }
+    const isMove = ev && ev.n !== this.lastEv && (ev.k === 'move' || (ev.k === 'win' && ev.from !== undefined));
     this.lastEv = ev?.n;
-    for (let sq = 0; sq < 64; sq++) {
-      const p = board[sq];
-      let mesh = this.meshes.get(sq);
-      if (mesh && mesh.userData.piece !== p) {
-        mesh.removeFromParent();
-        this.meshes.delete(sq);
-        mesh = null;
-      }
-      if (p && !mesh) {
-        mesh = chessDisc(p);
-        mesh.userData.piece = p;
-        this.pos(sq, mesh.position);
-        this.group.add(mesh);
-        this.meshes.set(sq, mesh);
-      }
-    }
+    syncBoard(this.meshes, board, {
+      ev: isMove ? ev : null,
+      capSide: isMove && ev.cap ? board[ev.to]?.[0] : null,
+      captures: this.captures,
+      anims: this.anims,
+      pos: (sq, out) => this.pos(sq, out),
+      make: (p) => this.addPiece(p),
+      retype: (mesh, p) => setChessPiece(mesh, p),
+      colorOf: (p) => p[0],
+    });
+    this.captures.sync(taken);
   }
 
-  update(dt, m, myId) {
+  update(dt, m) {
     this.syncPieces(m);
-    // ikon bidak menghadap pemain yang sedang melihat (pemain hitam duduk di seberang)
-    const flip = myId && m.players?.[1]?.id === myId;
-    const rot = flip ? -Math.PI / 2 : Math.PI / 2;
-    for (const mesh of this.meshes.values()) mesh.rotation.y = rot;
-    for (const a of this.anims) {
-      a.t = Math.min(1, a.t + dt / 0.3);
-      const k = a.t * a.t * (3 - 2 * a.t);
-      a.mesh.position.lerpVectors(a.from, a.to, k);
-      a.mesh.position.y = Math.sin(k * Math.PI) * 0.03;
-    }
-    this.anims = this.anims.filter((a) => a.t < 1);
+    this.anims = animatePieces(this.anims, dt, 0.06, 0.42);
+    this.captures.update(dt);
     // sorot langkah terakhir & raja yang diskak (terlihat semua pemain)
     this.markers.begin();
     if (m.last) for (const sq of [m.last.from, m.last.to]) this.markers.add(this.pos(sq), '#ffd43b');

@@ -1,5 +1,5 @@
-// Aturan dam 8×8: bidak di petak gelap, wajib makan, makan beruntun,
-// bidak biasa makan maju & mundur, raja (dam) melangkah & makan jarak jauh.
+// Aturan dam 8×8: bidak di petak gelap, wajib makan, makan beruntun.
+// Bidak biasa hanya bisa maju (melangkah maupun makan); raja (dam) bebas maju-mundur jarak jauh.
 // Papan: array 64 (indeks r*8+f), isi: null | 'w' | 'b' | 'W' | 'B' (huruf besar = raja).
 
 export function initialDam() {
@@ -21,9 +21,11 @@ const isKing = (p) => p === 'W' || p === 'B';
 function capturesFrom(board, sq) {
   const p = board[sq];
   const c = colorOf(p);
+  const fwd = c === 'w' ? 1 : -1;
   const f0 = sq % 8, r0 = (sq / 8) | 0;
   const out = [];
   for (const [df, dr] of DIRS) {
+    if (!isKing(p) && dr !== fwd) continue; // bidak biasa tidak bisa mundur
     if (isKing(p)) {
       let f = f0 + df, r = r0 + dr;
       while (on(f, r) && !board[r * 8 + f]) { f += df; r += dr; }
