@@ -720,6 +720,9 @@ export class TableGames {
       img.src = avatarUrl(p.look, p.color);
       img.style.setProperty('--c', this.controls?.playerColor?.(m, p) || p.color);
       row.querySelector('.cp-name').textContent = p.id === this.myId ? 'Kamu' : p.name;
+      // info tambahan di samping nama (mis. warna & sisa bola pool)
+      const badge = this.controls?.playerBadge?.(m, p);
+      if (badge) row.querySelector('.cp-name').insertAdjacentHTML('afterend', badge);
       return row;
     });
     if (chip?.dir) {

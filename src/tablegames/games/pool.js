@@ -642,19 +642,19 @@ class PoolControls {
     const ui = document.createElement('div');
     ui.id = 'pool-ui';
     ui.innerHTML = `
-      <div class="pl-status" id="pl-status"></div>
+      <div class="pl-warn" id="pl-warn" hidden>Bola lawan!</div>
       <div class="pl-power" id="pl-power" title="Tarik stik ke bawah lalu lepas untuk memukul">
         <span class="pl-cap" id="pl-cap">Tarik</span>
         <div class="pl-track"><div class="pl-fill" id="pl-fill"></div><div class="pl-stick" id="pl-handle"></div></div>
       </div>
-      <div class="pl-fine" id="pl-fine" title="Geser untuk bidik halus"><div class="pl-ticks" id="pl-ticks"></div></div>
-      <button type="button" class="pl-spin" id="pl-spin" title="Efek bola putih" aria-label="Efek bola putih"><span class="pl-ball"><i id="pl-dot"></i></span></button>
-      <button type="button" class="btn primary pl-done" id="pl-done" hidden>${icon('check')}<span>Selesai</span></button>
       <div class="pl-modes" id="pl-modes">
-        <button type="button" data-mode="stand">${icon('stand')}<span>Berdiri</span></button>
-        <button type="button" data-mode="bend">${icon('bend')}<span>Membungkuk</span></button>
-        <button type="button" data-mode="walk">${icon('walk')}<span>Berjalan</span></button>
+        <button type="button" class="icon-btn" data-mode="stand" title="Berdiri" aria-label="Berdiri">${icon('stand')}</button>
+        <button type="button" class="icon-btn" data-mode="bend" title="Membungkuk (menembak)" aria-label="Membungkuk">${icon('bend')}</button>
+        <button type="button" class="icon-btn" data-mode="walk" title="Berjalan" aria-label="Berjalan">${icon('walk')}</button>
       </div>
+      <button type="button" class="pl-spin" id="pl-spin" title="Efek bola putih" aria-label="Efek bola putih"><span class="pl-ball"><i id="pl-dot"></i></span></button>
+      <div class="pl-fine" id="pl-fine" title="Bidik halus: geser naik-turun"><div class="pl-ticks" id="pl-ticks"></div></div>
+      <button type="button" class="btn primary pl-done" id="pl-done" hidden>${icon('check')}<span>Selesai</span></button>
       <p class="pl-hint" id="pl-hint" hidden></p>
       <div class="pl-spinpanel" id="pl-spinpanel" hidden>
         <div class="pl-bigball" id="pl-bigball"><i id="pl-bigdot"></i></div>
@@ -979,7 +979,7 @@ class PoolControls {
     $('pl-fill').style.height = `${this.power * 100}%`;
     $('pl-handle').style.transform = `translateY(${this.power * 52}%)`;
     $('pl-cap').textContent = this.power > 0.04 ? `${Math.round(this.power * 100)}%` : 'Tarik';
-    this.renderStatus(m);
+    this.renderWarn();
     this.renderModes();
     // bidikan untuk tampilan (stik & garis bantu) hanya saat membungkuk
     const local = this.ctx.local();
@@ -1064,23 +1064,19 @@ class PoolControls {
     return onEight ? id === 8 : g ? colorOfBall(id) === g : id !== 8;
   }
 
-  renderStatus(m) {
-    const el = $('pl-status');
-    if (m.phase !== 'play') return (el.innerHTML = '');
-    const g = m.groups?.[this.ctx.myId];
-    const left = (grp) => (m.balls || []).filter((b) => !b.in && colorOfBall(b.id) === grp).length;
-    const dot = (grp) => `<i style="background:${GROUP_COLOR[grp]}"></i>`;
-    let html;
-    if (!g) html = `<span>Meja terbuka</span><span>${dot(RED)}${left(RED)} ${dot(BLUE)}${left(BLUE)}</span>`;
-    else {
-      const other = g === RED ? BLUE : RED;
-      html = `<span>Kamu ${dot(g)}${left(g) || '<b>bola 8</b>'}</span><span>Lawan ${dot(other)}${left(other) || '<b>bola 8</b>'}</span>`;
-    }
-    if (this.canAim && this.targetLegal === false) html += '<span class="pl-warn">Bola lawan!</span>';
-    if (el.dataset.sig !== html) {
-      el.dataset.sig = html;
-      el.innerHTML = html;
-    }
+  /** Peringatan bila bidikan mengenai bola lawan lebih dulu. */
+  renderWarn() {
+    $('pl-warn').hidden = !(this.canAim && this.targetLegal === false);
+  }
+
+  /** Di samping nama pemain: warna bola & sisa jumlahnya (bola 8 bila warnanya habis). */
+  playerBadge(m, p) {
+    if (m.phase !== 'play') return '';
+    const g = m.groups?.[p.id];
+    if (!g) return '<span class="cp-balls" title="Meja terbuka"><i class="split"></i></span>';
+    const left = (m.balls || []).filter((b) => !b.in && colorOfBall(b.id) === g).length;
+    if (!left) return '<span class="cp-balls" title="Tinggal bola 8"><i style="background:#141414"></i>8</span>';
+    return `<span class="cp-balls" title="Bola ${GROUP_NAME[g]}"><i style="background:${GROUP_COLOR[g]}"></i>${left}</span>`;
   }
 
   shoot() {

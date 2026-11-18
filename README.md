@@ -74,16 +74,17 @@ Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player
 
 Meja biliar ada di area olahraga (dekat lapangan tenis, juga tampil di peta). Buka **Game → Pool**, undang teman atau tambah bot. Di lobi, bandar memilih **15 bola** (7 merah, 7 biru, 1 hitam) atau **9 bola** (4 + 4 + 1, ronde cepat). Bola putih = bola tembak.
 
-- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Tiga tombol di kanan bawah:
+- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Kolom kanan (dari atas): gear → tiga ikon mode → tombol efek bola putih → strip bidik halus sampai bawah layar. Ikon mode:
   - **Berdiri** — berdiri tegak, pandangan lebih tinggi & luas ke meja. Geser layar untuk menoleh (kiri/kanan, atas/bawah).
   - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari bola putih. Cubit / scroll = maju-mundur kamera.
   - **Berjalan** — berjalan mengelilingi meja dengan joystick (HP, kiri bawah) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Bisa dipakai juga sambil menunggu lawan.
   - Setelah menembak, karakter otomatis **berdiri** supaya pandangan lebih luas dan kamera bisa digeser. Pemain lain melihatmu berjalan, berdiri, atau membungkuk memegang stik.
 - **Geser stik vs geser layar** — saat membungkuk, menggeser **stik** membuat stik ikut bergerak (bidikan berputar di sekitar bola putih); menggeser bagian lain layar memutar pandangan seperti mata.
-- **Bidik dua lapis** — kasar: geser stik, atau ketuk bola yang ingin dituju. Halus: geser strip bergerigi di kanan.
+- **Bidik dua lapis** — kasar: geser stik, atau ketuk bola yang ingin dituju. Halus: geser strip bergerigi di kanan (di bawah tombol efek bola putih).
 - **Garis lintasan dinamis** — garis dari bola putih ke titik sentuh (lingkaran bola hantu), arah bola sasaran setelah dipukul (makin lurus makin panjang), dan arah pantulan bola putih (ikut berubah oleh efek atas/bawah). Bila mengenai bantalan, tampil arah pantulannya. Peringatan muncul bila sasaran bukan bolamu.
 - **Pemilih efek** — ketuk bola kecil di kanan bawah, lalu pilih titik pukul di bola besar: atas = bola putih ikut maju, bawah = bola putih tertarik mundur, kiri/kanan = efek saat memantul di bantalan.
-- **Power tarik-lepas** — bar panjang di kiri berisi gambar stik: tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
+- **Power tarik-lepas** — bar di kiri berisi gambar stik, sejajar & sama panjang dengan strip bidik halus: tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
+- **Warna & sisa bola** tampil di samping nama tiap pemain di daftar giliran (bulat merah-biru = meja masih terbuka, bola hitam "8" = tinggal bola 8). Peringatan merah muncul di atas bila bidikan mengenai bola lawan lebih dulu.
 - **Bola di tangan** — saat pukulan pembuka (di daerah kepala) atau setelah lawan foul: kamera pindah ke atas, geser bola putih ke tempat yang sah, lalu **Selesai** (langsung membungkuk siap menembak).
 
 Aturan (sederhana): meja terbuka sampai ada yang memasukkan bola — pemain yang **pertama memasukkan bola mengunci warna itu**, lawan mendapat warna lainnya. Masukkan bolamu untuk terus memukul. **Foul** bila bola putih masuk, tidak mengenai bola apa pun, atau lebih dulu mengenai bola lawan / bola 8 → lawan mendapat bola di tangan. Setelah warnamu habis, masukkan **bola 8** (tanpa sebut lubang) untuk menang; bola 8 masuk lebih cepat atau sambil foul = kalah. Bola 8 yang masuk saat pukulan pembuka dikembalikan ke titik kaki. Waktu bidik 45 detik; bila habis, pukulan dilakukan otomatis.

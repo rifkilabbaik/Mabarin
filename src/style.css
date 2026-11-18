@@ -1531,3 +1531,55 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
   .pl-power { top: calc(100px + var(--safe-t)); bottom: calc(10px + var(--safe-b)); transform: none; height: auto; }
   .pl-fine { height: 54vh; transform: translateY(-40%); }
 }
+
+/* ----- Pool: kolom kanan (gear → mode → efek bola → bidik halus), bar tarik sejajar bidik halus ----- */
+#pool-ui {
+  --pl-modes-top: calc(64px + var(--safe-t));
+  --pl-spin-top: calc(216px + var(--safe-t));
+  --pl-col-top: calc(276px + var(--safe-t));
+  --pl-col-bottom: calc(14px + var(--safe-b));
+}
+.pl-modes {
+  left: auto; right: calc(12px + var(--safe-r)); top: var(--pl-modes-top); bottom: auto; transform: none;
+  flex-direction: column; gap: 6px; padding: 0; border-radius: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.pl-modes button {
+  width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; border-radius: 50%;
+  background: var(--hud-glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.pl-modes button .ic { width: 24px; height: 24px; }
+.pl-modes button span { display: none; }
+.pl-modes button.on { background: #2f80ed; }
+.pl-spin { right: calc(12px + var(--safe-r)); top: var(--pl-spin-top); bottom: auto; width: 44px; height: 44px; }
+.pl-spin .pl-ball { width: 32px; height: 32px; }
+.pl-spin .pl-ball i { width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+.pl-spinpanel { right: calc(64px + var(--safe-r)); top: var(--pl-spin-top); bottom: auto; }
+.pl-fine { right: calc(17px + var(--safe-r)); top: var(--pl-col-top); bottom: var(--pl-col-bottom); height: auto; transform: none; }
+.pl-power { left: calc(12px + var(--safe-l)); top: var(--pl-col-top); bottom: var(--pl-col-bottom); height: auto; transform: none; width: 44px; }
+.pl-power .pl-track { flex: 1; }
+.pl-power .pl-cap { position: absolute; left: -8px; right: -8px; top: -21px; text-align: center; }
+.pl-warn {
+  position: absolute; left: 50%; top: calc(14px + var(--safe-t)); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px;
+  background: rgba(224, 49, 49, 0.9); color: #fff; font-weight: 800; font-size: 13px; pointer-events: none !important;
+}
+.pl-warn[hidden] { display: none; }
+/* warna & sisa bola di samping nama pemain */
+.cp-balls {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 3px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18); font-size: 12.5px; font-weight: 800; line-height: 1;
+}
+.cp-balls i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8); }
+.cp-balls i.split { background: linear-gradient(90deg, #e03131 50%, #1c7ed6 50%); }
+@media (max-height: 500px) {
+  #pool-ui {
+    --pl-modes-top: calc(62px + var(--safe-t));
+    --pl-spin-top: calc(108px + var(--safe-t));
+    --pl-col-top: calc(158px + var(--safe-t));
+    --pl-col-bottom: calc(10px + var(--safe-b));
+  }
+  .pl-modes { flex-direction: row; gap: 5px; }
+  .pl-modes button { width: 40px; height: 40px; min-height: 40px; }
+  .pl-spin { width: 40px; height: 40px; }
+  .pl-spin .pl-ball { width: 30px; height: 30px; }
+  .pl-spinpanel { right: calc(60px + var(--safe-r)); top: calc(56px + var(--safe-t)); }
+}
