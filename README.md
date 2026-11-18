@@ -46,7 +46,7 @@ Pembuat meja/pertandingan bisa menambah **Bot** dan menekan **Mulai**. Semua pem
 
 ## Game meja
 
-Semua game meja memakai **kamera bebas**: geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Di game papan (Catur, Dam, Ludo) geser kiri/kanan juga memutari papan, dan tombol kamera (di menu gear) beralih ke **tampak atas**. Di game kartu (Kartu Kilat, Gertak) kamera tidak berputar ke samping dan kartu di tanganmu selalu di bawah layar. Kartu lawan tergelar di meja di depan masing-masing, jadi sisa kartunya terlihat jelas.
+Semua game meja memakai **kamera bebas**: geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Di game papan (Catur, Dam, Ludo) geser kiri/kanan juga memutari papan, dan tombol kamera (di menu gear) beralih ke **tampak atas**. Di game kartu (Kartu Kilat, Gertak) kamera tidak berputar ke samping dan kartu di tanganmu selalu di bawah layar. Lawan memegang kartunya seperti kipas di kedua tangan (di atas meja, di depan dada), jadi sisa kartunya terlihat jelas.
 
 - **Kartu Kilat** (2–4, berdua duduk berhadapan): cocokkan warna atau angka/simbol. Tidak punya kartu cocok? **Ketuk tumpukan kartu** (bertepi kuning berdenyut saat boleh mengambil). Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
 - **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang **benar** memegang revolver: **Putar** silinder lalu **Tembak** ke yang salah. Peluru = jumlah kekalahan pemain itu (kalah pertama 1/6, kedua 2/6, dst.; terlihat di silinder kecil di depan tiap pemain). Kena = tersingkir. Bertahan paling akhir menang.
@@ -99,6 +99,7 @@ Game online lewat GitHub Pages: **https://rifkilabbaik.github.io/Mabarin/**
 Workflow `.github/workflows/deploy-pages.yml` mem-build dan men-deploy game setiap ada push ke `main`.
 Syarat (sekali saja): **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 Deploy manual: tab **Actions → Deploy ke GitHub Pages → Run workflow**.
+Jika Source masih **Deploy from a branch**, GitHub juga menerbitkan `index.html` mentah (belum di-build) sehingga di HP bisa tampil halaman polos tanpa gaya. Workflow menunggu proses itu selesai lalu menerbitkan hasil build paling akhir, dan halaman mentah otomatis memuat ulang versi terbaru — tetapi ubah Source ke GitHub Actions agar masalah ini hilang sepenuhnya.
 
 ### Jaringan peer-to-peer (tanpa server, tanpa kuota)
 

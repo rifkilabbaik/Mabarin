@@ -130,6 +130,12 @@ export class TableGames {
       setTopView: (on) => {
         this.viewTop = on;
       },
+      /** Karakter pemain di meja (bot, pemain lain, atau kita sendiri). */
+      characterOf: (pid) => {
+        if (pid === this.myId) return this.local?.character || null;
+        for (const ts of this.tableState) if (ts.bots.has(pid)) return ts.bots.get(pid);
+        return this.remotes?.get(pid)?.character || null;
+      },
     };
   }
 
@@ -636,6 +642,10 @@ export class TableGames {
   // ---------- Tampilan meja untuk semua pemain (termasuk penonton) ----------
   updateTables(dt, matches) {
     const byTable = new Map(matches.map((m) => [m.table, m]));
+    // pemain game kartu memegang kartu di depan dada
+    const holders = new Set();
+    for (const m of matches) if (!this.module(m)?.topView && m.phase !== 'lobby') for (const p of m.players) holders.add(p.id);
+    if (this.remotes) for (const rp of this.remotes.values()) rp.character.holdCards = holders.has(rp.id);
     this.tables.forEach((t, i) => {
       const ts = this.tableState[i];
       const m = byTable.get(i) || null;
@@ -661,6 +671,7 @@ export class TableGames {
         b.root.position.set(s.x, s.y, s.z);
         b.root.rotation.y = s.rot;
         b.setGaze(0, -0.5);
+        b.holdCards = holders.has(p.id);
         b.animate(dt, { speed: 0, grounded: true, swimming: false, vy: 0, sitting: true });
       });
       for (const [id, b] of ts.bots) {

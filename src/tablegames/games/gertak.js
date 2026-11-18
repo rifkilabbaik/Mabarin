@@ -313,7 +313,7 @@ class GertakRenderer {
       c.position.set(t.x - 0.13 + i * 0.13, t.y + 0.006, t.z + 0.16);
     });
     // kartu tertutup lawan (di atas meja) & silinder peluru tiap pemain
-    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live && m.alive?.[pid] !== false ? m.hands?.[pid]?.length || 0 : 0));
+    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live && m.alive?.[pid] !== false ? m.hands?.[pid]?.length || 0 : 0), (pid) => this.ctx.characterOf(pid), this.ctx.camera);
     const seen = new Set();
     m.players.forEach((p, i) => {
       if (!live) return;

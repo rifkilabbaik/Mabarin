@@ -510,6 +510,12 @@ export class Character {
       armLx = armRx = -0.55;
       armLz = 0.25;
       armRz = -0.25;
+      if (this.holdCards) {
+        // memegang kartu di depan dada dengan dua tangan
+        armLx = armRx = -1.62;
+        armLz = -0.36;
+        armRz = 0.36;
+      }
       sy = 1 + Math.sin(this.time * 2) * 0.01;
     } else if (s.swimming) {
       bodyY = -(d.hipY + d.torsoH * 0.85) + Math.sin(this.time * 2.2) * 0.05;
@@ -619,12 +625,15 @@ export class Character {
     this.arms[0].rotation.y = damp(this.arms[0].rotation.y, armRy, 14, dt);
     this.arms[1].rotation.x = damp(this.arms[1].rotation.x, armLx, 14, dt);
     this.arms[1].rotation.z = damp(this.arms[1].rotation.z, armLz, 14, dt);
+    if (this.held) this.held.visible = !(this.holdCards && s.sitting);
     if (this.held && item !== 'guitar') {
       this.held.rotation.x = damp(this.held.rotation.x, itemRx, 20, dt);
       this.held.rotation.y = damp(this.held.rotation.y, itemRy, 20, dt);
     }
     this.head.rotation.y = damp(this.head.rotation.y, this.gaze.yaw, 10, dt);
-    this.head.rotation.x = damp(this.head.rotation.x, -this.gaze.pitch, 10, dt);
+    // saat memegang kartu kepala tidak menunduk, supaya kipas kartu tidak tertutup kepala
+    const headX = this.holdCards && s.sitting ? Math.min(-this.gaze.pitch, 0.08) : -this.gaze.pitch;
+    this.head.rotation.x = damp(this.head.rotation.x, headX, 10, dt);
 
     if (this.backAnim.cape) {
       const flutter = clamp(0.08 + s.speed * 0.07, 0, 0.95) + Math.sin(this.time * 7) * 0.04 * walk;

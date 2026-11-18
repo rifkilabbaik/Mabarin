@@ -269,7 +269,7 @@ class KilatRenderer {
     this.ring.visible = live && m.phase === 'play';
     if (m.color) this.ring.material.color.set(SUIT_INFO[m.color]?.color || '#fff');
     this.ring.scale.setScalar(1 + Math.sin(this.time * 4) * 0.04);
-    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live ? m.hands?.[pid]?.length || 0 : 0));
+    this.fans.update(m, viewerId, (i) => this.ctx.seatOf(m, i), (pid) => (live ? m.hands?.[pid]?.length || 0 : 0), (pid) => this.ctx.characterOf(pid), this.ctx.camera);
   }
 
   dispose() {

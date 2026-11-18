@@ -12,6 +12,29 @@
     <meta name="apple-mobile-web-app-title" content="Mabarin" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <script>
+      // Pengaman: bila yang terbuka adalah index.html mentah (belum di-build) — bisa terjadi sebentar
+      // saat GitHub Pages sedang men-deploy — tunggu sebentar lalu muat ulang tanpa cache.
+      (function () {
+        if (!/\.github\.io$/.test(location.hostname)) return;
+        document.addEventListener('DOMContentLoaded', function () {
+          var key = 'mb-raw-reload';
+          if (document.querySelector('script[type="module"][src*="assets/"]')) {
+            try { sessionStorage.removeItem(key); } catch (e) {}
+            return;
+          }
+          var n = 0;
+          try { n = Number(sessionStorage.getItem(key) || 0); sessionStorage.setItem(key, String(n + 1)); } catch (e) {}
+          if (n >= 10) return;
+          document.body.innerHTML = '<p style="font:600 16px system-ui,sans-serif;text-align:center;margin-top:42vh;color:#1d2333">Memuat versi terbaru…</p>';
+          setTimeout(function () {
+            var u = new URL(location.href);
+            u.searchParams.set('v', String(Date.now()));
+            location.replace(u.toString());
+          }, 2500 + n * 1500);
+        });
+      })();
+    </script>
   </head>
   <body data-input="desktop" data-state="menu">
     <canvas id="scene"></canvas>

@@ -3,8 +3,9 @@ import { cardAtlas, makeCard, setCardFace } from './cardArt.js';
 import { damp } from '../utils/math.js';
 
 const HAND_W = 0.1;
-const FAN_W = 0.13;
+const FAN_W = 0.2;
 const MAX_FAN = 16;
+const FAN_R = FAN_W * 0.82; // jarak pusat kartu dari poros genggaman
 
 /** Kartu di tangan sendiri: selalu di bagian bawah layar, mengikuti kamera. */
 const HAND_AT = new THREE.Vector3(0, -0.155, -0.52);
@@ -76,7 +77,9 @@ export class HandView {
   }
 }
 
-/** Kartu tertutup milik pemain lain: berdiri di atas meja di depannya, dikipas agar jumlahnya terlihat. */
+/** Kartu tertutup milik pemain lain: dipegang di kedua tangan karakternya, cukup besar agar jumlahnya terlihat. */
+const _ha = new THREE.Vector3();
+const _hb = new THREE.Vector3();
 export class FanView {
   constructor(parent) {
     this.group = new THREE.Group();
@@ -85,12 +88,28 @@ export class FanView {
     parent.add(this.group);
   }
 
-  update(seat, count, table) {
-    const dx = seat.x - table.x, dz = seat.z - table.z;
-    const len = Math.hypot(dx, dz) || 1;
-    // di atas meja, di depan pemain (terpisah dari badan karakter)
-    this.group.position.set(table.x + (dx / len) * 0.42, table.y + 0.012, table.z + (dz / len) * 0.42);
-    this.group.rotation.set(-Math.PI / 2 + 0.18, seat.rot + Math.PI, 0, 'YXZ'); // hampir rata di meja: terlihat jelas dari kursi mana pun
+  update(seat, count, character, camera, tableY = -Infinity) {
+    const fx = Math.sin(seat.rot), fz = Math.cos(seat.rot);
+    const arms = character?.root.visible && character.arms;
+    if (arms) {
+      // pegangan di antara kedua tangan, sedikit ke depan
+      character.root.updateMatrixWorld(true);
+      arms[0].userData.hand.getWorldPosition(_ha);
+      arms[1].userData.hand.getWorldPosition(_hb);
+      this.group.position.set((_ha.x + _hb.x) / 2 + fx * 0.05, (_ha.y + _hb.y) / 2 + 0.01, (_ha.z + _hb.z) / 2 + fz * 0.05);
+    } else this.group.position.set(seat.x + fx * 0.44, seat.y + 0.4, seat.z + fz * 0.44);
+    // jangan sampai tenggelam ke meja (karakter bertubuh pendek)
+    this.group.position.y = Math.max(this.group.position.y, tableY + 0.05);
+    // muka kartu menghadap pemiliknya; punggungnya diputar sedikit ke arah kamera agar tetap jelas dari samping
+    const base = seat.rot + Math.PI;
+    let yaw = base;
+    if (camera) {
+      const dx = camera.position.x - this.group.position.x, dz = camera.position.z - this.group.position.z;
+      let dlt = Math.atan2(-dx, -dz) - base;
+      dlt = Math.atan2(Math.sin(dlt), Math.cos(dlt));
+      yaw = base + Math.max(-0.9, Math.min(0.9, dlt));
+    }
+    this.group.rotation.set(0.32, yaw, 0, 'YXZ');
     const m = Math.min(count, MAX_FAN);
     while (this.cards.length < m) {
       const card = makeCard(null);
@@ -98,12 +117,13 @@ export class FanView {
       this.group.add(card);
       this.cards.push(card);
     }
-    const spacing = Math.min(0.045, 0.46 / Math.max(m - 1, 1));
+    // kipas berporos di genggaman
+    const step = Math.min(0.17, 1.3 / Math.max(m - 1, 1));
     this.cards.forEach((card, j) => {
       card.visible = j < m;
-      const off = j - (m - 1) / 2;
-      card.position.set(off * spacing, -Math.abs(off) * 0.004, j * 0.0015);
-      card.rotation.set(0, 0, -off * Math.min(0.07, 0.6 / Math.max(m, 1)));
+      const a = -(j - (m - 1) / 2) * step;
+      card.position.set(-FAN_R * Math.sin(a), FAN_R * Math.cos(a), -j * 0.0025);
+      card.rotation.set(0, 0, a);
     });
   }
 
@@ -120,14 +140,14 @@ export class Fans {
     this.map = new Map();
   }
 
-  update(match, viewerId, seatOf, countOf) {
+  update(match, viewerId, seatOf, countOf, charOf, camera) {
     const seen = new Set();
     match.players.forEach((p, i) => {
       if (p.id === viewerId) return;
       seen.add(p.id);
       let f = this.map.get(p.id);
       if (!f) this.map.set(p.id, (f = new FanView(this.parent)));
-      f.update(seatOf(i), countOf(p.id), this.table);
+      f.update(seatOf(i), countOf(p.id), charOf?.(p.id), camera, this.table?.y);
     });
     for (const [id, f] of this.map) {
       if (!seen.has(id)) {
