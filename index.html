@@ -135,12 +135,12 @@
 
     <div id="cards-ui" hidden>
       <div id="cu-players" class="cu-players" hidden></div>
-      <div class="cu-top">
-        <div id="cu-color" class="cu-chip cu-icon"></div>
-        <div id="cu-dir" class="cu-chip cu-icon"></div>
+      <!-- tombol meja game: tersembunyi, muncul lewat tombol gear -->
+      <div class="cu-top" id="cu-tray">
         <button id="cu-view" class="icon-btn" type="button" aria-label="Lihat papan dari atas" title="Tampak atas" data-icon="eye" hidden></button>
-        <button id="cu-leave" class="icon-btn" type="button" aria-label="Tinggalkan meja" data-icon="logout"></button>
+        <button id="cu-leave" class="icon-btn" type="button" aria-label="Tinggalkan meja" title="Keluar dari meja" data-icon="logout"></button>
       </div>
+      <button id="cu-gear" class="icon-btn" type="button" aria-label="Pengaturan" title="Pengaturan" data-icon="gear"></button>
       <div id="cu-actions" class="cu-actions"></div>
       <div id="cu-lobby" class="cu-panel" hidden>
         <h3><i data-icon="cards"></i><span>Game</span></h3>

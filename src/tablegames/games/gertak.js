@@ -385,7 +385,7 @@ export default {
   art: 'linear-gradient(135deg, #7048e8, #e03131)',
   min: 2,
   max: 4,
-  seatOrder: [0, 1, 2, 3],
+  seatOrder: (n) => (n === 2 ? [0, 2] : [0, 1, 2, 3]), // berdua: duduk berhadapan
   topView: false,
   Host: GertakHost,
   Renderer: GertakRenderer,

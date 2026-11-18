@@ -163,6 +163,26 @@ class KilatHost extends HostBase {
   }
 }
 
+// Bingkai kuning membulat (penanda tumpukan bisa diambil)
+let outlineTex = null;
+function outlineTexture() {
+  if (outlineTex) return outlineTex;
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 176;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#ffe066';
+  g.lineWidth = 16;
+  g.shadowColor = '#ffd43b';
+  g.shadowBlur = 18;
+  g.beginPath();
+  g.roundRect(14, 14, 100, 148, 16);
+  g.stroke();
+  outlineTex = new THREE.CanvasTexture(c);
+  outlineTex.colorSpace = THREE.SRGBColorSpace;
+  return outlineTex;
+}
+
 // ---------------- Tampilan meja (untuk semua pemain) ----------------
 class KilatRenderer {
   constructor(ctx, table) {
@@ -183,7 +203,11 @@ class KilatRenderer {
     this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.014, 6, 28), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
     this.ring.rotation.x = Math.PI / 2;
     this.ring.position.copy(this.pileSlot).setY(table.y + 0.004);
-    this.group.add(this.drawTop, this.drawBox, this.ring);
+    // garis tepi berdenyut di tumpukan = boleh ambil kartu
+    this.drawGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.37), new THREE.MeshBasicMaterial({ map: outlineTexture(), transparent: true, depthWrite: false }));
+    this.drawGlow.rotation.set(-Math.PI / 2, 0, 0.2);
+    this.drawGlow.visible = false;
+    this.group.add(this.drawTop, this.drawBox, this.ring, this.drawGlow);
     this.fans = new Fans(this.group);
     this.anim = null;
     this.lastEv = -1;
@@ -236,6 +260,12 @@ class KilatRenderer {
     this.drawBox.scale.y = hgt;
     this.drawBox.position.set(this.drawSlot.x, t.y + hgt / 2, this.drawSlot.z);
     this.drawTop.position.set(this.drawSlot.x, t.y + hgt + 0.001, this.drawSlot.z);
+    this.drawGlow.visible = !!this.canDraw && this.drawTop.visible;
+    if (this.drawGlow.visible) {
+      this.drawGlow.position.set(this.drawSlot.x, t.y + hgt + 0.003, this.drawSlot.z);
+      this.drawGlow.material.opacity = 0.75 + Math.sin(this.time * 5) * 0.25;
+      this.drawGlow.scale.setScalar(1 + Math.sin(this.time * 5) * 0.03);
+    }
     this.ring.visible = live && m.phase === 'play';
     if (m.color) this.ring.material.color.set(SUIT_INFO[m.color]?.color || '#fff');
     this.ring.scale.setScalar(1 + Math.sin(this.time * 4) * 0.04);
@@ -271,7 +301,6 @@ class KilatControls {
 
   enter() {
     this.btnKilat = this.ctx.button('bolt', 'Kilat!', () => this.ctx.act({ a: 'kilat' }), 'kilat', 'cu-kilat');
-    this.btnDraw = this.ctx.button('plus', 'Ambil', () => this.ctx.act({ a: 'draw' }), '', 'cu-draw');
     this.btnPass = this.ctx.button('arrowRight', 'Lewat', () => this.ctx.act({ a: 'pass' }), '', 'cu-pass');
   }
 
@@ -300,7 +329,8 @@ class KilatControls {
       look: (id) => (mine ? (canPlay(id, top, m.color) ? 'normal' : 'dim') : 'flat'),
     });
     const hand = m.hands?.[me] || [];
-    this.btnDraw.hidden = !mine || m.drew;
+    const r = this.ctx.renderer(m);
+    if (r) r.canDraw = mine && !m.drew; // ambil kartu dengan mengetuk tumpukan
     this.btnPass.hidden = !mine || !m.drew;
     this.btnKilat.hidden = !mine || hand.length !== 2 || m.kilat?.includes(me);
     if (m.phase !== 'play') {
@@ -380,7 +410,7 @@ export default {
   art: 'conic-gradient(#ff6b6b 0 25%, #fcc419 0 50%, #51cf66 0 75%, #4dabf7 0)',
   min: 2,
   max: 4,
-  seatOrder: [0, 1, 2, 3],
+  seatOrder: (n) => (n === 2 ? [0, 2] : [0, 1, 2, 3]), // berdua: duduk berhadapan
   topView: false,
   Host: KilatHost,
   Renderer: KilatRenderer,

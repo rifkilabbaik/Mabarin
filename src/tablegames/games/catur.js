@@ -180,6 +180,10 @@ class CaturControls {
     r.extraMarks = marks;
   }
 
+  playerColor(m, p) {
+    return m.players[0]?.id === p.id ? '#f8f3e6' : '#3b3f48';
+  }
+
   chip(m) {
     if (m.phase !== 'play') return null;
     const c = this.myColor(m);

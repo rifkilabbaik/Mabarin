@@ -1027,7 +1027,6 @@ body.in-cards .joy-base { display: none !important; }
 .keys-list kbd { background: #eef2f8; border-color: #d0d8e6; color: var(--ink); }
 .games-list { display: grid; gap: 10px; max-height: 64vh; overflow-y: auto; }
 .game-tile .gt-modes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.cu-top.lobby #cu-turn, .cu-top.lobby #cu-color, .cu-top.lobby #cu-dir { display: none; }
 .icon-btn[hidden] { display: none; }
 
 /* ---------------- Lapangan olahraga ---------------- */
@@ -1296,8 +1295,42 @@ body.in-cards[data-input='touch'] #chat { top: auto; bottom: calc(12px + var(--s
 .cp-time.low .bar { stroke: #ffa8a8; }
 .cp-time.low b { color: #ffe3e3; }
 @media (max-width: 640px) {
-  /* layar sempit: kontrol meja di baris kedua, daftar pemain di bawahnya */
-  .cu-top { top: calc(60px + var(--safe-t)); }
-  .cu-players { top: calc(110px + var(--safe-t)); }
   .cp-row { font-size: 13px; }
 }
+
+/* ================= Meja game: hanya daftar giliran + tombol gear ================= */
+body.in-cards .hud-top-left, body.in-cards #dock { display: none !important; }
+.cu-players { top: calc(12px + var(--safe-t)); }
+.cp-order {
+  width: 28px; height: 28px; margin-left: 4px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: var(--hud-glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.cp-order .ic { width: 16px; height: 16px; }
+#cu-gear {
+  position: absolute;
+  top: calc(12px + var(--safe-t));
+  right: calc(12px + var(--safe-r));
+  width: 44px; height: 44px; min-height: 44px;
+  background: var(--hud-glass);
+  pointer-events: auto;
+  transition: transform 0.25s, background 0.2s;
+}
+#cu-gear svg { fill: none; width: 24px; height: 24px; }
+#cu-gear.on { background: #2f80ed; transform: rotate(60deg); }
+/* baki tombol: muncul di kiri gear saat gear diketuk */
+#cu-tray {
+  left: auto;
+  right: calc(64px + var(--safe-r));
+  top: calc(12px + var(--safe-t));
+  transform: translateX(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+}
+#cards-ui.tray-open #cu-tray { opacity: 1; transform: none; pointer-events: auto; }
+#cu-tray .icon-btn { width: 40px; height: 40px; min-height: 40px; border-radius: 50%; }
+#cu-tray .cu-topbtn { width: 40px; padding: 0; }
+#cu-tray .cu-topbtn span { display: none; }
+#cu-leave { color: #ffa8a8; }
+body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }

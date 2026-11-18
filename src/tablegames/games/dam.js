@@ -190,6 +190,10 @@ class DamControls {
     r.extraMarks = marks;
   }
 
+  playerColor(m, p) {
+    return m.players[0]?.id === p.id ? COLORS.w : COLORS.b;
+  }
+
   chip(m) {
     if (m.phase !== 'play') return null;
     const c = this.myColor(m);

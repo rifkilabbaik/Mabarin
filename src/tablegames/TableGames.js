@@ -187,6 +187,10 @@ export class TableGames {
     $('cu-again').addEventListener('click', () => this.host?.start());
     $('cu-exit').addEventListener('click', () => this.leave());
     $('cu-leave').addEventListener('click', () => this.leave());
+    $('cu-gear').addEventListener('click', () => {
+      this.setTray(!$('cards-ui').classList.contains('tray-open'));
+      this.audio.play('click');
+    });
     $('cu-view').addEventListener('click', () => {
       this.viewTop = !this.viewTop;
       this.renderViewButton();
@@ -197,6 +201,7 @@ export class TableGames {
     let down = null;
     surface.addEventListener('pointerdown', (e) => {
       if (this.active) down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+      if (this.active) this.setTray(false); // ketuk area game menutup tombol
     });
     surface.addEventListener('pointerup', (e) => {
       if (!this.active || !down || down.id !== e.pointerId) return;
@@ -211,6 +216,18 @@ export class TableGames {
       this.controls?.setHover?.(hit, this.active);
       surface.style.cursor = hit ? 'pointer' : '';
     });
+  }
+
+  setTray(open) {
+    $('cards-ui').classList.toggle('tray-open', open);
+    $('cu-gear').classList.toggle('on', open);
+  }
+
+  /** Tombol chat, mikrofon & menu ikut masuk ke baki tombol meja (di samping tombol keluar). */
+  borrowSysButtons(on) {
+    const ids = ['btn-chat', 'btn-mic', 'btn-menu'];
+    if (on) for (const id of ids) $('cu-tray').insertBefore($(id), $('cu-leave'));
+    else for (const id of ['btn-mic', 'btn-chat', 'btn-games', 'btn-menu']) $('sys-btns').appendChild($(id));
   }
 
   renderViewButton() {
@@ -373,6 +390,8 @@ export class TableGames {
     }
     $('cu-actions').replaceChildren();
     this.clearTopButtons();
+    this.borrowSysButtons(true);
+    this.setTray(false);
     $('invite-pop').hidden = true;
     this.controls = new mod.Controls(this.ctx);
     this.controls.enter?.(match);
@@ -414,6 +433,8 @@ export class TableGames {
     for (const id of ['cu-lobby', 'cu-colors', 'cu-end']) $(id).hidden = true;
     $('cu-actions').replaceChildren();
     this.clearTopButtons();
+    this.borrowSysButtons(false);
+    this.setTray(false);
     this.controls?.exit?.();
     this.controls = null;
     this.onExit?.();
@@ -560,20 +581,6 @@ export class TableGames {
       $('cu-winner').textContent = this.controls?.endText?.(m) || (m.winner === this.myId ? 'Kamu menang!' : w ? `${w.name} menang!` : 'Permainan selesai');
       $('cu-again').hidden = !isHost || m.players.length < mod.min;
     }
-    const chip = this.controls?.chip?.(m);
-    const col = $('cu-color');
-    col.hidden = !chip?.bg;
-    if (chip?.bg) {
-      col.style.background = chip.bg;
-      col.title = chip.title || '';
-      col.innerHTML = chip.html || '';
-    }
-    const dir = $('cu-dir');
-    dir.hidden = !chip?.dir;
-    if (chip?.dir) {
-      dir.innerHTML = icon('refresh');
-      dir.style.transform = chip.dir === 1 ? '' : 'scaleX(-1)';
-    }
   }
 
   /** Daftar pemain: ikon karakter, nama, jumlah kartu, hitung mundur di pemain yang sedang giliran. */
@@ -581,6 +588,7 @@ export class TableGames {
     const list = $('cu-players');
     list.hidden = m.phase !== 'play';
     if (m.phase !== 'play') return;
+    const chip = this.controls?.chip?.(m);
     const rows = m.players.map((p, i) => {
       const row = document.createElement('div');
       const out = m.alive && m.alive[p.id] === false;
@@ -591,10 +599,19 @@ export class TableGames {
       }`;
       const img = row.querySelector('img');
       img.src = avatarUrl(p.look, p.color);
-      img.style.setProperty('--c', p.color);
+      img.style.setProperty('--c', this.controls?.playerColor?.(m, p) || p.color);
       row.querySelector('.cp-name').textContent = p.id === this.myId ? 'Kamu' : p.name;
       return row;
     });
+    if (chip?.dir) {
+      // arah urutan giliran (Kartu Kilat bisa berbalik)
+      const d = document.createElement('div');
+      d.className = 'cp-order';
+      d.title = chip.dir === 1 ? 'Giliran ke bawah' : 'Giliran ke atas';
+      d.innerHTML = icon('arrowRight');
+      d.style.transform = `rotate(${chip.dir === 1 ? 90 : -90}deg)`;
+      rows.push(d);
+    }
     list.replaceChildren(...rows);
     this.turnClock = list.querySelector('.cp-time');
     this.updateTurnClock(m, Date.now());

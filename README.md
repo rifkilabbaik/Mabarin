@@ -20,7 +20,7 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 
 - **PC**: satu *dock* di bawah layar berisi hotbar item + tombol mikrofon, chat, game, dan menu; peta kecil di kanan atas.
 - **HP**: tombol sistem jadi satu kapsul di atas; tombol lompat & aksi sejajar di kanan bawah, tombol pilih item kecil di atasnya.
-- **Meja game**: bar atas ringkas (kontrol game di tengah, tombol sistem di kanan) dan **daftar giliran** di kiri: ikon karakter, nama, jumlah kartu, dan hitung mundur pada pemain yang sedang giliran.
+- **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** di kanan atas. Ketuk gear untuk memunculkan chat, mikrofon, menu, kamera/menyerah (game papan), dan keluar.
 
 ### Kontrol
 
@@ -48,7 +48,7 @@ Pembuat meja/pertandingan bisa menambah **Bot** dan menekan **Mulai**. Semua pem
 
 Game kartu memakai kamera orang-pertama (menunduk melihat kartu di tangan). Game papan (Catur, Dam, Ludo) memakai **kamera bebas**: geser kiri/kanan untuk memutari papan, geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Tombol kamera di bar atas beralih antara kamera bebas dan **tampak atas**.
 
-- **Kartu Kilat** (2–4): cocokkan warna atau angka/simbol. Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
+- **Kartu Kilat** (2–4, berdua duduk berhadapan): cocokkan warna atau angka/simbol. Tidak punya kartu cocok? **Ketuk tumpukan kartu** (bertepi kuning berdenyut saat boleh mengambil). Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
 - **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang salah membuka **Kotak Kejutan** — confetti biasa, atau *DOR!* dan tersingkir. Bertahan paling akhir menang.
 - **Catur** (1v1): bidak berbentuk koin dengan ikon tiap jenis agar mudah dibaca; aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
 - **Dam** (1v1): papan 8×8, wajib makan, makan beruntun, raja terbang.

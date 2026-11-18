@@ -509,6 +509,11 @@ class LudoControls {
     this.wasMine = mine && !m.rolled;
   }
 
+  playerColor(m, p) {
+    const seat = m.colors?.[p.id];
+    return seat === undefined ? null : SEATS[seat].color;
+  }
+
   chip(m) {
     const seat = m.colors?.[this.ctx.myId];
     if (m.phase !== 'play' || seat === undefined) return null;
