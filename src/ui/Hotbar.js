@@ -48,6 +48,7 @@ export class Hotbar {
     this.itemBtn.addEventListener('click', () => this.toggleMenu());
 
     this.useBtn = $('btn-use');
+    this.useBtn.innerHTML = icon('action'); // ikon aksi tetap (beda dari tombol pilih item)
     this.useBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -70,7 +71,6 @@ export class Hotbar {
     this.slots.forEach((s, k) => s.classList.toggle('active', k === i));
     this.menu.querySelectorAll('button').forEach((b, k) => b.classList.toggle('active', k === i));
     this.itemBtn.innerHTML = icon(ITEMS[i].icon);
-    this.useBtn.innerHTML = icon(ITEMS[i].icon);
     this.useBtn.setAttribute('aria-label', ITEMS[i].action);
     this.flash(ITEMS[i].name);
     this.ctxSig = '';

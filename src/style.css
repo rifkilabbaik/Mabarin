@@ -928,7 +928,7 @@ h1 { margin-right: 48px; }
 /* ---------------- Meja Kartu Kilat ---------------- */
 #cards-ui { position: fixed; inset: 0; pointer-events: none; z-index: 2; color: #fff; }
 #cards-ui[hidden] { display: none; }
-body.in-cards #hud .hud-top-left ~ *:not(.hud-top-right):not(#hud-menu):not(#chat) { display: none !important; }
+body.in-cards #hud .hud-top-left ~ *:not(#dock):not(#hud-menu):not(#chat) { display: none !important; }
 body.in-cards #surface { cursor: default; }
 body.in-cards .joy-base { display: none !important; }
 .cu-top {
@@ -1170,4 +1170,134 @@ body.sport-pk .joy-base, body.sport-pk #btn-jump { display: none !important; }
 @media (max-width: 520px) {
   .cu-topbtn { width: 40px; padding: 0; }
   .cu-topbtn span { display: none; }
+}
+
+/* ================= HUD versi B: dock bawah (PC), kapsul atas (HP & meja game) ================= */
+:root { --hud-glass: rgba(16, 20, 32, 0.55); }
+#room-pill { background: var(--hud-glass); }
+#dock {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + var(--safe-b));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 22px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  z-index: 3;
+}
+#dock #hotbar { position: static; transform: none; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; padding: 0; gap: 4px; }
+#hotbar .slot { width: 48px; height: 48px; border: 0; border-radius: 14px; background: rgba(255, 255, 255, 0.08); color: #fff; transition: transform 0.12s, background 0.12s; }
+#hotbar .slot:hover { background: rgba(255, 255, 255, 0.18); }
+#hotbar .slot.active { background: #fff; color: #1d2333; transform: translateY(-4px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25); }
+#hotbar .slot.active .key { color: #1d2333; }
+.dock-sep { width: 1px; height: 32px; background: rgba(255, 255, 255, 0.3); margin: 0 6px; }
+#sys-btns { display: flex; gap: 2px; }
+#sys-btns .icon-btn, .cu-top .icon-btn { backdrop-filter: none; -webkit-backdrop-filter: none; }
+#sys-btns .icon-btn { background: transparent; box-shadow: none; width: 44px; height: 44px; min-height: 44px; border-radius: 14px; }
+#sys-btns .icon-btn:hover { background: rgba(255, 255, 255, 0.14); }
+#minimap-btn { top: calc(12px + var(--safe-t)); width: 120px; height: 120px; border: 3px solid rgba(255, 255, 255, 0.85); }
+#item-name { bottom: calc(128px + var(--safe-b)); }
+#prompt { bottom: calc(88px + var(--safe-b)); }
+/* menu muncul di atas dock */
+#hud-menu { top: auto; bottom: calc(82px + var(--safe-b)); right: auto; left: 50%; transform: translateX(-50%); }
+body.in-sport .dock-sep { display: none; }
+
+/* HP: dock jadi kapsul tombol di tengah atas (hotbar diganti tombol item) */
+body[data-input='touch'] #dock { top: calc(12px + var(--safe-t)); bottom: auto; padding: 4px; border-radius: 999px; gap: 0; }
+body[data-input='touch'] #dock #hotbar, body[data-input='touch'] .dock-sep { display: none; }
+body[data-input='touch'] #sys-btns .icon-btn { width: 38px; height: 38px; min-height: 38px; border-radius: 50%; }
+body[data-input='touch'] #minimap-btn { width: 88px; height: 88px; }
+body[data-input='touch'] #hud-menu { top: calc(60px + var(--safe-t)); bottom: auto; }
+@media (max-width: 600px) {
+  /* layar sempit: kapsul ke kanan atas, peta di bawahnya */
+  body[data-input='touch'] #dock { left: auto; right: calc(12px + var(--safe-r)); transform: none; }
+  body[data-input='touch'] #minimap-btn { top: calc(60px + var(--safe-t)); }
+  body[data-input='touch'] #hud-menu { left: auto; right: calc(12px + var(--safe-r)); transform: none; }
+}
+
+/* Tombol sentuh: lompat & aksi sejajar, tombol item kecil sejajar sisi luar tombol lompat */
+body[data-input='touch'] .touch-btn { background: var(--hud-glass); border: 2px solid rgba(255, 255, 255, 0.35); }
+#btn-jump { right: calc(28px + var(--safe-r)); bottom: calc(40px + var(--safe-b)); }
+.touch-btn.use { right: calc(118px + var(--safe-r)); bottom: calc(42px + var(--safe-b)); width: 72px; height: 72px; }
+.touch-btn.use .ic { width: 34px; height: 34px; }
+.touch-btn.item { right: calc(28px + var(--safe-r)); bottom: calc(130px + var(--safe-b)); width: 52px; height: 52px; }
+.touch-pill { right: calc(112px + var(--safe-r)); bottom: calc(128px + var(--safe-b)); background: var(--hud-glass); }
+@media (max-height: 420px) {
+  .touch-btn.item { bottom: calc(126px + var(--safe-b)); }
+  #item-menu { right: calc(12px + var(--safe-r)); bottom: calc(184px + var(--safe-b)); }
+}
+.sp-skill.dash { right: calc(124px + var(--safe-r)); bottom: calc(126px + var(--safe-b)); }
+.sp-skill.slide { right: calc(30px + var(--safe-r)); bottom: calc(130px + var(--safe-b)); }
+.sp-pass { right: calc(204px + var(--safe-r)); bottom: calc(46px + var(--safe-b)); }
+
+/* ================= Meja game: tampilan lebih lega ================= */
+body.in-cards #dock { top: calc(12px + var(--safe-t)); bottom: auto; left: auto; right: calc(12px + var(--safe-r)); transform: none; padding: 4px; border-radius: 999px; gap: 0; }
+body.in-cards #dock #hotbar, body.in-cards .dock-sep { display: none !important; }
+body.in-cards #sys-btns .icon-btn { width: 38px; height: 38px; min-height: 38px; border-radius: 50%; }
+body.in-cards #hud-menu { top: calc(60px + var(--safe-t)); bottom: auto; left: auto; right: calc(12px + var(--safe-r)); transform: none; }
+body.in-cards[data-input='touch'] #chat { top: auto; bottom: calc(12px + var(--safe-b)); width: min(300px, 36vw); }
+.cu-top {
+  top: calc(12px + var(--safe-t));
+  padding: 4px;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.cu-top .icon-btn { background: transparent; width: 38px; height: 38px; min-height: 38px; }
+.cu-top .icon-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.cu-top .cu-chip { height: 32px; min-width: 32px; margin: 0 2px; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.cu-top .cu-icon { width: 32px; }
+.cu-top .cu-topbtn { width: auto; padding: 0 12px; }
+.cu-players {
+  position: absolute;
+  left: calc(12px + var(--safe-l));
+  top: calc(62px + var(--safe-t));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.cu-players[hidden] { display: none; }
+.cp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 230px;
+  padding: 3px 10px 3px 3px;
+  border-radius: 999px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  transition: background 0.2s, transform 0.2s;
+}
+.cp-row.cur { background: rgba(47, 128, 237, 0.92); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75); transform: translateX(4px); }
+.cp-row.out { opacity: 0.45; }
+.cp-av { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 2px var(--c, #fff); background: #fff; }
+.cp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.cp-badge { font-size: 12px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); }
+.cp-time { position: relative; width: 28px; height: 28px; display: grid; place-items: center; font-size: 11.5px; font-weight: 800; }
+.cp-time svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.cp-time circle { fill: none; stroke-width: 3; }
+.cp-time .trk { stroke: rgba(255, 255, 255, 0.3); }
+.cp-time .bar { stroke: #fff; stroke-dasharray: 75.4; stroke-linecap: round; transition: stroke-dashoffset 0.25s linear; }
+.cp-time.low .bar { stroke: #ffa8a8; }
+.cp-time.low b { color: #ffe3e3; }
+@media (max-width: 640px) {
+  /* layar sempit: kontrol meja di baris kedua, daftar pemain di bawahnya */
+  .cu-top { top: calc(60px + var(--safe-t)); }
+  .cu-players { top: calc(110px + var(--safe-t)); }
+  .cp-row { font-size: 13px; }
 }

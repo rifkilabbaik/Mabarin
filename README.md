@@ -16,6 +16,12 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 - **Minimap & peta pulau**, **chat dengan riwayat** (juga terlihat saat main game), **musik lofi & efek suara** (Web Audio, tanpa file audio).
 - **Bot** untuk mengisi kursi/lapangan kosong, **kick otomatis pemain AFK**, **Main Offline**, **PWA** (bisa di-install).
 
+### Tampilan (HUD)
+
+- **PC**: satu *dock* di bawah layar berisi hotbar item + tombol mikrofon, chat, game, dan menu; peta kecil di kanan atas.
+- **HP**: tombol sistem jadi satu kapsul di atas; tombol lompat & aksi sejajar di kanan bawah, tombol pilih item kecil di atasnya.
+- **Meja game**: bar atas ringkas (kontrol game di tengah, tombol sistem di kanan) dan **daftar giliran** di kiri: ikon karakter, nama, jumlah kartu, dan hitung mundur pada pemain yang sedang giliran.
+
 ### Kontrol
 
 | | PC / Laptop | HP / Tablet |
@@ -24,13 +30,13 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 | Kamera | Klik layar (Pointer Lock) + mouse, scroll zoom | Geser sisi kanan, cubit untuk zoom |
 | Lompat | `Spasi` | Tombol panah atas |
 | Dash / Sleding | `Q` / `C` (saat lari) | Tombol dash / sleding (di lapangan) |
-| Item | `1`–`6` pilih, klik / `F` pakai | Tombol item & tombol pakai |
+| Item | `1`–`6` / klik slot di dock bawah, klik / `F` pakai | Tombol item kecil (di atas tombol lompat) & tombol aksi |
 | Tembak / pukul (lapangan) | Tahan klik / `F`, lepas | Tahan tombol Tembak / Pukul |
 | Umpan (sepak bola) | `E` / klik kanan | Tombol Umpan |
 | Penalti | Tahan `←` `↑` `→` (penendang) / tekan (kiper) | Tombol Kiri / Tengah / Kanan |
 | Duduk | `E` | Tombol Duduk (muncul dekat kursi) |
-| Game | `G` | Tombol kartu (kanan atas) |
-| Mikrofon | `V` | Tombol mikrofon (kanan atas) |
+| Game | `G` / tombol di dock bawah | Tombol kartu (kapsul atas) |
+| Mikrofon | `V` / tombol di dock bawah | Tombol mikrofon (kapsul atas) |
 | Chat / Peta | `Enter` / `M` | Tombol chat / ketuk minimap |
 
 ## Mengajak teman main

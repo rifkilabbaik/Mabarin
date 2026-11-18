@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Character } from '../character/Character.js';
 import { cardAtlas } from './cardArt.js';
 import { icon } from '../ui/icons.js';
+import { avatarUrl } from '../ui/avatar.js';
 import { clamp, damp } from '../utils/math.js';
 
 const $ = (id) => document.getElementById(id);
@@ -514,9 +515,7 @@ export class TableGames {
     const mod = this.module(m);
     const isHost = this.host && this.host.state.id === m.id;
     const myTurn = m.phase === 'play' && m.players[m.turn]?.id === this.myId;
-    const left = m.phase === 'play' && m.turnMs ? clamp(1 - (now - m.turnAt) / m.turnMs, 0, 1) : 0;
-    $('cu-timer-bar').style.transform = `scaleX(${left})`;
-    $('cu-timer-bar').style.background = left < 0.25 ? '#ff6b6b' : '#fff';
+    this.updateTurnClock(m, now);
 
     this.uiTimer -= dt;
     const sig = `${m.v}|${m.phase}|${myTurn}`;
@@ -528,7 +527,7 @@ export class TableGames {
     $('cu-end').hidden = m.phase !== 'end';
     const top = $('cards-ui').querySelector('.cu-top');
     top.classList.toggle('lobby', m.phase !== 'play');
-    $('cards-ui').querySelector('.cu-timer').style.visibility = m.phase === 'play' && m.turnMs ? 'visible' : 'hidden';
+    this.renderPlayers(m);
     $('cu-lobby').querySelector('h3 span').textContent = mod.name;
 
     if (m.phase === 'lobby') {
@@ -561,12 +560,6 @@ export class TableGames {
       $('cu-winner').textContent = this.controls?.endText?.(m) || (m.winner === this.myId ? 'Kamu menang!' : w ? `${w.name} menang!` : 'Permainan selesai');
       $('cu-again').hidden = !isHost || m.players.length < mod.min;
     }
-    if (m.phase === 'play') {
-      const cur = m.players[m.turn];
-      const turnEl = $('cu-turn');
-      turnEl.textContent = myTurn ? 'Giliranmu' : `Giliran ${cur?.name || ''}`;
-      turnEl.classList.toggle('mine', myTurn);
-    }
     const chip = this.controls?.chip?.(m);
     const col = $('cu-color');
     col.hidden = !chip?.bg;
@@ -581,6 +574,42 @@ export class TableGames {
       dir.innerHTML = icon('refresh');
       dir.style.transform = chip.dir === 1 ? '' : 'scaleX(-1)';
     }
+  }
+
+  /** Daftar pemain: ikon karakter, nama, jumlah kartu, hitung mundur di pemain yang sedang giliran. */
+  renderPlayers(m) {
+    const list = $('cu-players');
+    list.hidden = m.phase !== 'play';
+    if (m.phase !== 'play') return;
+    const rows = m.players.map((p, i) => {
+      const row = document.createElement('div');
+      const out = m.alive && m.alive[p.id] === false;
+      row.className = `cp-row${i === m.turn ? ' cur' : ''}${p.id === this.myId ? ' me' : ''}${out ? ' out' : ''}`;
+      const cards = Array.isArray(m.hands?.[p.id]) ? m.hands[p.id].length : null;
+      row.innerHTML = `<img class="cp-av" alt=""><span class="cp-name"></span>${cards !== null ? `<span class="cp-badge" title="Kartu">${cards}</span>` : ''}${
+        i === m.turn && m.turnMs ? '<span class="cp-time"><svg viewBox="0 0 28 28"><circle class="trk" cx="14" cy="14" r="12"/><circle class="bar" cx="14" cy="14" r="12"/></svg><b></b></span>' : ''
+      }`;
+      const img = row.querySelector('img');
+      img.src = avatarUrl(p.look, p.color);
+      img.style.setProperty('--c', p.color);
+      row.querySelector('.cp-name').textContent = p.id === this.myId ? 'Kamu' : p.name;
+      return row;
+    });
+    list.replaceChildren(...rows);
+    this.turnClock = list.querySelector('.cp-time');
+    this.updateTurnClock(m, Date.now());
+  }
+
+  updateTurnClock(m, now) {
+    const el = this.turnClock;
+    if (!el || !el.isConnected || m.phase !== 'play' || !m.turnMs) return;
+    const left = clamp(1 - (now - m.turnAt) / m.turnMs, 0, 1);
+    const secs = Math.ceil((left * m.turnMs) / 1000);
+    const b = el.querySelector('b');
+    if (b.textContent !== String(secs)) b.textContent = String(secs);
+    const bar = el.querySelector('.bar');
+    bar.style.strokeDashoffset = String(75.4 * (1 - left));
+    el.classList.toggle('low', left < 0.25);
   }
 
   handleEvent(m) {
