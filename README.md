@@ -10,7 +10,8 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 - **Karakter chibi** dengan animasi jalan, lari, lompat, berenang, duduk, dash, sleding, tendang, pukul raket. Kepala mengikuti arah pandang saat duduk di meja game.
 - **Kustomisasi karakter**: bentuk tubuh (normal / tinggi / pendek / gempal), warna kulit, 8 gaya rambut + warna, 4 gaya mata, atasan / bawahan / sepatu + warna, topi, kacamata, ransel / sayap / jubah, syal / dasi.
 - **Hotbar properti**: Tangan, Palu Bonk, Pedang Kayu, Pistol Air, Kursi, Gitar. Senjata bersifat "bonk" (terpental & pusing, tanpa nyawa). Pemain yang sedang main game tidak bisa di-bonk.
-- **Game meja**: Kartu Kilat, Catur, Dam & Ludo dengan tiga pilihan kamera (kepala, bebas, atas).
+- **Game meja**: Kartu Kilat, Catur, Dam, Ludo, Empat Sejajar & Mancala dengan tiga pilihan kamera (kepala, bebas, atas).
+- **Pool** di meja biliar area olahraga: tampilan POV, berjalan memutari meja saat membidik.
 - **Kompleks olahraga**: Sepak Bola (1v1, 2v2, adu penalti), Tenis (1v1, ganda), dengan **dash** dan **sleding**.
 - **Voice chat berbasis jarak** (WebRTC): suara makin pelan saat menjauh, kiri/kanan mengikuti posisi.
 - **Minimap & peta pulau**, **chat dengan riwayat** (juga terlihat saat main game), **musik lofi & efek suara** (Web Audio, tanpa file audio).
@@ -50,7 +51,7 @@ Tombol kamera (di bawah gear) berisi:
 
 - **Kamera kepala** — pandangan dari mata karakter; geser untuk melihat sekeliling, dan kepala karaktermu ikut bergerak (terlihat pemain lain). Bawaan untuk game kartu.
 - **Kamera bebas** — kamera di atas kursimu: geser kiri/kanan **sebatas area** di sisimu, atas/bawah untuk tinggi-rendah, cubit / scroll untuk zoom. Kepalamu sendiri disembunyikan saat kamera tepat di atasnya agar meja tidak tertutup. Bawaan untuk game papan.
-- **Kamera atas** — khusus game papan (Catur, Dam, Ludo): papan dilihat dari atas.
+- **Kamera atas** — khusus game papan (Catur, Dam, Ludo, Mancala): papan dilihat dari atas.
 
 Pilihan kamera terakhir diingat untuk meja berikutnya.
 
@@ -62,7 +63,25 @@ Di game kartu, kartumu **dipegang seperti kipas di depan dada** (tidak ikut kame
 - **Catur & Dam**: bidak terangkat lalu melayang ke petak tujuannya (termasuk benteng saat rokade). Bidak yang dimakan diangkat dari papan, dibawa ke belakang papan, dan disusun rapi berjajar di sisi pemain yang memakannya.
 - **Ludo** (2, 3, atau 4): **ketuk dadu** di depanmu untuk melempar — dadu berpindah ke depan pemain yang mendapat giliran. Pion melompat petak demi petak; pion yang dimakan terpental kembali ke kandang. Bila hanya ada satu pilihan langkah, pion berjalan otomatis. Keluar dengan 6, petak aman bertanda bintang. Saat giliranmu melempar, dadu bergaris tepi kuning; setelah melempar, pion yang bisa dijalankan bergaris tepi kuning. Pion selalu tepat di tengah petak, dan beberapa pion dalam satu petak (termasuk di finis, di segitiga warnanya) bertumpuk ke atas.
 
+- **Empat Sejajar** (1v1): papan kayu tegak 7×6. Arahkan ke kolom (di PC muncul cakram bayangan) lalu ketuk — cakram jatuh dan memantul dengan bunyi "klak". Susun 4 sejajar (mendatar, tegak, atau miring); garis kemenangan menyala. Saat main lagi, kunci bawah dibuka dan semua cakram berjatuhan. Pemain pertama bergantian tiap ronde.
+- **Mancala** (1v1, aturan klasik): 6 lubang + 1 lumbung per pemain, 4 biji per lubang. Ketuk lubang di sisimu (bercincin kuning saat bisa dipilih): biji diangkat lalu ditabur satu per satu berlawanan arah jarum jam (melewati lumbung lawan), tiap biji berbunyi "tik". Biji terakhir di lumbung sendiri = jalan lagi; di lubang kosong sendiri = biji di lubang itu & seberangnya dibawa ke lumbung. Bila satu sisi kosong, sisa biji masuk lumbung pemiliknya. Angka di tiap lubang menunjukkan jumlah biji.
+
 Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player state `cg`, aksi lewat event `cg`, undangan lewat `cg-inv`.
+
+## Pool
+
+Meja biliar ada di area olahraga (dekat lapangan tenis, juga tampil di peta). Buka **Game → Pool**, undang teman atau tambah bot. Di lobi, bandar memilih **15 bola** (7 merah, 7 biru, 1 hitam) atau **9 bola** (4 + 4 + 1, ronde cepat). Bola putih = bola tembak.
+
+- **Tampilan POV, tanpa kamera bebas** — kamera dari belakang stik. Saat bidikan diputar, karaktermu **berjalan memutari meja** agar selalu di belakang bola putih (pemain lain melihatmu berjalan & membungkuk memegang stik). Cubit / scroll / geser atas-bawah = maju-mundur kamera. Tahan tombol **Lihat atas** (di bawah gear) untuk melihat seluruh meja.
+- **Bidik dua lapis** — kasar: geser layar ke kiri/kanan, atau ketuk bola yang ingin dituju. Halus: geser strip bergerigi di kanan.
+- **Garis lintasan dinamis** — garis dari bola putih ke titik sentuh (lingkaran bola hantu), arah bola sasaran setelah dipukul (makin lurus makin panjang), dan arah pantulan bola putih (ikut berubah oleh efek atas/bawah). Bila mengenai bantalan, tampil arah pantulannya. Peringatan muncul bila sasaran bukan bolamu.
+- **Pemilih efek** — ketuk bola kecil di kanan bawah, lalu pilih titik pukul di bola besar: atas = bola putih ikut maju, bawah = bola putih tertarik mundur, kiri/kanan = efek saat memantul di bantalan.
+- **Power tarik-lepas** — tarik pegangan di bar kiri ke bawah (stik ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
+- **Bola di tangan** — saat pukulan pembuka (di daerah kepala) atau setelah lawan foul: kamera pindah ke atas, geser bola putih ke tempat yang sah, lalu **Selesai**.
+
+Aturan (sederhana): meja terbuka sampai ada yang memasukkan bola — pemain yang **pertama memasukkan bola mengunci warna itu**, lawan mendapat warna lainnya. Masukkan bolamu untuk terus memukul. **Foul** bila bola putih masuk, tidak mengenai bola apa pun, atau lebih dulu mengenai bola lawan / bola 8 → lawan mendapat bola di tangan. Setelah warnamu habis, masukkan **bola 8** (tanpa sebut lubang) untuk menang; bola 8 masuk lebih cepat atau sambil foul = kalah. Bola 8 yang masuk saat pukulan pembuka dikembalikan ke titik kaki. Waktu bidik 45 detik; bila habis, pukulan dilakukan otomatis.
+
+Semua perangkat mensimulasikan setiap pukulan sendiri dari posisi & parameter pukulan yang sama (fisika memakai operasi yang hasilnya identik di semua perangkat), jadi gerak bola mulus tanpa mengirim posisi bola terus-menerus; bandar tetap menetapkan hasil resminya.
 
 ## Kompleks olahraga
 
@@ -171,7 +190,8 @@ src/
   player/                    pemain lokal (fisika, dash, sleding), pemain lain, logika item
   tablegames/TableGames.js   pengelola meja: undangan, kamera kepala/bebas/atas, UI
   tablegames/HostBase.js     dasar logika bandar (lobi, giliran, timer, bot)
-  tablegames/games/          kilat, catur, dam, ludo (+ file aturan)
+  tablegames/games/          kilat, catur, dam, ludo, empat (sejajar), mancala, pool (+ file aturan)
+  tablegames/pool/physics.js fisika bola pool (deterministik), susunan bola, prediksi lintasan
   sports/fields.js           visual lapangan bola & tenis
   sports/physics.js          fisika bola/kok, solusi lintasan pukulan
   sports/football.js         tembakan & umpan otomatis, penguasaan bola, penalti tebak arah

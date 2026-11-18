@@ -51,6 +51,7 @@ export const CONFIG = {
       tenis: { x: 28, z: -46, L: 20, W: 10, net: 0.95 },
     },
     plazaTables: [[0, -19.5], [8, -19.5], [16, -19.5], [24, -19.5]],
+    poolTables: [[33, -26.5]], // meja pool (panjang searah sumbu x)
   },
 
   // Pemain yang tidak menyentuh kontrol selama ini dikeluarkan agar room tidak penuh.

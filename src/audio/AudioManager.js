@@ -389,4 +389,75 @@ const SFX = {
   click(a, out, t) {
     a.tone('sine', 1500, 0, t, 0.025, 0.05, out);
   },
+  // cakram Empat Sejajar mendarat (kayu/plastik)
+  clack(a, out, t, { strength = 1 }) {
+    a.tone('triangle', 420, 170, t, 0.08, 0.22 * strength, out);
+    a.hiss(t, 0.035, 0.2 * strength, out, 'bandpass', 2300, 0, 1.3);
+  },
+  // cakram dijatuhkan dari atas papan
+  drop(a, out, t) {
+    a.hiss(t, 0.18, 0.05, out, 'bandpass', 1800, 700, 2);
+  },
+  // papan dikosongkan: cakram berjatuhan
+  rattle(a, out, t) {
+    for (let i = 0; i < 12; i++) {
+      const tt = t + i * 0.035 + Math.random() * 0.02;
+      a.tone('triangle', 300 + Math.random() * 260, 150, tt, 0.05, 0.08, out);
+      a.hiss(tt, 0.02, 0.07, out, 'bandpass', 2000 + Math.random() * 1500, 0, 1.4);
+    }
+  },
+  // biji mancala jatuh ke lubang (kaca kecil)
+  pebble(a, out, t) {
+    const f = 1700 + Math.random() * 700;
+    a.tone('sine', f, f * 0.6, t, 0.06, 0.09, out);
+    a.tone('sine', f * 1.6, 0, t + 0.012, 0.035, 0.04, out);
+  },
+  // segenggam biji diangkat
+  grab(a, out, t) {
+    for (let i = 0; i < 5; i++) a.hiss(t + i * 0.025, 0.03, 0.06, out, 'bandpass', 3000 + Math.random() * 1500, 0, 1.5);
+  },
+  // biji dikumpulkan ke lumbung
+  collect(a, out, t) {
+    for (let i = 0; i < 8; i++) {
+      const tt = t + i * 0.04;
+      const f = 1500 + Math.random() * 900;
+      a.tone('sine', f, f * 0.7, tt, 0.05, 0.05, out);
+    }
+    a.tone('triangle', 784, 0, t + 0.3, 0.2, 0.05, out);
+    a.tone('triangle', 1046.5, 0, t + 0.38, 0.25, 0.05, out);
+  },
+  // stik pool memukul bola putih
+  cue(a, out, t, { strength = 1 }) {
+    a.tone('triangle', 900, 300, t, 0.05, 0.16 + 0.18 * strength, out);
+    a.hiss(t, 0.03, 0.15 + 0.2 * strength, out, 'bandpass', 3200, 0, 1.2);
+  },
+  // bola beradu
+  ballHit(a, out, t, { strength = 1 }) {
+    const f = 2400 + Math.random() * 500;
+    a.tone('sine', f, f * 0.8, t, 0.045, 0.05 + 0.25 * strength, out);
+    a.hiss(t, 0.018, 0.04 + 0.2 * strength, out, 'highpass', 3500);
+  },
+  // bola memantul di bantalan meja
+  cushion(a, out, t, { strength = 1 }) {
+    a.tone('sine', 160, 80, t, 0.09, 0.08 + 0.2 * strength, out);
+    a.hiss(t, 0.04, 0.05 + 0.08 * strength, out, 'lowpass', 900);
+  },
+  // bola masuk lubang
+  pocket(a, out, t) {
+    a.tone('sine', 220, 90, t, 0.14, 0.3, out);
+    a.hiss(t + 0.05, 0.25, 0.08, out, 'lowpass', 700, 300);
+    a.tone('triangle', 330, 160, t + 0.18, 0.1, 0.1, out);
+  },
+  // bola disusun di segitiga
+  rack(a, out, t) {
+    for (let i = 0; i < 10; i++) {
+      const tt = t + i * 0.03 + Math.random() * 0.02;
+      a.tone('sine', 2200 + Math.random() * 600, 1700, tt, 0.04, 0.07, out);
+    }
+  },
+  // foul
+  foul(a, out, t) {
+    a.tone('square', 330, 0, t, 0.15, 0.07, out);
+    a.tone('square', 247, 0, t + 0.16, 0.25, 0.07, out);
+  },
 };

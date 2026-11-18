@@ -136,6 +136,27 @@ export class LocalPlayer {
         return;
       }
     }
+    if (this.pin) {
+      // berdiri di tempat yang ditentukan game (mis. memutari meja pool); berjalan bila tempatnya berpindah
+      const p = this.pin;
+      const dx = p.x - pos.x, dz = p.z - pos.z;
+      const d = Math.hypot(dx, dz);
+      const far = d > 3;
+      const step = far ? d : Math.min(d, dt * 2.8);
+      if (d > 1e-4) {
+        pos.x += (dx / d) * step;
+        pos.z += (dz / d) * step;
+      }
+      pos.y = w.getHeight(pos.x, pos.z);
+      vel.set(0, 0, 0);
+      this.speed = !far && d > 0.02 ? 2.8 : 0;
+      this.facing = p.facing;
+      this.grounded = true;
+      this.syncMesh();
+      this.character.animate(dt, { speed: this.speed, grounded: true, swimming: false, vy: 0 });
+      this.sendState(dt);
+      return;
+    }
     this.stunT = Math.max(0, this.stunT - dt);
     const stunned = this.stunT > 0;
 

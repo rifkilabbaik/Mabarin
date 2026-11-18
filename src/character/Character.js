@@ -567,6 +567,16 @@ export class Character {
       lean = 0.08 * walk;
     }
 
+    // pose membidik bola pool: badan membungkuk, tangan kiri jadi sandaran stik, tangan kanan memegang pangkal
+    if (this.cuePose && !s.sitting && !s.swimming) {
+      const k = this.cuePose;
+      lean += 0.5 * k;
+      armLx = lerp(armLx, -1.45, k);
+      armLz = lerp(armLz, -0.15, k);
+      armRx = lerp(armRx, -0.75, k);
+      armRz = lerp(armRz, 0.25, k);
+    }
+
     // pose memegang item
     const item = this.itemId;
     let itemRx = Math.PI / 2, itemRy = 0;
@@ -642,7 +652,7 @@ export class Character {
     this.arms[0].rotation.y = damp(this.arms[0].rotation.y, armRy, 14, dt);
     this.arms[1].rotation.x = damp(this.arms[1].rotation.x, armLx, 14, dt);
     this.arms[1].rotation.z = damp(this.arms[1].rotation.z, armLz, 14, dt);
-    if (this.held) this.held.visible = !(this.holdCards && s.sitting);
+    if (this.held) this.held.visible = !(this.holdCards && s.sitting) && !this.cuePose;
     if (this.held && item !== 'guitar') {
       this.held.rotation.x = damp(this.held.rotation.x, itemRx, 20, dt);
       this.held.rotation.y = damp(this.held.rotation.y, itemRy, 20, dt);

@@ -278,15 +278,75 @@ function buildCardTables(world, markers) {
   });
 }
 
+// ---------- Meja pool (di area olahraga) ----------
+// Permukaan kain 2.0 × 1.0 m (sama dengan src/tablegames/pool/physics.js), tinggi 0.78 m.
+function buildPoolTables(world, markers) {
+  const PL = 2.0, PW = 1.0, H = 0.78, RAIL = 0.11, CUSH = 0.035;
+  const parts = [];
+  // badan meja & kaki
+  parts.push(prep(new THREE.BoxGeometry(PL + RAIL * 2 - 0.06, 0.16, PW + RAIL * 2 - 0.06).translate(0, H - 0.12, 0), '#5c3317'));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(prep(new THREE.CylinderGeometry(0.07, 0.09, H - 0.12, 8).translate(sx * (PL / 2 - 0.05), (H - 0.12) / 2, sz * (PW / 2 - 0.03)), '#4a2a12'));
+  parts.push(prep(new THREE.BoxGeometry(PL - 0.2, 0.06, 0.08).translate(0, 0.16, 0), '#4a2a12'));
+  // kain
+  parts.push(prep(new THREE.BoxGeometry(PL + 0.02, 0.02, PW + 0.02).translate(0, H - 0.01, 0), '#1f8a4c'));
+  // bantalan hijau (terputus di lubang) & pinggiran kayu
+  const gapC = 0.085, gapS = 0.07;
+  const longSeg = (PL - gapC * 2 - gapS * 2) / 2;
+  for (const sz of [-1, 1]) {
+    for (const sx of [-1, 1]) {
+      const cx = sx * (gapS + longSeg / 2);
+      parts.push(prep(new THREE.BoxGeometry(longSeg, 0.04, CUSH).translate(cx, H + 0.01, sz * (PW / 2 + CUSH / 2)), '#187a40'));
+    }
+    parts.push(prep(new THREE.BoxGeometry(PL + RAIL * 2, 0.06, RAIL - CUSH).translate(0, H + 0.0, sz * (PW / 2 + CUSH + (RAIL - CUSH) / 2)), '#7a4520'));
+  }
+  for (const sx of [-1, 1]) {
+    parts.push(prep(new THREE.BoxGeometry(CUSH, 0.04, PW - gapC * 2).translate(sx * (PL / 2 + CUSH / 2), H + 0.01, 0), '#187a40'));
+    parts.push(prep(new THREE.BoxGeometry(RAIL - CUSH, 0.06, PW + RAIL * 2).translate(sx * (PL / 2 + CUSH + (RAIL - CUSH) / 2), H + 0.0, 0), '#7a4520'));
+  }
+  // titik penanda (diamond) di pinggiran
+  for (const sz of [-1, 1]) for (let i = 1; i < 8; i++) if (i !== 4) parts.push(prep(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 6).translate(-PL / 2 + (i * PL) / 8, H + 0.032, sz * (PW / 2 + CUSH + (RAIL - CUSH) / 2)), '#f1e3c6'));
+  for (const sx of [-1, 1]) for (let i = 1; i < 4; i++) parts.push(prep(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 6).translate(sx * (PL / 2 + CUSH + (RAIL - CUSH) / 2), H + 0.032, -PW / 2 + (i * PW) / 4), '#f1e3c6'));
+  // lubang
+  for (const [px, pz, r] of [[-1, -1, 0.068], [0, -1, 0.06], [1, -1, 0.068], [-1, 1, 0.068], [0, 1, 0.06], [1, 1, 0.068]]) {
+    const ox = px * (PL / 2 + (px ? 0.012 : 0)), oz = pz * (PW / 2 + (px ? 0.012 : 0.025));
+    parts.push(prep(new THREE.CylinderGeometry(r, r * 0.9, 0.05, 14).translate(ox, H - 0.012, oz), '#0b0b0b'));
+  }
+  const geo = merge(parts);
+  const mat = lambert();
+  for (const [cx, cz] of CONFIG.sports.poolTables || []) {
+    const y = world.getHeight(cx, cz);
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(cx, y, cz);
+    m.castShadow = m.receiveShadow = true;
+    world.scene.add(m);
+    for (const dx of [-0.7, 0, 0.7]) world.colliders.add(cx + dx, cz, 0.72, y + H + 0.05);
+    const index = markers.cardTables.length + markers.poolTables.length;
+    markers.poolTables.push({
+      index,
+      kind: 'pool',
+      x: cx,
+      z: cz,
+      y: y + H, // tinggi kain
+      ground: y,
+      // tempat berdiri saat menunggu giliran (di samping meja, di luar garis bidik)
+      seats: [
+        { x: cx - 0.3, z: cz + (PW / 2 + 1.75), y, rot: Math.PI },
+        { x: cx + 0.3, z: cz - (PW / 2 + 1.75), y, rot: 0 },
+      ],
+    });
+  }
+}
+
 export function buildProps(world, rand) {
   const cfg = CONFIG.world;
   const scene = world.scene;
   const shadows = world.quality !== 'low';
 
   // Penanda untuk peta (src/ui/MapView.js)
-  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], cardTables: [], campfire: { x: 0, z: 0 } };
+  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], cardTables: [], poolTables: [], campfire: { x: 0, z: 0 } };
   const campfire = buildCampfire(world, rand, markers);
   buildCardTables(world, markers);
+  buildPoolTables(world, markers);
 
   // Pohon (punya collider batang)
   const pines = scatter(world, rand, cfg.trees.pine, { minH: 2, maxH: 14, maxSlope: 0.75, avoidSpawn: 14, collider: 0.45 });

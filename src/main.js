@@ -23,6 +23,9 @@ import kilat from './tablegames/games/kilat.js';
 import catur from './tablegames/games/catur.js';
 import dam from './tablegames/games/dam.js';
 import ludo from './tablegames/games/ludo.js';
+import empat from './tablegames/games/empat.js';
+import mancala from './tablegames/games/mancala.js';
+import pool from './tablegames/games/pool.js';
 import { buildFields } from './sports/fields.js';
 import { Sports } from './sports/Sports.js';
 import { VoiceChat } from './net/VoiceChat.js';
@@ -139,7 +142,7 @@ const input = new InputManager({
 const voice = new VoiceChat({ audio, ui, button: $('btn-mic') });
 
 // Permainan kartu di meja (tampilan orang-pertama)
-const TABLE_GAMES = [kilat, catur, dam, ludo];
+const TABLE_GAMES = [kilat, catur, dam, ludo, empat, mancala, pool];
 const cards = new TableGames({
   scene, camera, world, audio, ui, input, games: TABLE_GAMES,
   onEnter: () => {

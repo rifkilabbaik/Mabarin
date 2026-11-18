@@ -35,7 +35,8 @@ export class TableGames {
     this.games = Object.fromEntries(games.map((g) => [g.id, g]));
     this.onEnter = onEnter;
     this.onExit = onExit;
-    this.tables = world.props.markers.cardTables;
+    // meja bundar (kartu & papan) + meja pool (venue khusus, pemain berdiri)
+    this.tables = [...world.props.markers.cardTables, ...(world.props.markers.poolTables || [])];
     this.tableState = this.tables.map(() => ({ game: null, renderer: null, bots: new Map(), marker: null }));
     this.host = null;
     this.active = null;
@@ -145,6 +146,10 @@ export class TableGames {
       /** Kartu di tangan (HandView) milik pemain lokal, untuk animasi dari tangan ke meja. */
       handCard: (id) => this.controls?.hand?.cards?.get(id) || null,
       mySeat: () => this.local?.seat || null,
+      local: () => this.local,
+      /** Bandar meja aktif bila kita yang membuatnya (untuk opsi lobi). */
+      ownHost: () => (this.host && this.active && this.host.state.id === this.active.id ? this.host : null),
+      tableIndexOf: (m) => m.table,
       tableOf: (m) => this.tables[m.table],
       /** Karakter pemain di meja (bot, pemain lain, atau kita sendiri). */
       characterOf: (pid) => {
@@ -179,11 +184,11 @@ export class TableGames {
     return list;
   }
 
-  freeTable(minSeats = 4) {
+  freeTable(minSeats = 4, kind = 'round') {
     const used = new Set(this.allMatches().map((m) => m.table));
     // utamakan meja terdekat
     const p = this.local?.position;
-    const order = this.tables.map((t, i) => i).filter((i) => !used.has(i) && this.tables[i].seats.length >= minSeats);
+    const order = this.tables.map((t, i) => i).filter((i) => !used.has(i) && (this.tables[i].kind || 'round') === kind && this.tables[i].seats.length >= minSeats);
     if (p) order.sort((a, b) => Math.hypot(this.tables[a].x - p.x, this.tables[a].z - p.z) - Math.hypot(this.tables[b].x - p.x, this.tables[b].z - p.z));
     return order.length ? order[0] : -1;
   }
@@ -278,9 +283,17 @@ export class TableGames {
   }
 
   /** Ganti mode kamera dengan transisi halus. `remember`: simpan pilihan untuk meja berikutnya. */
+  /** Mode kamera yang tersedia untuk game aktif (game dengan kamera sendiri, mis. pool: tidak ada). */
+  camModes(m = this.active) {
+    const mod = this.module(m);
+    if (mod?.cams) return mod.cams;
+    return mod?.topView ? ['head', 'free', 'top'] : ['head', 'free'];
+  }
+
   setCamMode(mode, remember = false) {
     if (!CAM_MODES.includes(mode)) return;
-    if (mode === 'top' && !this.isBoardGame()) mode = 'free';
+    const modes = this.camModes();
+    if (modes.length && !modes.includes(mode)) mode = mode === 'top' && modes.includes('free') ? 'free' : modes[0];
     if (remember) {
       this.camPref[this.isBoardGame() ? 'board' : 'cards'] = mode;
       try {
@@ -298,7 +311,7 @@ export class TableGames {
 
   renderCamMenu() {
     for (const b of $('cu-cam-menu').querySelectorAll('[data-cam]')) {
-      b.hidden = b.dataset.cam === 'top' && !this.isBoardGame();
+      b.hidden = !this.camModes().includes(b.dataset.cam);
       b.classList.toggle('on', b.dataset.cam === this.camMode);
       b.setAttribute('aria-checked', String(b.dataset.cam === this.camMode));
     }
@@ -310,7 +323,8 @@ export class TableGames {
   }
 
   defaultCam(m = this.active) {
-    return this.isBoardGame(m) ? { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 } : { yaw: 0, el: 0.95, dist: 1.9, topH: 1.0 };
+    const base = this.isBoardGame(m) ? { yaw: 0, el: 0.9, dist: 1.05, topH: 1.0 } : { yaw: 0, el: 0.95, dist: 1.9, topH: 1.0 };
+    return { ...base, ...(this.module(m)?.cam || {}) };
   }
 
   pick(x, y) {
@@ -330,9 +344,9 @@ export class TableGames {
       return;
     }
     const mod = this.games[gameId];
-    const table = this.freeTable();
+    const table = this.freeTable(mod.max, mod.venue || 'round');
     if (table < 0) {
-      this.ui.toast('Semua meja sedang dipakai.');
+      this.ui.toast(mod.venue === 'pool' ? 'Meja pool sedang dipakai.' : 'Semua meja sedang dipakai.');
       return;
     }
     const p = this.profile();
@@ -440,7 +454,7 @@ export class TableGames {
     const mod = this.module(match);
     this.active = match;
     this.lastEvN = match.ev?.n ?? -1;
-    this.look = { yaw: 0, pitch: -0.62 };
+    this.look = { yaw: 0, pitch: mod.headPitch ?? -0.62 };
     this.boardCam = this.defaultCam(match);
     this.baseFov = this.camera.fov;
     this.input.setCardMode(true);
@@ -454,7 +468,14 @@ export class TableGames {
     this.camMode = '';
     this.setCamMode(this.camPref[mod.topView ? 'board' : 'cards']);
     this.toggleCamMenu(false);
-    if (!this.camHintShown) {
+    $('cu-cam').hidden = this.camModes(match).length < 2;
+    if (mod.cams) {
+      // game dengan kamera sendiri: mulai meluncur dari kamera dunia
+      this.camT = 0;
+      this.camFrom.pos.copy(this.camera.position);
+      this.camFrom.quat.copy(this.camera.quaternion);
+    }
+    if (!this.camHintShown && !mod.cams) {
       this.camHintShown = true;
       setTimeout(() => this.ui.toast('Geser: lihat sekeliling · cubit/scroll: zoom · tombol kamera: ganti tampilan'), 900);
     }
@@ -475,6 +496,13 @@ export class TableGames {
 
   sitAt(index) {
     this.seatIndex = index;
+    if (this.module(this.active)?.stand) {
+      // game berdiri (pool): tidak duduk; posisi diatur kontrol game lewat local.pin
+      const s = this.seatOf(this.active, index);
+      this.local.seat = null;
+      this.local.pin = { x: s.x, z: s.z, facing: s.rot };
+      return;
+    }
     this.local.sit(this.seatOf(this.active, index));
   }
 
@@ -484,6 +512,8 @@ export class TableGames {
     this.active = null;
     this.seatIndex = -1;
     this.local.seat = null;
+    this.local.pin = null;
+    this.local.character.cuePose = 0;
     if (seat) {
       this.local.position.set(seat.x - Math.sin(seat.rot) * 0.7, seat.y - 0.46, seat.z - Math.cos(seat.rot) * 0.7);
       this.local.facing = seat.rot + Math.PI;
@@ -514,7 +544,9 @@ export class TableGames {
   }
 
   // ---------- Kamera ----------
-  applyLook({ yaw, pitch, zoom = 0 }) {
+  applyLook(look) {
+    if (this.controls?.applyLook) return this.controls.applyLook(look);
+    const { yaw, pitch, zoom = 0 } = look;
     const c = this.boardCam;
     if (this.camMode === 'top') {
       c.topH = clamp(c.topH * Math.exp(zoom * 0.08), 0.45, 1.9);
@@ -532,14 +564,24 @@ export class TableGames {
   }
 
   updateCamera(dt) {
-    if (!this.active || !this.local.seat) return;
-    const seat = this.local.seat;
+    if (!this.active) return;
     const cam = this.camera;
-    const fov = 70; // pandangan di meja
+    const fov = this.controls?.fov || 70; // pandangan di meja
     if (cam.fov !== fov) {
       cam.fov = fov;
       cam.updateProjectionMatrix();
     }
+    if (this.controls?.cameraPose) {
+      // game dengan kamera sendiri (pool: POV di belakang stik)
+      this.controls.cameraPose(dt, this._pa, this._qa);
+      this.camT = Math.min(1, this.camT + dt / 0.7);
+      const k = ease(this.camT);
+      cam.position.lerpVectors(this.camFrom.pos, this._pa, k);
+      cam.quaternion.slerpQuaternions(this.camFrom.quat, this._qa, k);
+      return;
+    }
+    if (!this.local.seat) return;
+    const seat = this.local.seat;
     this.cameraPose(seat, this._pa, this._qa);
     this.camT = Math.min(1, this.camT + dt / 0.5);
     if (this.camT < 1) {
@@ -590,7 +632,7 @@ export class TableGames {
     }
     // bebas: dari sisi kursi kita (+ geser terbatas), ketinggian & jarak bisa diatur
     const target = this._tg || (this._tg = new THREE.Vector3());
-    target.set(t.x, t.y + 0.02, t.z);
+    target.set(t.x, t.y + (this.module(this.active)?.camTargetY ?? 0.02), t.z);
     const th = seat.rot + Math.PI + c.yaw;
     const h = c.dist * Math.cos(c.el);
     pos.set(t.x + Math.sin(th) * h, t.y + c.dist * Math.sin(c.el), t.z + Math.cos(th) * h);
@@ -617,6 +659,7 @@ export class TableGames {
     this.renderPlayers(m);
     $('cu-lobby').querySelector('h3 span').textContent = mod.name;
 
+    this.controls?.lobby?.($('cu-opts'), m, !!isHost);
     if (m.phase === 'lobby') {
       const rows = [];
       for (let i = 0; i < (this.host?.max ?? mod.max); i++) {
@@ -725,7 +768,7 @@ export class TableGames {
     const byTable = new Map(matches.map((m) => [m.table, m]));
     // pemain game kartu memegang kartu di depan dada
     const holders = new Set();
-    for (const m of matches) if (!this.module(m)?.topView && m.phase !== 'lobby') for (const p of m.players) holders.add(p.id);
+    for (const m of matches) if (this.module(m)?.holdsCards && m.phase !== 'lobby') for (const p of m.players) holders.add(p.id);
     if (this.remotes) for (const rp of this.remotes.values()) rp.character.holdCards = holders.has(rp.id);
     // karakter sendiri ikut memegang kipas kartunya (terlihat di kamera bebas)
     if (this.local) this.local.character.holdCards = holders.has(this.myId) && !!this.controls?.hand;
@@ -750,6 +793,21 @@ export class TableGames {
           this.scene.add(b.root);
           ts.bots.set(p.id, b);
         }
+        if (mod?.stand) {
+          // bot berdiri & berjalan sendiri (posisi diatur tampilan game, mis. memutari meja pool)
+          const pose = ts.renderer?.botPose?.(m, idx, p.id) || this.seatOf(m, idx);
+          const dx = pose.x - b.root.position.x, dz = pose.z - b.root.position.z;
+          const d = Math.hypot(dx, dz);
+          const first = !b.placed;
+          b.placed = true;
+          const step = first ? d : Math.min(d, dt * 2.6);
+          if (d > 1e-4) b.root.position.set(b.root.position.x + (dx / d) * step, pose.y ?? t.y - 0.79, b.root.position.z + (dz / d) * step);
+          else b.root.position.y = pose.y ?? t.y - 0.79;
+          b.root.rotation.y = pose.rot;
+          b.cuePose = pose.cue || 0;
+          b.animate(dt, { speed: d > 0.02 && !first ? 2.6 : 0, grounded: true, swimming: false, vy: 0 });
+          return;
+        }
         const s = this.seatOf(m, idx);
         b.root.position.set(s.x, s.y, s.z);
         b.root.rotation.y = s.rot;
@@ -769,7 +827,7 @@ export class TableGames {
         ts.marker.rotation.x = -Math.PI / 2;
         this.scene.add(ts.marker);
       }
-      const show = m?.phase === 'play';
+      const show = m?.phase === 'play' && !mod?.stand;
       ts.marker.visible = show;
       if (show) {
         const s = this.seatOf(m, m.turn);
@@ -811,7 +869,7 @@ export class TableGames {
     this.active = mine;
     const idx = mine.players.findIndex((p) => p.id === this.myId);
     // kursi bisa berubah walau urutan sama (mis. berdua berhadapan lalu ada pemain ketiga)
-    if (idx !== this.seatIndex || this.seatOf(mine, idx) !== this.local.seat) this.sitAt(idx);
+    if (idx !== this.seatIndex || (!this.module(mine)?.stand && this.seatOf(mine, idx) !== this.local.seat)) this.sitAt(idx);
     this.handleEvent(mine);
     const myTurn = mine.phase === 'play' && mine.players[mine.turn]?.id === this.myId;
     if (myTurn && !this.lastTurnMine) this.audio.play('turn');

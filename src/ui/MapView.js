@@ -94,6 +94,13 @@ export class MapView {
       ctx.arc(toPx(t.x), toPx(t.z), 2.6, 0, Math.PI * 2);
       ctx.fill();
     }
+    // meja pool
+    for (const t of m.poolTables || []) {
+      ctx.fillStyle = '#5c3317';
+      ctx.fillRect(toPx(t.x) - 4.5, toPx(t.z) - 2.8, 9, 5.6);
+      ctx.fillStyle = '#1f8a4c';
+      ctx.fillRect(toPx(t.x) - 3.5, toPx(t.z) - 1.8, 7, 3.6);
+    }
     // kompleks olahraga
     const F = CONFIG.sports.fields;
     const court = (f, fill, run) => {

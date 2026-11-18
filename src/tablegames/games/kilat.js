@@ -551,6 +551,7 @@ export default {
   max: 4,
   seatOrder: (n) => (n === 2 ? [0, 2] : [0, 1, 2, 3]), // berdua: duduk berhadapan
   topView: false,
+  holdsCards: true,
   Host: KilatHost,
   Renderer: KilatRenderer,
   Controls: KilatControls,
