@@ -132,6 +132,7 @@ class DamRenderer {
       capSide: isMove && ev.cap !== undefined ? colorOf(board[ev.to]) : null,
       captures: this.captures,
       anims: this.anims,
+      hand: isMove ? this.ctx.characterOf(ev.p) : null,
       pos: (sq, out) => this.pos(sq, out),
       make: (p) => this.addPiece(p),
       retype: (mesh, p) => this.setPiece(mesh, p),

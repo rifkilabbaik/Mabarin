@@ -118,6 +118,7 @@ class CaturRenderer {
       capSide: isMove && ev.cap ? board[ev.to]?.[0] : null,
       captures: this.captures,
       anims: this.anims,
+      hand: isMove ? this.ctx.characterOf(ev.p) : null,
       pos: (sq, out) => this.pos(sq, out),
       make: (p) => this.addPiece(p),
       retype: (mesh, p) => setChessPiece(mesh, p),

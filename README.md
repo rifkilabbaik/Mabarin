@@ -55,16 +55,18 @@ Tombol kamera (di bawah gear) berisi:
 
 Pilihan kamera terakhir diingat untuk meja berikutnya.
 
+Saat permainan selesai, hasilnya (**Kamu menang!**, **Kamu kalah**, atau **Seri**) tampil sebagai banner di atas, sedangkan tombol **Keluar** & **Ulangi** ada di bawah — meja tetap terlihat.
+
 Di game kartu, kartumu **dipegang seperti kipas di depan dada** (tidak ikut kamera) dan mukanya menghadap matamu. Lawan juga memegang kartunya dengan kedua tangan, jadi sisa kartunya terlihat jelas. Saat mengambil atau menaruh kartu, tangan karakter meraih tumpukan dan kartunya melayang ke tangan / ke meja. Kena +2 / +4 berarti mengambil kartu **satu per satu** sebanyak itu, dan di awal permainan kartu dibagikan satu per satu. Kartu yang sudah dibuang menumpuk berserakan di tengah meja dan tumpukannya makin tinggi.
 
 - **Kartu Kilat** (2–4, berdua duduk berhadapan): cocokkan warna atau angka/simbol. Tidak punya kartu cocok? **Ketuk tumpukan kartu** (bertepi kuning berdenyut saat boleh mengambil). Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
 - **Catur** (1v1): bidak 3D bergaris tepi tipis — bidak hitam bergaris putih, bidak putih bergaris hitam — agar mudah dibedakan di petak gelap maupun terang. Aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
 - **Dam** (1v1): papan 8×8, wajib makan, makan beruntun. Bidak biasa hanya bisa maju (melangkah maupun makan); **raja** bisa maju-mundur jarak jauh dan tampil sebagai dua keping bertumpuk bermahkota emas.
-- **Catur & Dam**: bidak terangkat lalu melayang ke petak tujuannya (termasuk benteng saat rokade). Bidak yang dimakan diangkat dari papan, dibawa ke belakang papan, dan disusun rapi berjajar di sisi pemain yang memakannya.
+- **Catur & Dam**: tangan karakter meraih bidak, mengangkatnya, lalu menaruhnya di petak tujuan (benteng saat rokade ikut pindah). Bidak yang dimakan diambil tangan, dibawa ke belakang papan, dan disusun rapi berjajar di sisi pemain yang memakannya.
 - **Ludo** (2, 3, atau 4): **ketuk dadu** di depanmu untuk melempar — dadu berpindah ke depan pemain yang mendapat giliran. Pion melompat petak demi petak; pion yang dimakan terpental kembali ke kandang. Bila hanya ada satu pilihan langkah, pion berjalan otomatis. Keluar dengan 6, petak aman bertanda bintang. Saat giliranmu melempar, dadu bergaris tepi kuning; setelah melempar, pion yang bisa dijalankan bergaris tepi kuning. Pion selalu tepat di tengah petak, dan beberapa pion dalam satu petak (termasuk di finis, di segitiga warnanya) bertumpuk ke atas.
 
-- **Empat Sejajar** (1v1): papan kayu tegak 7×6. Arahkan ke kolom (di PC muncul cakram bayangan) lalu ketuk — cakram jatuh dan memantul dengan bunyi "klak". Susun 4 sejajar (mendatar, tegak, atau miring); garis kemenangan menyala. Saat main lagi, kunci bawah dibuka dan semua cakram berjatuhan. Pemain pertama bergantian tiap ronde.
-- **Mancala** (1v1, aturan klasik): 6 lubang + 1 lumbung per pemain, 4 biji per lubang. Ketuk lubang di sisimu (bercincin kuning saat bisa dipilih): biji diangkat lalu ditabur satu per satu berlawanan arah jarum jam (melewati lumbung lawan), tiap biji berbunyi "tik". Biji terakhir di lumbung sendiri = jalan lagi; di lubang kosong sendiri = biji di lubang itu & seberangnya dibawa ke lumbung. Bila satu sisi kosong, sisa biji masuk lumbung pemiliknya. Angka di tiap lubang menunjukkan jumlah biji.
+- **Empat Sejajar** (1v1): papan kayu tegak 7×6 yang tebal (dua panel kayu berlubang dengan sekat antar kolom, terlihat bervolume dari atas). Arahkan ke kolom (di PC muncul cakram bayangan) lalu ketuk — tangan karakter membawa cakram ke atas kolom, cakram jatuh dan memantul dengan bunyi "klak". Susun 4 sejajar (mendatar, tegak, atau miring): cakramnya menyala dan garis kemenangan tumbuh melintasinya. Saat main lagi, kunci bawah dibuka dan semua cakram berjatuhan. Pemain pertama bergantian tiap ronde.
+- **Mancala** (1v1, aturan klasik): papan kayu berserat halus dengan ujung melengkung; lubang berbentuk tabung (dinding lurus, dasar melengkung) dan lumbung berbentuk kapsul, semuanya benar-benar berongga. 6 lubang + 1 lumbung per pemain, 4 kelereng per lubang. Ketuk lubang di sisimu (bercincin kuning saat bisa dipilih): tangan karakter menggenggam semua kelereng lalu menaburnya satu per satu berlawanan arah jarum jam (melewati lumbung lawan), tiap kelereng berbunyi "tik". Biji terakhir di lumbung sendiri = jalan lagi; di lubang kosong sendiri = biji di lubang itu & seberangnya dibawa ke lumbung. Bila satu sisi kosong, sisa biji masuk lumbung pemiliknya. Angka di tiap lubang menunjukkan jumlah biji.
 
 Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player state `cg`, aksi lewat event `cg`, undangan lewat `cg-inv`.
 
@@ -72,12 +74,17 @@ Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player
 
 Meja biliar ada di area olahraga (dekat lapangan tenis, juga tampil di peta). Buka **Game → Pool**, undang teman atau tambah bot. Di lobi, bandar memilih **15 bola** (7 merah, 7 biru, 1 hitam) atau **9 bola** (4 + 4 + 1, ronde cepat). Bola putih = bola tembak.
 
-- **Tampilan POV, tanpa kamera bebas** — kamera dari belakang stik. Saat bidikan diputar, karaktermu **berjalan memutari meja** agar selalu di belakang bola putih (pemain lain melihatmu berjalan & membungkuk memegang stik). Cubit / scroll / geser atas-bawah = maju-mundur kamera. Tahan tombol **Lihat atas** (di bawah gear) untuk melihat seluruh meja.
-- **Bidik dua lapis** — kasar: geser layar ke kiri/kanan, atau ketuk bola yang ingin dituju. Halus: geser strip bergerigi di kanan.
+- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Tiga tombol di kanan bawah:
+  - **Berdiri** — berdiri tegak, pandangan lebih tinggi & luas ke meja. Geser layar untuk menoleh (kiri/kanan, atas/bawah).
+  - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari bola putih. Cubit / scroll = maju-mundur kamera.
+  - **Berjalan** — berjalan mengelilingi meja dengan joystick (HP, kiri bawah) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Bisa dipakai juga sambil menunggu lawan.
+  - Setelah menembak, karakter otomatis **berdiri** supaya pandangan lebih luas dan kamera bisa digeser. Pemain lain melihatmu berjalan, berdiri, atau membungkuk memegang stik.
+- **Geser stik vs geser layar** — saat membungkuk, menggeser **stik** membuat stik ikut bergerak (bidikan berputar di sekitar bola putih); menggeser bagian lain layar memutar pandangan seperti mata.
+- **Bidik dua lapis** — kasar: geser stik, atau ketuk bola yang ingin dituju. Halus: geser strip bergerigi di kanan.
 - **Garis lintasan dinamis** — garis dari bola putih ke titik sentuh (lingkaran bola hantu), arah bola sasaran setelah dipukul (makin lurus makin panjang), dan arah pantulan bola putih (ikut berubah oleh efek atas/bawah). Bila mengenai bantalan, tampil arah pantulannya. Peringatan muncul bila sasaran bukan bolamu.
 - **Pemilih efek** — ketuk bola kecil di kanan bawah, lalu pilih titik pukul di bola besar: atas = bola putih ikut maju, bawah = bola putih tertarik mundur, kiri/kanan = efek saat memantul di bantalan.
-- **Power tarik-lepas** — tarik pegangan di bar kiri ke bawah (stik ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
-- **Bola di tangan** — saat pukulan pembuka (di daerah kepala) atau setelah lawan foul: kamera pindah ke atas, geser bola putih ke tempat yang sah, lalu **Selesai**.
+- **Power tarik-lepas** — bar panjang di kiri berisi gambar stik: tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
+- **Bola di tangan** — saat pukulan pembuka (di daerah kepala) atau setelah lawan foul: kamera pindah ke atas, geser bola putih ke tempat yang sah, lalu **Selesai** (langsung membungkuk siap menembak).
 
 Aturan (sederhana): meja terbuka sampai ada yang memasukkan bola — pemain yang **pertama memasukkan bola mengunci warna itu**, lawan mendapat warna lainnya. Masukkan bolamu untuk terus memukul. **Foul** bila bola putih masuk, tidak mengenai bola apa pun, atau lebih dulu mengenai bola lawan / bola 8 → lawan mendapat bola di tangan. Setelah warnamu habis, masukkan **bola 8** (tanpa sebut lubang) untuk menang; bola 8 masuk lebih cepat atau sambil foul = kalah. Bola 8 yang masuk saat pukulan pembuka dikembalikan ke titik kaki. Waktu bidik 45 detik; bila habis, pukulan dilakukan otomatis.
 

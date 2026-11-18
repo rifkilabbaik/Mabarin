@@ -126,7 +126,7 @@ export class InputManager {
       e.preventDefault();
       this.setMode('touch');
       s.setPointerCapture(e.pointerId);
-      const leftZone = !this.cardMode && e.clientX < window.innerWidth * 0.45;
+      const leftZone = (!this.cardMode || this.joyInCards) && e.clientX < window.innerWidth * 0.45;
       if (leftZone && !this.joystick.active) {
         this.joystick.start(e.pointerId, e.clientX, e.clientY);
       } else if (this.lookPointers.size < 2) {

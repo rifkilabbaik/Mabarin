@@ -1452,3 +1452,82 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
   .pl-power { height: 52vh; transform: translateY(-34%); }
   .pl-fine { height: 46vh; transform: translateY(-34%); }
 }
+
+/* ================= Akhir permainan: banner atas + tombol bawah ================= */
+.cu-end { position: absolute; inset: 0; pointer-events: none; }
+.cu-end[hidden] { display: none; }
+.cu-end-banner {
+  position: absolute; left: 50%; top: calc(14px + var(--safe-t)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; max-width: min(520px, calc(100% - 140px));
+  padding: 10px 20px 10px 10px; border-radius: 999px; pointer-events: auto;
+  background: linear-gradient(135deg, #ffd43b, #f59f00); color: #3d2600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28); animation: cu-end-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.cu-end-banner .cu-crown { margin: 0; width: 46px; height: 46px; flex: none; background: rgba(255, 255, 255, 0.85); color: #e67700; }
+.cu-end-banner .cu-crown .ic { width: 26px; height: 26px; }
+.cu-end-banner h3 { margin: 0; font-size: 20px; font-weight: 850; line-height: 1.15; }
+.cu-end-banner p { margin: 2px 0 0; font-size: 13.5px; font-weight: 650; opacity: 0.85; line-height: 1.25; }
+.cu-end-banner p:empty { display: none; }
+.cu-end-banner[data-kind='lose'] { background: linear-gradient(135deg, #495057, #343a40); color: #f1f3f5; }
+.cu-end-banner[data-kind='lose'] .cu-crown { color: #e03131; }
+.cu-end-banner[data-kind='draw'], .cu-end-banner[data-kind='other'] { background: linear-gradient(135deg, #e7f5ff, #a5d8ff); color: #10324f; }
+.cu-end-banner[data-kind='draw'] .cu-crown, .cu-end-banner[data-kind='other'] .cu-crown { color: #1c7ed6; }
+.cu-end-actions {
+  position: absolute; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%);
+  display: flex; gap: 10px; align-items: center; pointer-events: auto;
+}
+.cu-end-actions .btn { min-width: 128px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25); }
+.cu-end-actions .btn[hidden] { display: none; }
+.cu-end-wait { margin: 0; padding: 8px 14px; border-radius: 999px; background: var(--hud-glass); color: #fff; font-weight: 700; font-size: 13.5px; }
+.cu-end-wait[hidden] { display: none; }
+@keyframes cu-end-in { from { transform: translate(-50%, -30px) scale(0.8); opacity: 0; } }
+@media (max-width: 560px) {
+  .cu-end-banner { top: calc(104px + var(--safe-t)); max-width: calc(100% - 24px); }
+  .cu-end-banner h3 { font-size: 17px; }
+}
+
+/* ----- Pool: mode berdiri / membungkuk / berjalan + bar tarik stik panjang ----- */
+.pl-modes {
+  position: absolute; right: calc(80px + var(--safe-r)); bottom: calc(14px + var(--safe-b));
+  display: flex; gap: 4px; padding: 4px; border-radius: 999px;
+  background: var(--hud-glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.pl-modes[hidden] { display: none; }
+.pl-modes button {
+  display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px 0 10px; border: 0; border-radius: 999px;
+  background: transparent; color: #fff; font: inherit; font-weight: 750; font-size: 13.5px; cursor: pointer;
+}
+.pl-modes button .ic { width: 22px; height: 22px; }
+.pl-modes button.on { background: #2f80ed; }
+.pl-modes button:disabled { opacity: 0.4; cursor: default; }
+.pl-modes button.call { animation: pl-call 1.1s ease-in-out infinite; }
+@keyframes pl-call { 50% { background: rgba(255, 212, 59, 0.85); color: #3d2600; } }
+@media (max-width: 900px) {
+  .pl-modes button { padding: 0 10px 0 8px; font-size: 12.5px; }
+}
+@media (max-width: 560px) {
+  .pl-modes button { padding: 0 10px; }
+  .pl-modes button span { display: none; }
+}
+.pl-hint {
+  position: absolute; left: 50%; bottom: calc(66px + var(--safe-b)); transform: translateX(-50%); margin: 0;
+  padding: 7px 14px; border-radius: 999px; background: var(--hud-glass); color: #fff; font-weight: 650; font-size: 13px;
+  white-space: nowrap; pointer-events: none !important; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
+}
+.pl-hint[hidden] { display: none; }
+.pl-done { bottom: calc(18px + var(--safe-b)); }
+.pl-power, .pl-fine, .pl-spin { transition: opacity 0.15s; }
+.pl-power[hidden], .pl-fine[hidden] { display: none; }
+/* bar tarik: stik panjang yang ikut mundur saat ditarik */
+.pl-power { top: calc(104px + var(--safe-t)); bottom: calc(18px + var(--safe-b)); height: auto; transform: none; width: 60px; }
+.pl-track { width: 34px; }
+.pl-stick {
+  position: absolute; left: 50%; top: 4%; width: 10px; height: 150%; margin-left: -5px; border-radius: 5px;
+  background: linear-gradient(#3b82c4 0 1.2%, #f1f3f5 1.2% 2.6%, #e9cc98 2.6% 50%, #c79a5c 50% 60%, #3b2414 60%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); transition: transform 0.03s linear;
+}
+.pl-fine { height: min(52vh, 320px); transform: translateY(-42%); }
+@media (max-height: 430px) {
+  .pl-power { top: calc(100px + var(--safe-t)); bottom: calc(10px + var(--safe-b)); transform: none; height: auto; }
+  .pl-fine { height: 54vh; transform: translateY(-40%); }
+}

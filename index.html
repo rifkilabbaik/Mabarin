@@ -185,12 +185,16 @@
         <h3>Pilih warna</h3>
         <div class="cu-color-grid"></div>
       </div>
-      <div id="cu-end" class="cu-panel" hidden>
-        <span class="cu-crown"><i data-icon="crown"></i></span>
-        <h3 id="cu-winner"></h3>
-        <div class="cu-row">
+      <!-- akhir permainan: hasil di atas, tombol di bawah, area game tetap terlihat -->
+      <div id="cu-end" class="cu-end" hidden>
+        <div class="cu-end-banner" id="cu-end-banner">
+          <span class="cu-crown" id="cu-end-icon"></span>
+          <div class="cu-end-text"><h3 id="cu-result"></h3><p id="cu-winner"></p></div>
+        </div>
+        <div class="cu-end-actions">
           <button id="cu-exit" class="btn" type="button"><i data-icon="logout"></i>Keluar</button>
-          <button id="cu-again" class="btn primary" type="button"><i data-icon="refresh"></i>Main lagi</button>
+          <button id="cu-again" class="btn primary" type="button"><i data-icon="refresh"></i>Ulangi</button>
+          <p id="cu-end-wait" class="cu-end-wait" hidden>Menunggu bandar…</p>
         </div>
       </div>
       <div id="cu-msg" class="cu-msg"></div>

@@ -147,6 +147,7 @@ export class TableGames {
       handCard: (id) => this.controls?.hand?.cards?.get(id) || null,
       mySeat: () => this.local?.seat || null,
       local: () => this.local,
+      input: this.input,
       /** Bandar meja aktif bila kita yang membuatnya (untuk opsi lobi). */
       ownHost: () => (this.host && this.active && this.host.state.id === this.active.id ? this.host : null),
       tableIndexOf: (m) => m.table,
@@ -514,6 +515,7 @@ export class TableGames {
     this.local.seat = null;
     this.local.pin = null;
     this.local.character.cuePose = 0;
+    this.input.joyInCards = false;
     if (seat) {
       this.local.position.set(seat.x - Math.sin(seat.rot) * 0.7, seat.y - 0.46, seat.z - Math.cos(seat.rot) * 0.7);
       this.local.facing = seat.rot + Math.PI;
@@ -687,8 +689,17 @@ export class TableGames {
     }
     if (m.phase === 'end') {
       const w = m.players.find((p) => p.id === m.winner);
-      $('cu-winner').textContent = this.controls?.endText?.(m) || (m.winner === this.myId ? 'Kamu menang!' : w ? `${w.name} menang!` : 'Permainan selesai');
+      // menang / kalah / seri (penonton: siapa yang menang)
+      const playing = m.players.some((p) => p.id === this.myId);
+      const kind = m.winner === this.myId ? 'win' : m.winner && playing ? 'lose' : m.winner ? 'other' : 'draw';
+      const head = { win: 'Kamu menang!', lose: 'Kamu kalah', other: `${w?.name || 'Pemain'} menang`, draw: 'Seri' }[kind];
+      $('cu-end-banner').dataset.kind = kind;
+      $('cu-end-icon').innerHTML = icon(kind === 'lose' ? 'flag' : kind === 'draw' ? 'users' : 'crown');
+      $('cu-result').textContent = head;
+      const detail = this.controls?.endText?.(m) || '';
+      $('cu-winner').textContent = detail && detail !== head ? detail : '';
       $('cu-again').hidden = !isHost || m.players.length < mod.min;
+      $('cu-end-wait').hidden = !!isHost;
     }
   }
 

@@ -14,7 +14,7 @@ const round6 = (v) => Math.round(v * 1e6) / 1e6;
 class PoolHost extends HostBase {
   constructor(o) {
     super({ ...o, game: 'pool', min: 2, max: 2, turnMs: 45000 });
-    Object.assign(this.state, { opts: { balls: 15 }, balls: rack(15), stage: 'lobby', groups: {}, shot: null, kitchen: true, brk: true, botAim: null, starter: 1 });
+    Object.assign(this.state, { opts: { balls: 15 }, balls: rack(15), stage: 'lobby', groups: {}, shot: null, kitchen: true, brk: true, botAim: null, starter: 1, bend: {} });
     this.forfeitOnLeave = true;
     this.push();
   }
@@ -36,6 +36,7 @@ class PoolHost extends HostBase {
     s.kitchen = true;
     s.brk = true;
     s.botAim = null;
+    s.bend = {};
     s.starter = s.starter ? 0 : 1;
     this.pending = null;
     this.botPlan = null;
@@ -77,6 +78,7 @@ class PoolHost extends HostBase {
     this.pending = { sim, by: pid, onEight, until: Date.now() + sim.time * 1000 + 700 };
     s.stage = 'roll';
     s.botAim = null;
+    s.bend = { ...s.bend, [pid]: false }; // setelah memukul langsung berdiri
     s.turnAt = Date.now() + 600000; // jam giliran berhenti selama bola bergulir
     this.push({ k: 'shot', p: pid, power });
   }
@@ -166,6 +168,11 @@ class PoolHost extends HostBase {
   onAction(a, from) {
     if (a.a === 'shoot') this.shoot(from, a);
     else if (a.a === 'place') this.place(from, a.x, a.z);
+    else if (a.a === 'pose') {
+      // berdiri / membungkuk (terlihat pemain lain: pose & stik)
+      this.state.bend = { ...this.state.bend, [from]: !!a.bend };
+      this.push();
+    }
     else if (a.a === 'resign') {
       const other = this.state.players.find((p) => p.id !== from);
       this.end(other?.id || null, { why: 'resign', by: from });
@@ -388,6 +395,9 @@ class PoolRenderer {
     this.meshes = new Map();
     this.stick = cueStick();
     this.stick.visible = false;
+    // sasaran ketuk tak terlihat yang lebih tebal dari stik (untuk menggeser stik)
+    this.stickHit = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 8).rotateX(-Math.PI / 2).translate(0, 0, -0.65), new THREE.MeshBasicMaterial({ visible: false }));
+    this.stick.add(this.stickHit);
     this.group.add(this.stick);
     this.guides = new Guides(this.group);
     this.guides.set([]);
@@ -508,7 +518,7 @@ class PoolRenderer {
       else if (shooter.bot && m.botAim) aim = { cx: m.botAim.cx ?? cueB.x, cz: m.botAim.cz ?? cueB.z, dx: m.botAim.dx, dz: m.botAim.dz, pull: 0.15 + Math.sin(this.time * 3) * 0.1 };
       else if (!shooter.bot) {
         const ch = this.ctx.characterOf(shooter.id);
-        if (ch && m.stage === 'aim') {
+        if (ch && m.stage === 'aim' && m.bend?.[shooter.id]) {
           const f = ch.root.rotation.y;
           aim = { cx: cueB.x, cz: cueB.z, dx: Math.sin(f), dz: Math.cos(f), pull: 0.1 };
         }
@@ -517,7 +527,7 @@ class PoolRenderer {
       for (const p of m.players) {
         if (p.id === viewerId) continue;
         const ch = this.ctx.characterOf(p.id);
-        if (ch && !p.bot) ch.cuePose = p.id === shooter.id && m.stage === 'aim' ? 1 : 0;
+        if (ch && !p.bot) ch.cuePose = p.id === shooter.id && m.stage === 'aim' && m.bend?.[p.id] ? 1 : 0;
       }
     } else if (m.players) {
       for (const p of m.players) {
@@ -534,7 +544,7 @@ class PoolRenderer {
     if (show) {
       this.lastAim = aim;
       const cx = aim.cx ?? cueB.x, cz = aim.cz ?? cueB.z;
-      const back = R + 0.012 + (aim.pull || 0) * 0.28;
+      const back = R + 0.012 + (aim.pull || 0) * 0.42;
       this.stick.position.set(cx - aim.dx * back, R + 0.004, cz - aim.dz * back);
       this.stick.lookAt(this._v.set(this.group.position.x + cx + aim.dx, this.group.position.y + R + 0.004, this.group.position.z + cz + aim.dz));
       this.stick.rotateX(0.07);
@@ -588,24 +598,38 @@ function standSpot(cx, cz, dx, dz) {
 // ======================================================================
 const $ = (id) => document.getElementById(id);
 
+const EYE_STAND = 1.62; // berdiri: sedikit di atas kepala agar meja terlihat luas
+const EYE_WALK = 1.36; // berjalan: setinggi mata
+const WALK_SPEED = 1.5;
+const KEEP = 0.34; // jarak minimal dari tepi kain (tidak bisa menembus meja)
+const ROAM = 2.4; // seberapa jauh boleh berjalan dari meja
+
 class PoolControls {
   constructor(ctx) {
     this.ctx = ctx;
+    this.mode = 'stand'; // 'stand' | 'bend' | 'walk'
+    this.pos = null; // posisi berdiri (koordinat meja)
+    this.look = { yaw: 0, pitch: -0.5 };
+    this.lookOff = { yaw: 0, pitch: 0 };
     this.aim = 0;
-    this.zoom = 0.5;
+    this.zoom = 0.45;
     this.power = 0;
     this.pulling = null;
     this.spin = { top: 0, side: 0 };
     this.place = null;
     this.placing = false;
-    this.topHold = false;
     this.topK = 0;
     this.fov = 62;
     this.aimInit = -1;
     this.dragCue = null;
+    this.stickDrag = null;
+    this.sentBend = null;
+    this.camPos = null;
+    this.camQuat = new THREE.Quaternion();
     this._a = new THREE.Vector3();
     this._b = new THREE.Vector3();
     this._m = new THREE.Matrix4();
+    this._q = new THREE.Quaternion();
     this._up = new THREE.Vector3(0, 1, 0);
     this.ray = new THREE.Raycaster();
   }
@@ -619,14 +643,19 @@ class PoolControls {
     ui.id = 'pool-ui';
     ui.innerHTML = `
       <div class="pl-status" id="pl-status"></div>
-      <div class="pl-power" id="pl-power" title="Tarik ke bawah lalu lepas untuk memukul">
-        <div class="pl-track"><div class="pl-fill" id="pl-fill"></div><div class="pl-handle" id="pl-handle"></div></div>
+      <div class="pl-power" id="pl-power" title="Tarik stik ke bawah lalu lepas untuk memukul">
         <span class="pl-cap" id="pl-cap">Tarik</span>
+        <div class="pl-track"><div class="pl-fill" id="pl-fill"></div><div class="pl-stick" id="pl-handle"></div></div>
       </div>
       <div class="pl-fine" id="pl-fine" title="Geser untuk bidik halus"><div class="pl-ticks" id="pl-ticks"></div></div>
       <button type="button" class="pl-spin" id="pl-spin" title="Efek bola putih" aria-label="Efek bola putih"><span class="pl-ball"><i id="pl-dot"></i></span></button>
-      <button type="button" class="pl-top icon-btn" id="pl-top" title="Tahan untuk melihat dari atas" aria-label="Lihat atas">${icon('topView')}</button>
       <button type="button" class="btn primary pl-done" id="pl-done" hidden>${icon('check')}<span>Selesai</span></button>
+      <div class="pl-modes" id="pl-modes">
+        <button type="button" data-mode="stand">${icon('stand')}<span>Berdiri</span></button>
+        <button type="button" data-mode="bend">${icon('bend')}<span>Membungkuk</span></button>
+        <button type="button" data-mode="walk">${icon('walk')}<span>Berjalan</span></button>
+      </div>
+      <p class="pl-hint" id="pl-hint" hidden></p>
       <div class="pl-spinpanel" id="pl-spinpanel" hidden>
         <div class="pl-bigball" id="pl-bigball"><i id="pl-bigdot"></i></div>
         <div class="pl-spinrow"><span>Efek bola putih</span><button type="button" class="btn" id="pl-spinreset">Tengah</button></div>
@@ -637,9 +666,65 @@ class PoolControls {
   }
 
   exit() {
+    this.cleanup?.();
     this.ui?.remove();
     const local = this.ctx.local();
     if (local) local.character.cuePose = 0;
+    if (this.ctx.input) this.ctx.input.joyInCards = false;
+  }
+
+  /** Ganti mode: berdiri (pandangan luas), membungkuk (membidik), berjalan (mencari posisi). */
+  setMode(mode, quiet = false) {
+    const m = this.m;
+    if (mode === 'bend' && !this.bendAllowed(m)) {
+      if (!quiet) this.ctx.flash(this.myTurn(m) ? 'Tunggu bola berhenti' : 'Bukan giliranmu');
+      return;
+    }
+    if (mode === this.mode) return;
+    const t = m && this.ctx.tableOf(m);
+    const cue = m && (this.place || this.cueBall(m));
+    if (mode === 'bend' && cue && this.pos) {
+      // membungkuk: bidikan awal dari posisi berdiri ke arah bola putih
+      this.aim = Math.atan2(cue.z - this.pos.z, cue.x - this.pos.x);
+      this.lookOff = { yaw: 0, pitch: 0 };
+    }
+    if (this.mode === 'bend' && cue) {
+      // berdiri lagi di tempat membungkuk tadi, memandang searah bidikan
+      this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim));
+      this.look = { yaw: this.aim, pitch: -0.55 };
+    }
+    this.mode = mode;
+    if (this.ctx.input) this.ctx.input.joyInCards = mode === 'walk';
+    if (!quiet) this.ctx.audio.play('click');
+    this.renderModes();
+    if (mode === 'walk') this.hint(this.ctx.input?.mode === 'touch' ? 'Joystick di kiri untuk berjalan · geser layar untuk menoleh' : 'WASD / panah untuk berjalan · geser layar untuk menoleh');
+    else if (mode === 'bend') this.hint('Geser stik untuk membidik · tarik bar kiri lalu lepas untuk memukul');
+    else this.hint('');
+    void t;
+  }
+
+  hint(text) {
+    const el = $('pl-hint');
+    el.textContent = text;
+    el.hidden = !text;
+    clearTimeout(this.hintT);
+    if (text) this.hintT = setTimeout(() => (el.hidden = true), 3500);
+  }
+
+  bendAllowed(m) {
+    return !!m && this.myTurn(m) && (m.stage === 'aim' || (m.stage === 'place' && !this.placing)) && !!this.cueBall(m);
+  }
+
+  renderModes() {
+    const m = this.m;
+    for (const b of $('pl-modes').querySelectorAll('[data-mode]')) {
+      b.classList.toggle('on', b.dataset.mode === this.mode);
+      if (b.dataset.mode === 'bend') {
+        const ok = this.bendAllowed(m);
+        b.disabled = !ok;
+        b.classList.toggle('call', ok && this.mode !== 'bend');
+      }
+    }
   }
 
   bindHud() {
@@ -653,7 +738,7 @@ class PoolControls {
     });
     power.addEventListener('pointermove', (e) => {
       if (!this.pulling || this.pulling.id !== e.pointerId) return;
-      this.power = clamp((e.clientY - this.pulling.y0) / (this.pulling.h * 0.92), 0, 1);
+      this.power = clamp((e.clientY - this.pulling.y0) / (this.pulling.h * 0.8), 0, 1);
     });
     const release = (e) => {
       if (!this.pulling || this.pulling.id !== e.pointerId) return;
@@ -662,7 +747,7 @@ class PoolControls {
       this.power = 0;
     };
     power.addEventListener('pointerup', release);
-    power.addEventListener('pointercancel', (e) => {
+    power.addEventListener('pointercancel', () => {
       this.pulling = null;
       this.power = 0;
     });
@@ -684,6 +769,8 @@ class PoolControls {
     const fineEnd = () => (this.fineDrag = null);
     fine.addEventListener('pointerup', fineEnd);
     fine.addEventListener('pointercancel', fineEnd);
+    // mode
+    for (const b of $('pl-modes').querySelectorAll('[data-mode]')) b.addEventListener('click', () => this.setMode(b.dataset.mode));
     // pemilih efek (spin)
     $('pl-spin').addEventListener('click', () => {
       $('pl-spinpanel').hidden = !$('pl-spinpanel').hidden;
@@ -717,35 +804,43 @@ class PoolControls {
       this.spin = { top: 0, side: 0 };
       this.renderSpin();
     });
-    // lihat dari atas (tahan)
-    const top = $('pl-top');
-    top.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      top.setPointerCapture(e.pointerId);
-      this.topHold = true;
-      top.classList.add('on');
-    });
-    const topEnd = () => {
-      this.topHold = false;
-      top.classList.remove('on');
-    };
-    top.addEventListener('pointerup', topEnd);
-    top.addEventListener('pointercancel', topEnd);
-    // selesai menaruh bola putih
+    // selesai menaruh bola putih → langsung membungkuk
     $('pl-done').addEventListener('click', () => {
       if (!this.place) return;
       this.ctx.act({ a: 'place', x: this.place.x, z: this.place.z });
       this.placing = false;
       this.ctx.audio.play('click');
+      const cue = this.place;
+      this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim));
+      this.mode = 'stand';
+      this.setMode('bend', true);
     });
-    // geser bola putih (bola di tangan) di layar
+    // geser bola putih (bola di tangan) & geser stik
     const surface = $('surface');
     this.onDown = (e) => {
-      if (!this.placing || !this.place) return;
-      const p = this.clothPoint(e.clientX, e.clientY);
-      if (p && Math.hypot(p.x - this.place.x, p.z - this.place.z) < R * 4) this.dragCue = e.pointerId;
+      if (this.placing && this.place) {
+        const p = this.clothPoint(e.clientX, e.clientY);
+        if (p && Math.hypot(p.x - this.place.x, p.z - this.place.z) < R * 4) this.dragCue = e.pointerId;
+        return;
+      }
+      if (this.mode === 'bend' && this.canAim && this.hitsStick(e.clientX, e.clientY)) {
+        // geser stik = stik ikut bergerak (bidikan berputar di sekitar bola putih)
+        this.stickDrag = { id: e.pointerId, x: e.clientX };
+        e.stopImmediatePropagation();
+        try {
+          surface.setPointerCapture(e.pointerId);
+        } catch {}
+      }
     };
     this.onMove = (e) => {
+      if (this.stickDrag && this.stickDrag.id === e.pointerId) {
+        const dx = e.clientX - this.stickDrag.x;
+        this.stickDrag.x = e.clientX;
+        this.aim -= dx * 0.0032;
+        this.lookOff.yaw *= 0.9;
+        e.stopImmediatePropagation();
+        return;
+      }
       if (this.dragCue !== e.pointerId) return;
       const p = this.clothPoint(e.clientX, e.clientY);
       if (!p) return;
@@ -754,30 +849,39 @@ class PoolControls {
     };
     this.onUp = (e) => {
       if (this.dragCue === e.pointerId) this.dragCue = null;
+      if (this.stickDrag && this.stickDrag.id === e.pointerId) {
+        this.stickDrag = null;
+        e.stopImmediatePropagation();
+      }
     };
     surface.addEventListener('pointerdown', this.onDown, true);
     surface.addEventListener('pointermove', this.onMove, true);
     surface.addEventListener('pointerup', this.onUp, true);
+    surface.addEventListener('pointercancel', this.onUp, true);
     this.cleanup = () => {
       surface.removeEventListener('pointerdown', this.onDown, true);
       surface.removeEventListener('pointermove', this.onMove, true);
       surface.removeEventListener('pointerup', this.onUp, true);
+      surface.removeEventListener('pointercancel', this.onUp, true);
     };
-    const exit = this.exit.bind(this);
-    this.exit = () => {
-      this.cleanup();
-      exit();
-    };
+  }
+
+  hitsStick(x, y) {
+    const r = this.ctx.renderer(this.m);
+    if (!r || !r.stick.visible) return false;
+    const ndc = new THREE.Vector2((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
+    this.ray.setFromCamera(ndc, this.ctx.camera);
+    return this.ray.intersectObject(r.stickHit, false).length > 0;
   }
 
   renderSpin() {
     const s = this.spin;
-    const pos = (el, k) => {
-      el.style.left = `${50 + s.side * 40 * k}%`;
-      el.style.top = `${50 - s.top * 40 * k}%`;
+    const pos = (el) => {
+      el.style.left = `${50 + s.side * 40}%`;
+      el.style.top = `${50 - s.top * 40}%`;
     };
-    pos($('pl-dot'), 1);
-    pos($('pl-bigdot'), 1);
+    pos($('pl-dot'));
+    pos($('pl-bigdot'));
   }
 
   clothPoint(x, y) {
@@ -792,22 +896,50 @@ class PoolControls {
 
   // ---------- Logika per frame ----------
   myTurn(m) {
-    return m.phase === 'play' && m.players[m.turn]?.id === this.ctx.myId;
+    return !!m && m.phase === 'play' && m.players[m.turn]?.id === this.ctx.myId;
   }
 
   cueBall(m) {
-    return (m.balls || []).find((b) => b.id === 0);
+    return (m?.balls || []).find((b) => b.id === 0);
+  }
+
+  /** Berjalan dengan joystick / WASD, relatif arah pandang; tertahan di luar tepi meja. */
+  walk(dt) {
+    const mv = this.ctx.input?.move;
+    if (!mv || (!mv.x && !mv.y)) return;
+    const fx = Math.cos(this.look.yaw), fz = Math.sin(this.look.yaw);
+    const rx = -fz, rz = fx;
+    let x = this.pos.x + (fx * mv.y + rx * mv.x) * WALK_SPEED * dt;
+    let z = this.pos.z + (fz * mv.y + rz * mv.x) * WALK_SPEED * dt;
+    const ex = L / 2 + KEEP, ez = W / 2 + KEEP;
+    if (Math.abs(x) < ex && Math.abs(z) < ez) {
+      // dorong keluar lewat sisi terdekat (harus memutar untuk pindah ke seberang)
+      const px = ex - Math.abs(x), pz = ez - Math.abs(z);
+      if (px < pz) x = Math.sign(x || 1) * ex;
+      else z = Math.sign(z || 1) * ez;
+    }
+    x = clamp(x, -(L / 2 + ROAM), L / 2 + ROAM);
+    z = clamp(z, -(W / 2 + ROAM), W / 2 + ROAM);
+    this.pos = { x, z };
   }
 
   update(dt, m) {
     this.m = m;
     this.btnResign.hidden = m.phase !== 'play';
     const r = this.ctx.renderer(m);
+    const t = this.ctx.tableOf(m);
     const mine = this.myTurn(m);
     const cue = this.cueBall(m);
     this.balls = m.balls;
     this.kitchen = !!m.kitchen;
-    // giliran baru: bidik awal ke arah bola sah terdekat / susunan bola
+    if (!this.pos && t) {
+      // mulai di tempat menunggu, menghadap meja
+      const idx = Math.max(0, m.players.findIndex((p) => p.id === this.ctx.myId));
+      const s = t.seats[idx] || t.seats[0];
+      this.pos = { x: s.x - t.x, z: s.z - t.z };
+      this.look = { yaw: Math.atan2(-this.pos.z, -this.pos.x), pitch: -0.55 };
+    }
+    // giliran baru
     const turnKey = `${m.ev?.n}|${m.turn}|${m.stage}`;
     if (mine && (m.stage === 'aim' || m.stage === 'place') && this.aimInit !== turnKey && cue) {
       this.aimInit = turnKey;
@@ -815,49 +947,58 @@ class PoolControls {
       if (m.stage === 'place') {
         this.placing = true;
         this.place = { x: cue.x, z: cue.z };
+        if (this.mode === 'bend') this.setMode('stand', true);
         this.ctx.flash(m.brk ? 'Taruh bola putih, lalu Selesai' : 'Bola di tangan');
       } else {
         this.placing = false;
         this.place = null;
+        if (this.mode !== 'bend') this.ctx.flash('Giliranmu — tekan Membungkuk untuk menembak');
       }
     }
     if (!mine || m.stage === 'roll') {
       this.placing = false;
       if (m.stage === 'roll') this.place = null;
     }
-    this.canAim = mine && (m.stage === 'aim' || (m.stage === 'place' && !this.placing));
-    this.canShoot = this.canAim && !!cue;
+    if (this.mode === 'bend' && !this.bendAllowed(m)) this.setMode('stand', true);
+    if (this.mode === 'walk' && this.pos) this.walk(dt);
+    this.canAim = this.mode === 'bend' && this.bendAllowed(m);
+    this.canShoot = this.canAim;
+    // beri tahu pemain lain: membungkuk / berdiri
+    const bend = this.mode === 'bend';
+    if (m.phase === 'play' && this.sentBend !== bend) {
+      this.sentBend = bend;
+      this.ctx.act({ a: 'pose', bend });
+    }
     // HUD
     this.ui.hidden = m.phase !== 'play';
-    $('pl-power').classList.toggle('off', !this.canShoot);
-    $('pl-fine').classList.toggle('off', !this.canAim);
-    $('pl-spin').hidden = !mine || m.stage === 'roll';
+    $('pl-power').hidden = !this.canAim;
+    $('pl-fine').hidden = !this.canAim;
+    $('pl-spin').hidden = !this.canAim;
     $('pl-done').hidden = !(mine && this.placing);
+    $('pl-modes').hidden = this.placing;
     $('pl-fill').style.height = `${this.power * 100}%`;
-    $('pl-handle').style.top = `${this.power * 92}%`;
+    $('pl-handle').style.transform = `translateY(${this.power * 52}%)`;
     $('pl-cap').textContent = this.power > 0.04 ? `${Math.round(this.power * 100)}%` : 'Tarik';
     this.renderStatus(m);
-    // bidikan untuk tampilan (stik & garis bantu)
+    this.renderModes();
+    // bidikan untuk tampilan (stik & garis bantu) hanya saat membungkuk
     const local = this.ctx.local();
     const c = this.place || cue;
     if (r) {
-      r.aimView = mine && c && (m.stage === 'aim' || m.stage === 'place')
+      r.aimView = mine && c && (m.stage === 'aim' || m.stage === 'place') && (this.mode === 'bend' || this.placing)
         ? { cx: c.x, cz: c.z, dx: Math.cos(this.aim), dz: Math.sin(this.aim), pull: this.power, place: this.place, placing: this.placing, guides: this.canAim ? this.guides(m, c) : null }
         : null;
     }
-    // berdiri: di belakang bola putih saat membidik (berjalan memutari meja), selain itu di ujung meja
-    const t = this.ctx.tableOf(m);
-    if (local && t) {
-      if (mine && c && m.stage !== 'roll' && !this.placing) {
+    // posisi karakter (pemain lain melihatnya berjalan, berdiri, atau membungkuk)
+    if (local && t && this.pos) {
+      if (this.mode === 'bend' && c) {
         const p = standSpot(c.x, c.z, Math.cos(this.aim), Math.sin(this.aim));
         local.pin = { x: t.x + p.x, z: t.z + p.z, facing: Math.atan2(Math.cos(this.aim), Math.sin(this.aim)) };
         local.character.cuePose = 1;
-      } else if (!(mine && m.stage === 'roll')) {
-        const idx = m.players.findIndex((p) => p.id === this.ctx.myId);
-        const s = t.seats[idx] || t.seats[0];
-        local.pin = { x: s.x, z: s.z, facing: Math.atan2(t.x - s.x, t.z - s.z) };
+      } else {
+        local.pin = { x: t.x + this.pos.x, z: t.z + this.pos.z, facing: Math.atan2(Math.cos(this.look.yaw), Math.sin(this.look.yaw)) };
         local.character.cuePose = 0;
-      } else local.character.cuePose = 0;
+      }
     }
   }
 
@@ -943,45 +1084,67 @@ class PoolControls {
   }
 
   shoot() {
-    const m = this.m;
     this.ctx.act({ a: 'shoot', dx: Math.cos(this.aim), dz: Math.sin(this.aim), power: this.power, top: this.spin.top, side: this.spin.side });
     this.spin = { top: 0, side: 0 };
     this.renderSpin();
     $('pl-spinpanel').hidden = true;
+    // setelah menembak: otomatis berdiri agar pandangan luas & kamera bebas menoleh
+    this.setMode('stand', true);
+    this.sentBend = false;
   }
 
-  // ---------- Kamera: POV di belakang stik, tahan untuk lihat dari atas ----------
+  // ---------- Kamera ----------
+  /** Posisi mata & titik pandang untuk mode sekarang (koordinat meja, y relatif kain). */
+  cameraTarget() {
+    const m = this.m;
+    const t = this.ctx.tableOf(m);
+    const cue = this.place || this.cueBall(m);
+    if (this.mode === 'bend' && cue) {
+      // POV membungkuk di belakang stik (+ menoleh)
+      const dx = Math.cos(this.aim), dz = Math.sin(this.aim);
+      const p = standSpot(cue.x, cue.z, dx, dz);
+      const k = this.zoom;
+      const ex = p.x + (cue.x - dx * 0.55 - p.x) * k, ez = p.z + (cue.z - dz * 0.55 - p.z) * k;
+      const ey = 0.48 + (0.2 - 0.48) * k;
+      const yaw = this.aim + this.lookOff.yaw;
+      const dist = Math.hypot(cue.x + dx * 0.6 - ex, cue.z + dz * 0.6 - ez);
+      const pitch = Math.atan2(-ey, dist) + this.lookOff.pitch;
+      return { ex, ey, ez, yaw, pitch };
+    }
+    // berdiri / berjalan: dari mata karakter, menoleh bebas
+    const eye = (this.mode === 'walk' ? EYE_WALK : EYE_STAND) + t.ground - t.y;
+    return { ex: this.pos?.x || 0, ey: eye, ez: this.pos?.z || 0, yaw: this.look.yaw, pitch: this.look.pitch };
+  }
+
   cameraPose(dt, pos, quat) {
     const m = this.m;
     const t = m && this.ctx.tableOf(m);
     if (!t) return;
     const mine = this.myTurn(m);
-    const cue = this.place || this.cueBall(m);
-    const wantTop = this.topHold || (mine && this.placing);
-    this.topK += ((wantTop ? 1 : 0) - this.topK) * Math.min(1, dt * 7);
-    // POV
-    if (mine && cue && m.stage !== 'roll' || (mine && m.stage === 'roll' && this.lastPov)) {
-      if (m.stage !== 'roll') {
-        const dx = Math.cos(this.aim), dz = Math.sin(this.aim);
-        const p = standSpot(cue.x, cue.z, dx, dz);
-        const k = this.zoom;
-        const ex = p.x + (cue.x - dx * 0.55 - p.x) * k, ez = p.z + (cue.z - dz * 0.55 - p.z) * k;
-        const ey = 0.48 + (0.2 - 0.48) * k;
-        this.lastPov = { ex, ey, ez, lx: cue.x + dx * 0.6, lz: cue.z + dz * 0.6 };
-      }
-    } else {
-      // menunggu: dari tempat berdiri, melihat ke tengah meja
-      const idx = m.players.findIndex((p) => p.id === this.ctx.myId);
-      const s = t.seats[idx] || t.seats[0];
-      this.lastPov = { ex: s.x - t.x, ey: t.ground + 1.3 - t.y, ez: s.z - t.z, lx: 0, lz: 0 };
-    }
-    const P = this.lastPov;
+    const P = this.cameraTarget();
     this._a.set(t.x + P.ex, t.y + P.ey, t.z + P.ez);
-    this._b.set(t.x + P.lx, t.y, t.z + P.lz);
-    pos.copy(this._a);
-    quat.setFromRotationMatrix(this._m.lookAt(this._a, this._b, this._up));
+    const cp = Math.cos(P.pitch);
+    this._b.set(this._a.x + Math.cos(P.yaw) * cp, this._a.y + Math.sin(P.pitch), this._a.z + Math.sin(P.yaw) * cp);
+    this._q.setFromRotationMatrix(this._m.lookAt(this._a, this._b, this._up));
+    // transisi halus antar mode
+    if (!this.camPos) {
+      this.camPos = this._a.clone();
+      this.camQuat.copy(this._q);
+    }
+    const k = this.mode === 'bend' && !this.modeBlend ? 1 : 1 - Math.exp(-dt * 9);
+    this.camPos.lerp(this._a, k);
+    this.camQuat.slerp(this._q, k);
+    if (this.camPos.distanceTo(this._a) < 0.01) this.modeBlend = false;
+    if (this.lastMode !== this.mode) {
+      this.lastMode = this.mode;
+      this.modeBlend = true;
+    }
+    pos.copy(this.camPos);
+    quat.copy(this.camQuat);
+    // menaruh bola putih: tampak atas seluruh meja
+    const wantTop = mine && this.placing;
+    this.topK += ((wantTop ? 1 : 0) - this.topK) * Math.min(1, dt * 7);
     if (this.topK > 0.001) {
-      // tampak atas: seluruh meja terlihat (memanjang mengikuti orientasi layar)
       const cam = this.ctx.camera;
       const aspect = cam.aspect || 1;
       const tan = Math.tan(THREE.MathUtils.degToRad(this.fov / 2));
@@ -999,8 +1162,16 @@ class PoolControls {
 
   applyLook({ yaw, pitch, zoom = 0 }) {
     if (this.dragCue !== null && this.dragCue !== undefined) return;
-    if (this.canAim && !this.topHold) this.aim -= yaw * 1.1; // bidik kasar: geser layar
-    this.zoom = clamp(this.zoom + pitch * 0.9 - zoom * 0.05, 0, 0.92);
+    if (this.stickDrag || this.placing) return;
+    if (this.mode === 'bend') {
+      // geser di luar stik: menoleh sedikit (seperti mata); cubit/scroll: maju-mundur
+      this.lookOff.yaw = clamp(this.lookOff.yaw - yaw, -1.1, 1.1);
+      this.lookOff.pitch = clamp(this.lookOff.pitch - pitch, -0.6, 0.6);
+      this.zoom = clamp(this.zoom - zoom * 0.05, 0, 0.92);
+      return;
+    }
+    this.look.yaw -= yaw;
+    this.look.pitch = clamp(this.look.pitch - pitch, -1.25, 0.5);
   }
 
   targets(m) {

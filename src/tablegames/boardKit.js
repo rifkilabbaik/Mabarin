@@ -269,8 +269,8 @@ export class Captures {
   }
 
   /** Mesh bidak dari papan yang baru dimakan oleh `side` — dianimasikan ke tempat simpan. */
-  adopt(side, mesh, delay) {
-    this.pending.push({ side, mesh, delay });
+  adopt(side, mesh, delay, hand = null) {
+    this.pending.push({ side, mesh, delay, hand });
   }
 
   /** lists: { w: [bidak yang dimakan putih], b: [...] } dari state. */
@@ -291,7 +291,7 @@ export class Captures {
         if (pi >= 0) {
           const p = this.pending.splice(pi, 1)[0];
           mesh = p.mesh;
-          this.anims.push({ mesh, from: null, to: this.slot(side, i), t: -p.delay, spin: (Math.random() < 0.5 ? -1 : 1) * Math.PI * 2 });
+          this.anims.push({ mesh, from: null, to: this.slot(side, i), t: -p.delay / 0.65, spin: (Math.random() < 0.5 ? -1 : 1) * Math.PI * 2, hand: p.hand });
         } else {
           mesh = this.o.make(piece);
           this.slot(side, i, mesh.position);
@@ -307,6 +307,9 @@ export class Captures {
   update(dt) {
     for (const a of this.anims) {
       a.t += dt / 0.65;
+      const hp = a.hp || (a.hp = new THREE.Vector3());
+      // tangan meraih bidak yang dimakan sesaat sebelum mengangkatnya, lalu membawanya
+      if (a.hand && a.t > -0.4) a.hand.reachAt = a.mesh.getWorldPosition(hp);
       if (a.t < 0) continue;
       if (!a.from) {
         a.from = a.mesh.position.clone();
@@ -319,6 +322,7 @@ export class Captures {
       if (a.t >= 1) {
         a.mesh.position.copy(a.to);
         a.mesh.rotation.y = a.rot0;
+        if (a.hand && a.hand.reachAt === hp) a.hand.reachAt = null;
         this.onLand?.();
       }
     }
@@ -353,7 +357,8 @@ export function syncBoard(meshes, board, o) {
     }
     next.set(ev.to, mover);
     moving.add(mover);
-    o.anims.push({ mesh: mover, from: mover.position.clone(), to: o.pos(ev.to), t: 0 });
+    // tangan pemain meraih bidak dulu, lalu memindahkannya
+    o.anims.push({ mesh: mover, from: mover.position.clone(), to: o.pos(ev.to), t: o.hand ? -HAND_PRE : 0, hand: o.hand || null });
   }
   for (const [sq, mesh] of meshes) {
     if (!next.has(sq) && board[sq] === mesh.userData.piece) next.set(sq, mesh);
@@ -386,20 +391,102 @@ export function syncBoard(meshes, board, o) {
     }
   }
   for (const mesh of vanished) {
-    if (o.capSide && o.colorOf(mesh.userData.piece) !== o.capSide) o.captures.adopt(o.capSide, mesh, 0.28);
+    // bidak yang dimakan diambil tangan setelah bidak penyerang mendarat
+    if (o.capSide && o.colorOf(mesh.userData.piece) !== o.capSide) o.captures.adopt(o.capSide, mesh, o.hand ? HAND_PRE + 0.8 : 0.28, o.hand || null);
     else mesh.removeFromParent();
   }
   meshes.clear();
   for (const [sq, mesh] of next) meshes.set(sq, mesh);
 }
 
-/** Gerak bidak: terangkat, melayang ke petak tujuan, lalu turun. */
+const HAND_PRE = 0.3; // detik tangan bergerak ke bidak sebelum mengangkatnya
+
+/** Gerak bidak: (tangan meraih), terangkat, melayang ke petak tujuan, lalu turun. */
 export function animatePieces(anims, dt, height = 0.045, dur = 0.4) {
   for (const a of anims) {
+    if (a.t < 0) {
+      a.t = Math.min(0, a.t + dt);
+      if (a.hand) a.hand.reachAt = a.mesh.getWorldPosition(a.hp || (a.hp = new THREE.Vector3()));
+      continue;
+    }
     a.t = Math.min(1, a.t + dt / dur);
     const k = easeIO(a.t);
     a.mesh.position.lerpVectors(a.from, a.to, k);
     a.mesh.position.y = Math.sin(k * Math.PI) * height;
+    if (a.hand) {
+      a.hand.reachAt = a.mesh.getWorldPosition(a.hp || (a.hp = new THREE.Vector3()));
+      if (a.t >= 1 && a.hand.reachAt === a.hp) a.hand.reachAt = null;
+    }
   }
   return anims.filter((a) => a.t < 1);
+}
+
+// ---------- Tekstur kayu (serat halus bergelombang) ----------
+const woodCache = new Map();
+/**
+ * Tekstur serat kayu prosedural. Koordinat UV dianggap dalam meter: atur `repeat` sesuai ukuran benda.
+ * o: { base, dark, light, seed }
+ */
+export function woodTexture({ base = '#b07440', dark = '#7a4a22', light = '#c98d55', seed = 1 } = {}) {
+  const key = `${base}|${dark}|${light}|${seed}`;
+  if (woodCache.has(key)) return woodCache.get(key);
+  const W = 512, H = 512;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d');
+  let s = seed * 9973;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  g.fillStyle = base;
+  g.fillRect(0, 0, W, H);
+  // nada kayu lebar
+  for (let i = 0; i < 6; i++) {
+    const y = rnd() * H, h = 30 + rnd() * 90;
+    const grd = g.createLinearGradient(0, y - h, 0, y + h);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(0.5, rnd() < 0.5 ? `${light}55` : `${dark}33`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, y - h, W, h * 2);
+  }
+  // serat tipis bergelombang
+  const waves = [0, 1, 2].map(() => ({ a: 2 + rnd() * 5, f: 0.004 + rnd() * 0.01, p: rnd() * 6 }));
+  for (let i = 0; i < 140; i++) {
+    const y0 = rnd() * H;
+    const alpha = 0.05 + rnd() * 0.16;
+    g.strokeStyle = rnd() < 0.75 ? `rgba(60,30,10,${alpha})` : `rgba(255,230,190,${alpha * 0.8})`;
+    g.lineWidth = 0.6 + rnd() * 1.4;
+    g.beginPath();
+    for (let x = -4; x <= W + 4; x += 8) {
+      let y = y0;
+      for (const w of waves) y += Math.sin(x * w.f + w.p + y0 * 0.01) * w.a;
+      x === -4 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  // mata kayu kecil
+  for (let i = 0; i < 3; i++) {
+    const x = rnd() * W, y = rnd() * H, r = 6 + rnd() * 10;
+    for (let k = 4; k > 0; k--) {
+      g.strokeStyle = `rgba(70,35,12,${0.08 * k})`;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.ellipse(x, y, r * (k / 2.2) * 2.2, r * (k / 2.2) * 0.7, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  woodCache.set(key, t);
+  return t;
+}
+
+/** Bahan kayu dengan tekstur berulang `scale` meter per tekstur. */
+export function woodMaterial(opts = {}, scale = 0.5) {
+  const t = woodTexture(opts).clone();
+  t.needsUpdate = true;
+  t.repeat.set(1 / scale, 1 / scale);
+  return new THREE.MeshLambertMaterial({ map: t });
 }

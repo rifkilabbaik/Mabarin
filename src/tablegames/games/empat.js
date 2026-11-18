@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HostBase } from '../HostBase.js';
-import { boardGroup, outlineGeometry, pieceMaterial } from '../boardKit.js';
+import { boardGroup, outlineGeometry, pieceMaterial, woodMaterial } from '../boardKit.js';
 
 // ---------- Aturan: papan tegak 7 kolom × 6 baris, susun 4 cakram sejajar ----------
 const COLS = 7;
@@ -168,44 +168,28 @@ const COLORS = ['#e03131', '#1c7ed6'];
 const NAMES = ['Merah', 'Biru'];
 const G = 3.4;
 
-function panelTexture() {
-  const px = 64;
-  const c = document.createElement('canvas');
-  c.width = COLS * px;
-  c.height = ROWS * px;
-  const g = c.getContext('2d');
-  const grd = g.createLinearGradient(0, 0, 0, c.height);
-  grd.addColorStop(0, '#c08040');
-  grd.addColorStop(1, '#94582a');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, c.width, c.height);
-  // serat kayu tipis
-  g.strokeStyle = 'rgba(70,35,10,0.18)';
-  g.lineWidth = 2;
-  for (let y = 6; y < c.height; y += 11) {
-    g.beginPath();
-    g.moveTo(0, y);
-    g.bezierCurveTo(c.width * 0.3, y + 4, c.width * 0.6, y - 4, c.width, y + 2);
-    g.stroke();
-  }
+const HOLE_R = 0.0345;
+const PANEL_T = 0.009; // tebal tiap panel kayu
+const GAP = 0.0105; // setengah celah tempat cakram meluncur
+
+/** Panel kayu tebal dengan 42 lubang tembus (bervolume, terlihat tebal dari atas). */
+function panelGeometry() {
+  const sh = new THREE.Shape();
+  const w = W / 2 + 0.006, h = H + 0.012;
+  sh.moveTo(-w, 0);
+  sh.lineTo(w, 0);
+  sh.lineTo(w, h);
+  sh.lineTo(-w, h);
+  sh.lineTo(-w, 0);
   for (let r = 0; r < ROWS; r++)
-    for (let col = 0; col < COLS; col++) {
-      const x = col * px + px / 2, y = r * px + px / 2;
-      g.fillStyle = 'rgba(60,30,10,0.55)';
-      g.beginPath();
-      g.arc(x, y, px * 0.43, 0, Math.PI * 2);
-      g.fill();
-      g.save();
-      g.globalCompositeOperation = 'destination-out';
-      g.beginPath();
-      g.arc(x, y, px * 0.38, 0, Math.PI * 2);
-      g.fill();
-      g.restore();
+    for (let c = 0; c < COLS; c++) {
+      const hole = new THREE.Path();
+      hole.absarc((c - (COLS - 1) / 2) * CELL, 0.006 + (r + 0.5) * CELL, HOLE_R, 0, Math.PI * 2, true);
+      sh.holes.push(hole);
     }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
+  const g = new THREE.ExtrudeGeometry(sh, { depth: PANEL_T, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0015, bevelSegments: 1, curveSegments: 18 });
+  g.translate(0, 0, -PANEL_T / 2);
+  return g;
 }
 
 let discGeo = null, ringGeo = null;
@@ -228,25 +212,33 @@ class EmpatRenderer {
     this.ctx = ctx;
     this.table = table;
     this.group = boardGroup(ctx, table, table.seats[0]);
-    const tex = panelTexture();
-    const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
-    for (const z of [0.0125, -0.0125]) {
-      const panel = new THREE.Mesh(new THREE.PlaneGeometry(W, H), mat);
-      panel.position.set(0, BASE + H / 2, z);
-      panel.castShadow = true;
+    const panelMat = woodMaterial({ base: '#b8773d', dark: '#7a4520', light: '#d69a5c', seed: 3 }, 0.35);
+    const pgeo = panelGeometry();
+    for (const z of [GAP + PANEL_T / 2, -GAP - PANEL_T / 2]) {
+      const panel = new THREE.Mesh(pgeo, panelMat);
+      panel.position.set(0, BASE - 0.006, z);
+      panel.castShadow = panel.receiveShadow = true;
       this.group.add(panel);
     }
+    // sekat antar kolom di dalam celah (terlihat dari atas sebagai lajur kolom)
+    const sepMat = woodMaterial({ base: '#8f5a2b', dark: '#5e3815', light: '#a8713d', seed: 5 }, 0.3);
+    for (let c = 0; c <= COLS; c++) {
+      const x = (c - COLS / 2) * CELL;
+      const sep = new THREE.Mesh(new THREE.BoxGeometry(c === 0 || c === COLS ? 0.012 : 0.006, H + 0.012, GAP * 2), sepMat);
+      sep.position.set(x + (c === 0 ? -0.003 : c === COLS ? 0.003 : 0), BASE - 0.006 + (H + 0.012) / 2, 0);
+      this.group.add(sep);
+    }
     // tiang samping, kaki & alas
-    const wood = pieceMaterial('#7a4a22');
-    for (const x of [-W / 2 - 0.012, W / 2 + 0.012]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.024, H + BASE + 0.02, 0.04), wood);
+    const wood = woodMaterial({ base: '#7a4a22', dark: '#4f2d12', light: '#94602e', seed: 7 }, 0.3);
+    for (const x of [-W / 2 - 0.018, W / 2 + 0.018]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.024, H + BASE + 0.02, GAP * 2 + PANEL_T * 2 + 0.012), wood);
       post.position.set(x, (H + BASE + 0.02) / 2, 0);
       post.castShadow = true;
       const foot = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.2), wood);
       foot.position.set(x, 0.01, 0);
       this.group.add(post, foot);
     }
-    const sill = new THREE.Mesh(new THREE.BoxGeometry(W + 0.01, 0.012, 0.04), wood);
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(W + 0.03, 0.012, GAP * 2 + PANEL_T * 2), wood);
     sill.position.set(0, BASE - 0.006, 0);
     this.group.add(sill);
     this.sill = sill;
@@ -261,6 +253,8 @@ class EmpatRenderer {
     this.ghost.visible = false;
     this.group.add(this.ghost);
     this.glow = new THREE.MeshBasicMaterial({ color: '#ffe066', side: THREE.BackSide, transparent: true, depthWrite: false });
+    this.lineMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false });
+    this.winLine = null;
     this.discs = new Map(); // sel → { mesh, anim }
     this.falling = [];
     this.lastEv = -1;
@@ -291,6 +285,10 @@ class EmpatRenderer {
       for (const d of this.discs.values()) this.falling.push({ mesh: d.mesh, vy: -0.2 - Math.random() * 0.3, t: 0 });
       this.discs.clear();
     }
+    if (m.phase !== 'end' && this.winLine) {
+      for (const l of this.winLine.meshes) l.removeFromParent();
+      this.winLine = null;
+    }
     for (const [cell, d] of this.discs) {
       if (!grid[cell]) {
         d.mesh.removeFromParent();
@@ -303,12 +301,21 @@ class EmpatRenderer {
       const mesh = makeDisc(v);
       const target = this.cellPos(r, c);
       const animate = fresh && this.lastEv !== -1 && (ev.k === 'drop' || ev.k === 'win') && ev.r === r && ev.c === c;
+      let carry = null;
       if (animate) {
         mesh.position.set(target.x, BASE + H + 0.07, 0);
-        this.sound('drop');
+        // tangan pemain mengambil cakram lalu memasukkannya ke kolom
+        const ch = this.ctx.characterOf(ev.p);
+        if (ch?.root.visible) {
+          const top = this.group.localToWorld(new THREE.Vector3(target.x, BASE + H + 0.07, 0));
+          const hand = ch.arms[0].userData.hand.getWorldPosition(new THREE.Vector3());
+          carry = { from: this.group.worldToLocal(hand), t: 0 };
+          mesh.position.copy(carry.from);
+          ch.reachTo(top, 0.75);
+        } else this.sound('drop');
       } else mesh.position.copy(target);
       this.group.add(mesh);
-      this.discs.set(cell, { mesh, anim: animate ? { y: BASE + H + 0.07, vy: 0, ty: target.y, bounces: 0 } : null });
+      this.discs.set(cell, { mesh, anim: animate ? { y: BASE + H + 0.07, vy: 0, ty: target.y, bounces: 0, carry, x: target.x } : null });
     });
     // sorot garis kemenangan
     const line = new Set(m.phase === 'end' ? m.line || [] : []);
@@ -321,6 +328,33 @@ class EmpatRenderer {
     if (fresh) this.lastEv = ev.n;
   }
 
+  /** Garis menyala yang tumbuh melintasi cakram yang tersusun (di kedua muka papan). */
+  makeWinLine(line) {
+    const pts = line.map((cell) => this.cellPos(Math.floor(cell / COLS), cell % COLS));
+    let a = pts[0], b = pts[0], best = -1;
+    for (const p of pts) for (const q of pts) {
+      const d = p.distanceTo(q);
+      if (d > best) {
+        best = d;
+        a = p;
+        b = q;
+      }
+    }
+    const ext = (DISC_R * 0.9) / Math.max(best, 1e-6);
+    const from = a.clone().lerp(b, -ext), to = b.clone().lerp(a, -ext);
+    const meshes = [];
+    for (const z of [GAP + PANEL_T + 0.004, -GAP - PANEL_T - 0.004]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1, 0.015, 0.003).translate(0.5, 0, 0), this.lineMat);
+      m.position.set(from.x, from.y, z);
+      m.rotation.z = Math.atan2(to.y - from.y, to.x - from.x);
+      m.scale.x = 0.0001;
+      m.renderOrder = 4;
+      this.group.add(m);
+      meshes.push(m);
+    }
+    return { meshes, len: from.distanceTo(to), t: 0 };
+  }
+
   update(dt, m) {
     this.time += dt;
     this.sync(m);
@@ -328,6 +362,17 @@ class EmpatRenderer {
     for (const d of this.discs.values()) {
       const a = d.anim;
       if (!a) continue;
+      if (a.carry) {
+        // dibawa tangan ke atas kolom
+        a.carry.t = Math.min(1, a.carry.t + dt / 0.34);
+        const k = a.carry.t * a.carry.t * (3 - 2 * a.carry.t);
+        d.mesh.position.set(a.carry.from.x + (a.x - a.carry.from.x) * k, a.carry.from.y + (a.y - a.carry.from.y) * k + Math.sin(k * Math.PI) * 0.05, a.carry.from.z * (1 - k));
+        if (a.carry.t >= 1) {
+          a.carry = null;
+          this.sound('drop');
+        }
+        continue;
+      }
       a.vy -= G * dt;
       a.y += a.vy * dt;
       if (a.y <= a.ty) {
@@ -349,6 +394,19 @@ class EmpatRenderer {
     }
     this.falling = this.falling.filter((f) => f.mesh.parent);
     this.glow.opacity = 0.7 + Math.sin(this.time * 7) * 0.3;
+    // garis kemenangan: tumbuh setelah cakram terakhir mendarat, lalu berdenyut
+    const settled = [...this.discs.values()].every((d) => !d.anim);
+    if (m.phase === 'end' && m.line && settled && !this.winLine) {
+      this.winLine = this.makeWinLine(m.line);
+      this.sound('kilat');
+    }
+    if (this.winLine) {
+      const w = this.winLine;
+      w.t = Math.min(1, w.t + dt / 0.5);
+      const k = 1 - (1 - w.t) ** 3;
+      for (const l of w.meshes) l.scale.x = Math.max(0.0001, w.len * k);
+      this.lineMat.opacity = w.t < 1 ? 1 : 0.75 + Math.sin(this.time * 6) * 0.25;
+    }
     // pratinjau kolom
     const hv = this.hover;
     this.ghost.visible = !!hv && hv.c >= 0;

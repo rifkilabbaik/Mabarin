@@ -449,6 +449,14 @@ export class Character {
     this.action = { kind, t: 0, dur: ACTION_DUR[kind] };
   }
 
+  /** Arah lengan kanan (rx, rz) agar menunjuk titik dunia. */
+  armAim(world) {
+    this.root.updateMatrixWorld(true);
+    const v = this.torso.worldToLocal(_reach.copy(world)).sub(this.arms[0].position);
+    const len = v.length() || 1;
+    return { rx: clamp(Math.atan2(-v.z, -v.y), -2.4, 0.3), rz: Math.asin(clamp(v.x / len, -0.95, 0.95)) };
+  }
+
   /** Tangan kanan meraih titik di dunia lalu kembali (mengambil / menaruh kartu di meja). */
   reachTo(world, dur = 0.6) {
     this.root.updateMatrixWorld(true);
@@ -565,6 +573,17 @@ export class Character {
       armLz = 1.25;
       armRz = -1.25;
       lean = 0.08 * walk;
+    }
+
+    // tangan kanan mengikuti titik (mis. memindahkan bidak, menabur kelereng); dilepas = kembali pelan
+    this.reachK = damp(this.reachK || 0, this.reachAt ? 1 : 0, 10, dt);
+    if (this.reachK > 0.01) {
+      if (this.reachAt) this.reachAim = this.armAim(this.reachAt);
+      if (this.reachAim) {
+        armRx = lerp(armRx, this.reachAim.rx, this.reachK);
+        armRz = lerp(armRz, this.reachAim.rz, this.reachK);
+        lean += 0.18 * this.reachK;
+      }
     }
 
     // pose membidik bola pool: badan membungkuk, tangan kiri jadi sandaran stik, tangan kanan memegang pangkal
