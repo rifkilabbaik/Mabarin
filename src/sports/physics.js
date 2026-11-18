@@ -6,10 +6,9 @@ export const G = 9.8;
 export const BALLS = {
   bola: { r: 0.22, drag: 0.013, rest: 0.55, fric: 0.86, roll: 0.45, rollDecel: 0.7, max: 30 },
   tenis: { r: 0.1, drag: 0.02, rest: 0.74, fric: 0.84, roll: 0.9, rollDecel: 1.4, max: 42 },
-  badminton: { r: 0.09, drag: 0.21, rest: 0, fric: 0, roll: 30, rollDecel: 6, max: 60 },
 };
 
-export const RUN = { bola: 2.5, tenis: 3, badminton: 2 };
+export const RUN = { bola: 2.5, tenis: 3 };
 export const BOARD = 1.5; // jarak papan pembatas dari garis lapangan bola
 export const BOARD_H = 0.45;
 
@@ -121,7 +120,7 @@ function footballBounds(b, P, f, px, pz, ev) {
   }
 }
 
-/** Net tenis / bulu tangkis. */
+/** Net tenis. */
 function netBounds(b, P, f, px, sport, ev) {
   const span = f.W / 2 + 0.5;
   if (px !== 0 && Math.sign(px) !== Math.sign(b.x) && Math.abs(b.z) < span) {
@@ -180,7 +179,7 @@ export function solveShot(sport, f, ox, oy, oz, tx, tz, angles) {
     const v = { vx: ux * Math.cos(a) * best.s, vy: Math.sin(a) * best.s, vz: uz * Math.cos(a) * best.s };
     fallback = v;
     if (best.s > P.max) continue; // terlalu keras: coba sudut lebih tinggi
-    if (crossT > 0 && crossT < D && best.r.netY < f.net + P.r + (sport === 'badminton' ? 0.3 : 0.18)) continue;
+    if (crossT > 0 && crossT < D && best.r.netY < f.net + P.r + 0.18) continue;
     return v;
   }
   return fallback;

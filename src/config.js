@@ -49,7 +49,6 @@ export const CONFIG = {
     fields: {
       bola: { x: -8, z: -38, L: 32, W: 20, goalW: 5, goalH: 2 },
       tenis: { x: 28, z: -46, L: 20, W: 10, net: 0.95 },
-      badminton: { x: 28, z: -29, L: 13, W: 6, net: 1.55 },
     },
     plazaTables: [[0, -19.5], [8, -19.5], [16, -19.5], [24, -19.5]],
   },

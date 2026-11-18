@@ -12,14 +12,14 @@ import { CARRY, CLAIM_R, OVER, shotVelocity, passVelocity, pickPassTarget, pkDiv
 
 const $ = (id) => document.getElementById(id);
 const INVITE_MS = 30000;
-const HELD_ITEM = { bola: 'hand', tenis: 'racket', badminton: 'birdie' };
+const HELD_ITEM = { bola: 'hand', tenis: 'racket' };
 const CHARGE_TIME = 1.1;
 const PK_KEYS = { ArrowLeft: -1, KeyA: -1, ArrowUp: 0, KeyW: 0, ArrowDown: 0, KeyS: 0, ArrowRight: 1, KeyD: 1 };
 const DIR_NAME = { '-1': 'kiri', 0: 'tengah', 1: 'kanan' };
 const r2 = (v) => Math.round(v * 100) / 100;
 
 /**
- * Pengelola pertandingan di kompleks olahraga (sepak bola, adu penalti, tenis, bulu tangkis):
+ * Pengelola pertandingan di kompleks olahraga (sepak bola, adu penalti, tenis):
  * lobi & undangan, bola (prediksi + koreksi dari tuan rumah), tendang/pukul dengan tahan-lepas,
  * sleding & dash, papan skor dua sisi, bot.
  */
@@ -651,7 +651,7 @@ export class Sports {
       if (b.x * TEAM_SIDE[team] < -0.3) return false;
       if (d > REACH[m.sport] || h < 0.08 || h > 2.6) return false;
       const tg = racketTarget(m, team, b.x, b.z, this.swingYaw, c, false);
-      v = solveShot(m.sport, this.fields[m.sport], b.x, b.y, b.z, tg.tx, tg.tz, shotAngles(m.sport, false, b.y > 2.1));
+      v = solveShot(m.sport, this.fields[m.sport], b.x, b.y, b.z, tg.tx, tg.tz, shotAngles(m.sport, false));
       kind = 'swing';
       this.audio.play('hit', { strength: 0.5 + c * 0.5 });
     }
@@ -862,11 +862,7 @@ export class Sports {
     }
     const prev = mesh.position.clone();
     mesh.position.set(x, y, z);
-    if (m.sport === 'badminton') {
-      const v = new THREE.Vector3(cb.pred.vx, cb.pred.vy, cb.pred.vz);
-      if (v.lengthSq() > 0.5) mesh.quaternion.setFromUnitVectors(UP, v.normalize());
-      else if (cb.pred.rolling) mesh.quaternion.setFromAxisAngle(X_AXIS, Math.PI / 2.4);
-    } else {
+    {
       // putaran menggelinding
       const dx = x - prev.x, dz = z - prev.z;
       const dist = Math.hypot(dx, dz);
@@ -1273,8 +1269,6 @@ export class Sports {
   }
 }
 
-const UP = new THREE.Vector3(0, 1, 0);
-const X_AXIS = new THREE.Vector3(1, 0, 0);
 
 function ballMesh(sport) {
   const P = BALLS[sport];
@@ -1304,17 +1298,8 @@ function ballMesh(sport) {
     m.castShadow = true;
     return m;
   }
-  if (sport === 'tenis') {
-    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(P.r * 1.35, 1), new THREE.MeshLambertMaterial({ color: '#d4f23c', flatShading: true }));
-    m.castShadow = true;
-    return m;
-  }
-  // kok bulu tangkis: gabus di depan, bulu mengembang di belakang (sumbu +y = arah terbang)
-  const g = new THREE.Group();
-  const cork = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshLambertMaterial({ color: '#f1f3f5' }));
-  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.15, 10, 1, true), new THREE.MeshLambertMaterial({ color: '#ffffff', side: THREE.DoubleSide }));
-  skirt.position.y = -0.09; // ujung sempit kerucut menempel di gabus
-  cork.castShadow = skirt.castShadow = true;
-  g.add(cork, skirt);
-  return g;
+  // bola tenis
+  const m = new THREE.Mesh(new THREE.IcosahedronGeometry(P.r * 1.35, 1), new THREE.MeshLambertMaterial({ color: '#d4f23c', flatShading: true }));
+  m.castShadow = true;
+  return m;
 }

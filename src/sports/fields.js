@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
-// Visual kompleks olahraga: lapangan bola, tenis, bulu tangkis (garis digambar di canvas).
+// Visual kompleks olahraga: lapangan bola & tenis (garis digambar di canvas).
 
 function courtPlane(w, d, ppu, draw) {
   const c = document.createElement('canvas');
@@ -110,20 +110,11 @@ function court(f, y, kind) {
       line(-sv, 0, sv, 0);
       line(-f.L / 2, -f.W / 2 + 1.2, f.L / 2, -f.W / 2 + 1.2);
       line(-f.L / 2, f.W / 2 - 1.2, f.L / 2, f.W / 2 - 1.2);
-    } else {
-      line(-2, -f.W / 2, -2, f.W / 2);
-      line(2, -f.W / 2, 2, f.W / 2);
-      line(-f.L / 2, 0, -2, 0);
-      line(2, 0, f.L / 2, 0);
-      line(-f.L / 2 + 0.8, -f.W / 2, -f.L / 2 + 0.8, f.W / 2);
-      line(f.L / 2 - 0.8, -f.W / 2, f.L / 2 - 0.8, f.W / 2);
-      line(-f.L / 2, -f.W / 2 + 0.5, f.L / 2, -f.W / 2 + 0.5);
-      line(-f.L / 2, f.W / 2 - 0.5, f.L / 2, f.W / 2 - 0.5);
     }
   }));
   // net
   const span = f.W + 1;
-  const bottom = tennis ? 0 : 0.8;
+  const bottom = 0;
   const net = new THREE.Mesh(new THREE.PlaneGeometry(span, f.net - bottom), darkNet);
   net.rotation.y = Math.PI / 2;
   net.position.set(0, bottom + (f.net - bottom) / 2, 0);
@@ -139,7 +130,6 @@ export function buildFields(world) {
   const out = {};
   out.bola = { ...S.fields.bola, y, group: football(S.fields.bola, y) };
   out.tenis = { ...S.fields.tenis, y, group: court(S.fields.tenis, y, 'tenis') };
-  out.badminton = { ...S.fields.badminton, y, group: court(S.fields.badminton, y, 'badminton') };
   for (const f of Object.values(out)) world.scene.add(f.group);
   return out;
 }

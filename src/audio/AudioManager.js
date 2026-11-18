@@ -345,6 +345,26 @@ const SFX = {
     a.hiss(t, 0.6, 0.4, out, 'lowpass', 1500, 200);
     [1046.5, 1318.5, 1568, 2093].forEach((f, i) => a.tone('triangle', f, 0, t + 0.15 + i * 0.05, 0.3, 0.05, out));
   },
+  // pion ludo melompat satu petak
+  hop(a, out, t) {
+    a.tone('triangle', 620, 420, t, 0.06, 0.1, out);
+    a.hiss(t, 0.02, 0.06, out, 'highpass', 3000);
+  },
+  // pion terdepak
+  knock(a, out, t) {
+    a.tone('square', 220, 70, t, 0.16, 0.16, out);
+    a.hiss(t, 0.08, 0.2, out, 'bandpass', 1600);
+    a.tone('sine', 320, 1100, t + 0.06, 0.35, 0.08, out);
+  },
+  // pion mendarat kembali di kandang
+  plop(a, out, t) {
+    a.tone('sine', 520, 260, t, 0.09, 0.14, out);
+  },
+  // dadu bergeser ke pemain berikutnya
+  diceSlide(a, out, t) {
+    a.hiss(t, 0.4, 0.09, out, 'bandpass', 1100, 500, 1.4);
+    a.tone('sine', 900, 0, t + 0.38, 0.04, 0.05, out);
+  },
   click2(a, out, t) {
     a.tone('square', 300, 0, t, 0.03, 0.06, out);
   },

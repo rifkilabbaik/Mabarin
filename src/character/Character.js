@@ -553,7 +553,7 @@ export class Character {
     const item = this.itemId;
     let itemRx = Math.PI / 2, itemRy = 0;
     if (!s.swimming && !s.sitting) {
-      if (item === 'hammer' || item === 'sword' || item === 'racket' || item === 'shuttle') armRx = Math.min(armRx, 0) - 0.35;
+      if (item === 'hammer' || item === 'sword' || item === 'racket') armRx = Math.min(armRx, 0) - 0.35;
       else if (item === 'watergun') armRx = -1.45;
       else if (item === 'guitar') {
         armRx = -0.9;

@@ -10,8 +10,8 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 - **Karakter chibi** dengan animasi jalan, lari, lompat, berenang, duduk, dash, sleding, tendang, pukul raket. Kepala mengikuti arah pandang saat duduk di meja game.
 - **Kustomisasi karakter**: bentuk tubuh (normal / tinggi / pendek / gempal), warna kulit, 8 gaya rambut + warna, 4 gaya mata, atasan / bawahan / sepatu + warna, topi, kacamata, ransel / sayap / jubah, syal / dasi.
 - **Hotbar properti**: Tangan, Palu Bonk, Pedang Kayu, Pistol Air, Kursi, Gitar. Senjata bersifat "bonk" (terpental & pusing, tanpa nyawa). Pemain yang sedang main game tidak bisa di-bonk.
-- **Game meja** (tampilan orang-pertama, FOV 70°, + tampak atas untuk papan): Kartu Kilat, Gertak, Catur, Dam, Ludo.
-- **Kompleks olahraga**: Sepak Bola (1v1, 2v2, adu penalti), Tenis (1v1, ganda), Bulu Tangkis (1v1, ganda), dengan **dash** dan **sleding**.
+- **Game meja**: Kartu Kilat & Gertak (tampilan orang-pertama, FOV 70°), Catur, Dam & Ludo (kamera bebas + tampak atas).
+- **Kompleks olahraga**: Sepak Bola (1v1, 2v2, adu penalti), Tenis (1v1, ganda), dengan **dash** dan **sleding**.
 - **Voice chat berbasis jarak** (WebRTC): suara makin pelan saat menjauh, kiri/kanan mengikuti posisi.
 - **Minimap & peta pulau**, **chat dengan riwayat** (juga terlihat saat main game), **musik lofi & efek suara** (Web Audio, tanpa file audio).
 - **Bot** untuk mengisi kursi/lapangan kosong, **kick otomatis pemain AFK**, **Main Offline**, **PWA** (bisa di-install).
@@ -40,13 +40,13 @@ Pembuat meja/pertandingan bisa menambah **Bot** dan menekan **Mulai**. Semua pem
 
 ## Game meja
 
-Semua berjalan di meja dengan kamera orang-pertama; tombol **mata** beralih ke tampak atas (otomatis saat giliranmu untuk game papan).
+Game kartu memakai kamera orang-pertama (menunduk melihat kartu di tangan). Game papan (Catur, Dam, Ludo) memakai **kamera bebas**: geser kiri/kanan untuk memutari papan, geser atas/bawah untuk tinggi-rendah kamera, cubit / scroll untuk zoom. Tombol kamera di bar atas beralih antara kamera bebas dan **tampak atas**.
 
 - **Kartu Kilat** (2–4): cocokkan warna atau angka/simbol. Kartu hanya berwarna (merah, kuning, hijau, biru) tanpa simbol. Lewati, Balik, +2, Pelangi, Pelangi +4. Tekan **Kilat!** saat tinggal 2 kartu.
 - **Gertak** (2–4): permainan menggertak orisinal. Tiap ronde ada kartu target; taruh 1–3 kartu tertutup dan *ngaku* semuanya target (Joker selalu cocok). Pemain berikutnya boleh menaruh kartu atau menuduh **Bohong!** Yang salah membuka **Kotak Kejutan** — confetti biasa, atau *DOR!* dan tersingkir. Bertahan paling akhir menang.
 - **Catur** (1v1): bidak berbentuk koin dengan ikon tiap jenis agar mudah dibaca; aturan lengkap (rokade, en passant, promosi otomatis jadi menteri, skak mat, remis).
 - **Dam** (1v1): papan 8×8, wajib makan, makan beruntun, raja terbang.
-- **Ludo** (2, 3, atau 4): dadu 3D, keluar dengan 6, petak aman, makan bidak lawan.
+- **Ludo** (2, 3, atau 4): **ketuk dadu** di depanmu untuk melempar — dadu berpindah ke depan pemain yang mendapat giliran. Pion melompat petak demi petak; pion yang dimakan terpental kembali ke kandang. Keluar dengan 6, petak aman bertanda bintang.
 
 Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player state `cg`, aksi lewat event `cg`, undangan lewat `cg-inv`.
 
@@ -63,9 +63,8 @@ Lapangan ada di utara perkemahan (lihat peta). Satu pertandingan per lapangan.
 - **Adu Penalti** (tebak arah): 5 tendangan bergantian + sudden death.
   - Penendang **menahan** tombol Kiri / Tengah / Kanan lalu melepasnya; lama menahan = tenaga. Terlalu keras = melambung.
   - Kiper menebak Kiri / Tengah / Kanan sebelum bola ditendang. Tebakan benar = ditepis, kecuali tendangan keras ke pojok (kadang tetap tembus). Tebakan salah = gol.
-- **Tenis & bulu tangkis**: arah pukulan mengikuti kamera, tahan untuk tenaga.
+- **Tenis**: arah pukulan mengikuti kamera, tahan untuk tenaga.
 - **Tenis**: servis dari belakang garis, harus masuk kotak servis (2 kesempatan). Bola boleh memantul sekali. Pertama mencapai 7 poin (selisih 2). Cincin kuning menunjukkan perkiraan jatuhnya bola; meteran hijau = masih masuk.
-- **Bulu Tangkis**: kok melambat cepat di udara, tidak memantul. Pertama mencapai 11 poin (selisih 2, maks. 15).
 
 Fisika bola dihitung oleh pembuat pertandingan (`sb` 20×/detik); pemain lain memprediksi bola secara lokal dan dikoreksi halus, sehingga tendangan sendiri terasa langsung.
 
@@ -158,7 +157,7 @@ src/
   tablegames/TableGames.js   pengelola meja: undangan, kamera orang-pertama/tampak atas, UI
   tablegames/HostBase.js     dasar logika bandar (lobi, giliran, timer, bot)
   tablegames/games/          kilat, gertak, catur, dam, ludo (+ file aturan)
-  sports/fields.js           visual lapangan bola, tenis, bulu tangkis
+  sports/fields.js           visual lapangan bola & tenis
   sports/physics.js          fisika bola/kok, solusi lintasan pukulan
   sports/football.js         tembakan & umpan otomatis, penguasaan bola, penalti tebak arah
   sports/SportHost.js        aturan pertandingan, skor, bot (di perangkat tuan rumah)

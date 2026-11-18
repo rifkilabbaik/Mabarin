@@ -258,83 +258,225 @@ function diceTexture(n) {
 const FACE_NUM = [3, 4, 1, 6, 2, 5];
 const UP_ROT = { 1: [0, 0], 6: [Math.PI, 0], 2: [-Math.PI / 2, 0], 5: [Math.PI / 2, 0], 3: [0, Math.PI / 2], 4: [0, -Math.PI / 2] };
 
+const HOP = 0.17; // detik per petak
+const DIE_R = SIZE / 2 + 0.075; // dadu di tepi papan, di depan pemain yang mendapat giliran
+const ease = (k) => k * k * (3 - 2 * k);
+
 class LudoRenderer {
   constructor(ctx, table) {
     this.ctx = ctx;
+    this.table = table;
     this.group = boardGroup(ctx, table, table.seats[0]);
     this.plane = canvasPlane(SIZE, 1024, drawBoard);
     this.group.add(this.plane, boardFrame(SIZE, '#8b5a2b'));
-    this.tokens = new Map();
+    this.tokens = new Map(); // key -> { mesh, prog, anim }
     this.die = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), FACE_NUM.map((n) => new THREE.MeshLambertMaterial({ map: diceTexture(n) })));
     this.die.castShadow = true;
-    this.die.position.set(0.42, 0.03, 0.3);
     this.die.userData.isDie = true;
     this.group.add(this.die);
+    // cincin penanda "ketuk dadu"
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.058, 28), new THREE.MeshBasicMaterial({ color: '#ffe066', transparent: true, opacity: 0.9, depthWrite: false }));
+    this.ring.rotation.x = -Math.PI / 2;
+    this.ring.visible = false;
+    this.group.add(this.ring);
+    this.dieAngle = null;
+    this.dieSlide = null;
     this.rollT = 0;
     this.lastEv = -1;
     this.time = 0;
+    this._v = new THREE.Vector3();
   }
 
   pos(cx, cy, out = new THREE.Vector3()) {
     return cellPos(cx, 14 - cy, N, SIZE, out);
   }
 
-  update(dt, m) {
-    this.time += dt;
-    const live = m.phase !== 'lobby';
+  /** Sudut (lokal papan) dari pusat papan ke kursi pemain ke-i. */
+  seatAngle(m, i) {
+    const seat = this.ctx.seatOf(m, i);
+    if (!seat) return 0;
+    const v = this.group.worldToLocal(this._v.set(seat.x, this.group.position.y, seat.z));
+    return Math.atan2(v.x, v.z);
+  }
+
+  play(name) {
+    const t = this.table;
+    this.ctx.audio.playAt(name, t.x, t.z);
+  }
+
+  /** Petak-petak yang dilewati pion dari progres `from` ke `to`. */
+  path(seat, i, from, to) {
+    const cells = [];
+    if (from < 0) cells.push(cellOf(seat, 0, i));
+    else for (let p = from + 1; p <= to; p++) cells.push(cellOf(seat, p, i));
+    return cells.map(([x, y]) => this.pos(x, y));
+  }
+
+  syncTokens(m) {
     const seen = new Set();
-    if (live) {
-      for (const p of m.players) {
-        const seat = m.colors?.[p.id];
-        const toks = m.tokens?.[p.id];
-        if (seat === undefined || !toks) continue;
-        toks.forEach((prog, i) => {
-          const key = `${p.id}:${i}`;
-          seen.add(key);
-          let mesh = this.tokens.get(key);
-          if (!mesh) {
-            mesh = new THREE.Mesh(pawnGeometry(), pieceMaterial(SEATS[seat].color));
-            mesh.scale.setScalar(1.25);
-            mesh.castShadow = true;
-            mesh.userData = { owner: p.id, index: i };
-            this.group.add(mesh);
-            this.tokens.set(key, mesh);
-          }
+    const knocks = [];
+    let walkLeft = 0;
+    for (const p of m.players) {
+      const seat = m.colors?.[p.id];
+      const toks = m.tokens?.[p.id];
+      if (seat === undefined || !toks) continue;
+      toks.forEach((prog, i) => {
+        const key = `${p.id}:${i}`;
+        seen.add(key);
+        let rec = this.tokens.get(key);
+        if (!rec) {
+          const mesh = new THREE.Mesh(pawnGeometry(), pieceMaterial(SEATS[seat].color));
+          mesh.scale.setScalar(1.25);
+          mesh.castShadow = true;
+          mesh.userData = { owner: p.id, index: i };
           const [cx, cy] = cellOf(seat, prog, i);
-          const target = this.pos(cx, cy);
-          // pion bertumpuk: geser sedikit
-          const stackOff = (i - 1.5) * 0.004;
-          mesh.position.x += (target.x + stackOff - mesh.position.x) * Math.min(1, dt * 10);
-          mesh.position.z += (target.z - mesh.position.z) * Math.min(1, dt * 10);
-          const moving = Math.hypot(target.x - mesh.position.x, target.z - mesh.position.z) > 0.004;
-          mesh.position.y = moving ? 0.015 : 0;
-          const hi = this.highlight?.has(i) && p.id === this.ctx.myId;
-          mesh.scale.setScalar(hi ? 1.25 + Math.sin(this.time * 8) * 0.12 : 1.25);
-        });
-      }
+          this.pos(cx, cy, mesh.position);
+          this.group.add(mesh);
+          rec = { mesh, prog, anim: null, seat, i };
+          this.tokens.set(key, rec);
+        }
+        if (prog !== rec.prog) {
+          const from = rec.prog;
+          if (prog < 0 && from >= 0) {
+            knocks.push(rec); // terdepak kembali ke kandang
+          } else if (prog > from) {
+            const pts = this.path(seat, i, from, prog);
+            rec.anim = { type: 'walk', from: rec.mesh.position.clone(), pts, k: 0, t: 0, big: from < 0, finish: prog === FINISH };
+            walkLeft = Math.max(walkLeft, pts.length * HOP + (from < 0 ? HOP : 0));
+          } else rec.anim = null;
+          rec.prog = prog;
+        }
+        if (rec.anim?.type === 'walk') walkLeft = Math.max(walkLeft, (rec.anim.pts.length - rec.anim.k) * HOP);
+      });
     }
-    for (const [k, mesh] of this.tokens) {
+    for (const rec of knocks) {
+      const [cx, cy] = cellOf(rec.seat, -1, rec.i);
+      rec.anim = { type: 'knock', from: rec.mesh.position.clone(), to: this.pos(cx, cy), t: 0, delay: walkLeft, started: false };
+    }
+    for (const [k, rec] of this.tokens) {
       if (!seen.has(k)) {
-        mesh.removeFromParent();
+        rec.mesh.removeFromParent();
         this.tokens.delete(k);
       }
     }
-    // dadu
+  }
+
+  animateTokens(dt, m) {
+    for (const rec of this.tokens.values()) {
+      const mesh = rec.mesh;
+      const a = rec.anim;
+      if (a?.type === 'walk') {
+        // melompat petak demi petak
+        const dur = a.big && a.k === 0 ? HOP * 2 : HOP;
+        a.t += dt / dur;
+        const fromP = a.k === 0 ? a.from : a.pts[a.k - 1];
+        const toP = a.pts[a.k];
+        const e = ease(Math.min(1, a.t));
+        mesh.position.lerpVectors(fromP, toP, e);
+        mesh.position.y = Math.sin(e * Math.PI) * (a.big && a.k === 0 ? 0.07 : 0.03);
+        mesh.scale.set(1.25, 1.25 * (1 - Math.sin(e * Math.PI) * -0.12), 1.25);
+        if (a.t >= 1) {
+          a.k++;
+          a.t = 0;
+          this.play('hop');
+          if (a.k >= a.pts.length) {
+            rec.anim = null;
+            mesh.position.y = 0;
+            if (a.finish) this.play('chime');
+          }
+        }
+      } else if (a?.type === 'knock') {
+        if (a.delay > 0) {
+          a.delay -= dt;
+          continue;
+        }
+        if (!a.started) {
+          a.started = true;
+          this.play('knock');
+        }
+        // terpental melambung kembali ke kandang sambil berputar
+        a.t = Math.min(1, a.t + dt / 0.75);
+        const e = ease(a.t);
+        mesh.position.lerpVectors(a.from, a.to, e);
+        mesh.position.y = Math.sin(a.t * Math.PI) * 0.2;
+        mesh.rotation.x = a.t * Math.PI * 4;
+        mesh.rotation.z = a.t * Math.PI * 2;
+        if (a.t >= 1) {
+          rec.anim = null;
+          mesh.rotation.set(0, 0, 0);
+          mesh.position.y = 0;
+          this.play('plop');
+        }
+      } else {
+        // diam di petak (bertumpuk: geser sedikit)
+        const [cx, cy] = cellOf(rec.seat, rec.prog, rec.i);
+        const target = this.pos(cx, cy, this._v);
+        mesh.position.x += (target.x + (rec.i - 1.5) * 0.004 - mesh.position.x) * Math.min(1, dt * 12);
+        mesh.position.z += (target.z - mesh.position.z) * Math.min(1, dt * 12);
+        mesh.position.y = 0;
+      }
+      const hi = !a && this.highlight?.has(rec.i) && mesh.userData.owner === this.ctx.myId;
+      if (a?.type !== 'walk') mesh.scale.setScalar(hi ? 1.25 + Math.sin(this.time * 8) * 0.12 : 1.25);
+    }
+  }
+
+  updateDie(dt, m) {
+    const live = m.phase === 'play' || m.phase === 'end';
     this.die.visible = live;
+    this.ring.visible = false;
+    if (!live) return;
+    // dadu pindah ke depan pemain yang mendapat giliran (memutari tepi papan)
+    const target = this.seatAngle(m, m.turn);
+    if (this.dieAngle === null) this.dieAngle = target;
+    else if (!this.dieSlide && Math.abs(Math.atan2(Math.sin(target - this.dieAngle), Math.cos(target - this.dieAngle))) > 0.01) {
+      this.dieSlide = { a0: this.dieAngle, d: Math.atan2(Math.sin(target - this.dieAngle), Math.cos(target - this.dieAngle)), t: 0 };
+      this.play('diceSlide');
+    }
+    let lift = 0;
+    if (this.dieSlide) {
+      const sl = this.dieSlide;
+      sl.t = Math.min(1, sl.t + dt / 0.55);
+      this.dieAngle = sl.a0 + sl.d * ease(sl.t);
+      lift = Math.sin(sl.t * Math.PI) * 0.03;
+      this.die.rotation.y += dt * 9;
+      if (sl.t >= 1) this.dieSlide = null;
+    }
+    const a = this.dieAngle;
+    this.die.position.set(Math.sin(a) * DIE_R, 0.03 + lift, Math.cos(a) * DIE_R);
     if (m.ev && m.ev.n !== this.lastEv) {
-      if (m.ev.k === 'roll') this.rollT = 0.6;
+      if (m.ev.k === 'roll') this.rollT = 0.7;
       this.lastEv = m.ev.n;
     }
     if (this.rollT > 0) {
       this.rollT -= dt;
       this.die.rotation.x += dt * 17;
       this.die.rotation.z += dt * 13;
-      this.die.position.y = 0.03 + Math.abs(Math.sin(this.rollT * 12)) * 0.05;
-    } else if (m.die) {
+      this.die.position.y = 0.03 + Math.abs(Math.sin(this.rollT * 11)) * 0.07 * Math.min(1, this.rollT * 3);
+    } else if (m.die && !this.dieSlide) {
       const [rx, rz] = UP_ROT[m.die];
       this.die.rotation.set(rx, 0, rz);
-      this.die.position.y = 0.03;
     }
+    // giliran kita & belum melempar: dadu memantul pelan + cincin berdenyut
+    if (this.prompt && !this.rollT && !this.dieSlide) {
+      this.die.position.y = 0.03 + Math.abs(Math.sin(this.time * 4)) * 0.025;
+      this.ring.visible = true;
+      this.ring.position.set(this.die.position.x, 0.003, this.die.position.z);
+      this.ring.scale.setScalar(1 + Math.sin(this.time * 6) * 0.12);
+    }
+  }
+
+  update(dt, m) {
+    this.time += dt;
+    // permainan baru dimulai: pion langsung di kandang (tanpa animasi terdepak)
+    if (m.ev?.k === 'start' && m.ev.n !== this.startEv) {
+      this.startEv = m.ev.n;
+      for (const rec of this.tokens.values()) rec.mesh.removeFromParent();
+      this.tokens.clear();
+    }
+    if (m.phase !== 'lobby') this.syncTokens(m);
+    else for (const rec of this.tokens.values()) rec.mesh.visible = false;
+    this.animateTokens(dt, m);
+    this.updateDie(dt, m);
   }
 
   dispose() {
@@ -345,11 +487,10 @@ class LudoRenderer {
 class LudoControls {
   constructor(ctx) {
     this.ctx = ctx;
+    this.wasMine = false;
   }
 
-  enter() {
-    this.btnRoll = this.ctx.button('dice', 'Lempar dadu', () => this.ctx.act({ a: 'roll' }), 'primary', 'cu-roll');
-  }
+  enter() {}
 
   exit() {}
 
@@ -359,9 +500,13 @@ class LudoControls {
 
   update(dt, m) {
     const mine = this.myTurn(m);
-    this.btnRoll.hidden = !mine || m.rolled;
     const r = this.ctx.renderer(m);
-    if (r) r.highlight = mine && m.rolled ? new Set(m.movable) : null;
+    if (r) {
+      r.highlight = mine && m.rolled ? new Set(m.movable) : null;
+      r.prompt = mine && !m.rolled;
+    }
+    if (mine && !m.rolled && !this.wasMine) this.ctx.flash('Giliranmu — ketuk dadu');
+    this.wasMine = mine && !m.rolled;
   }
 
   chip(m) {
@@ -373,7 +518,7 @@ class LudoControls {
   targets(m) {
     const r = this.ctx.renderer(m);
     if (!r) return [];
-    return [...r.tokens.values()].filter((t) => t.userData.owner === this.ctx.myId).concat([r.die]);
+    return [...r.tokens.values()].map((x) => x.mesh).filter((t) => t.userData.owner === this.ctx.myId).concat([r.die]);
   }
 
   click(obj, m) {
@@ -383,7 +528,7 @@ class LudoControls {
       if (!m.rolled) this.ctx.act({ a: 'roll' });
       return;
     }
-    if (!m.rolled) return this.ctx.flash('Lempar dadu dulu');
+    if (!m.rolled) return this.ctx.flash('Ketuk dadu dulu');
     const t = obj.userData.index;
     if (m.movable.includes(t)) this.ctx.act({ a: 'move', t });
     else this.ctx.flash('Pion itu tidak bisa jalan');
@@ -393,9 +538,8 @@ class LudoControls {
     if (ev.k === 'roll') {
       this.ctx.playAtTable('dice', m);
       if (ev.p === this.ctx.myId && !m.movable.length) this.ctx.flash(`Dadu ${ev.die} — tidak ada langkah`);
-    } else if (ev.k === 'move') {
-      this.ctx.playAtTable('click2', m);
-      if (ev.cap) this.ctx.flash(`${this.ctx.playerName(ev.p)} memakan pion ${this.ctx.playerName(ev.cap)}!`);
+    } else if (ev.k === 'move' && ev.cap) {
+      setTimeout(() => this.ctx.flash(`${this.ctx.playerName(ev.p)} mendepak pion ${this.ctx.playerName(ev.cap)}!`), 300);
     }
   }
 }

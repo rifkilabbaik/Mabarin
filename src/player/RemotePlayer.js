@@ -47,7 +47,7 @@ export class RemotePlayer {
 
   readItem() {
     const id = this.handle.getState('item');
-    if (ITEM_IDS.includes(id) || id === 'racket' || id === 'birdie') this.character.setItem(id);
+    if (ITEM_IDS.includes(id) || id === 'racket') this.character.setItem(id);
   }
 
   get sitting() {

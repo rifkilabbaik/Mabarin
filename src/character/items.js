@@ -48,9 +48,9 @@ export function buildHeldItem(id) {
       { geo: new THREE.CylinderGeometry(0.04, 0.04, 0.2, 6), pos: [0, 0.18, 0.34], rot: [Math.PI / 2, 0, 0] },
       { geo: new THREE.CylinderGeometry(0.08, 0.08, 0.16, 8), pos: [0, 0.32, 0.02] },
     ], mat('#3bc9db')));
-  } else if (id === 'racket' || id === 'birdie') {
-    // raket tenis (besar) / bulu tangkis (ramping)
-    const small = id === 'birdie';
+  } else if (id === 'racket') {
+    // raket tenis
+    const small = false;
     const head = small ? 0.11 : 0.15;
     const len = small ? 0.52 : 0.4;
     g.add(mergedMesh([

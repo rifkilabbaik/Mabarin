@@ -31,13 +31,6 @@ export const SPORT_DEFS = {
       { id: '2v2', name: '2 lawan 2 (ganda)', size: 4 },
     ],
   },
-  badminton: {
-    name: 'Bulu Tangkis', icon: 'shuttle', art: 'linear-gradient(135deg, #20c997, #1971c2)',
-    modes: [
-      { id: '1v1', name: '1 lawan 1', size: 2 },
-      { id: '2v2', name: '2 lawan 2 (ganda)', size: 4 },
-    ],
-  },
 };
 
 export const MATCH_MS = 180000; // sepak bola: 3 menit
@@ -47,7 +40,6 @@ export const GOALS_TO_WIN = 5;
 export function halfWidth(m) {
   const f = FIELDS[m.sport];
   if (m.sport === 'tenis') return m.mode === '2v2' ? f.W / 2 : f.W / 2 - 1.2;
-  if (m.sport === 'badminton') return m.mode === '2v2' ? f.W / 2 : f.W / 2 - 0.5;
   return f.W / 2;
 }
 
@@ -111,17 +103,14 @@ export function racketTarget(m, team, ox, oz, yaw, c, serve) {
 export function chargeWindow(m, serve) {
   if (m.sport === 'bola') return [0, 0.9]; // lebih dari ini bola melambung
   if (m.sport === 'tenis') return serve ? [0, 0.75] : [0, 0.84];
-  if (m.sport === 'badminton') return serve ? [0.09, 0.83] : [0, 0.82];
   return null;
 }
 
-export function shotAngles(sport, serve, high) {
-  if (sport === 'tenis') return serve ? [-0.1, -0.05, 0, 0.05, 0.1, 0.16, 0.24] : [0.03, 0.08, 0.14, 0.21, 0.29, 0.38, 0.5];
-  if (high) return [-0.45, -0.3, -0.15, 0, 0.2, 0.45, 0.7, 0.95];
-  return serve ? [0.35, 0.6, 0.85, 1.05] : [0.25, 0.45, 0.65, 0.85, 1.05, 1.2];
+export function shotAngles(sport, serve) {
+  return serve ? [-0.1, -0.05, 0, 0.05, 0.1, 0.16, 0.24] : [0.03, 0.08, 0.14, 0.21, 0.29, 0.38, 0.5];
 }
 
-export const REACH = { bola: 1.05, tenis: 1.55, badminton: 1.5 };
+export const REACH = { bola: 1.05, tenis: 1.55 };
 
 /**
  * Tuan rumah pertandingan olahraga (perangkat pembuat pertandingan).
@@ -454,7 +443,7 @@ export class SportHost {
     return null;
   }
 
-  // ---------- Tenis & bulu tangkis ----------
+  // ---------- Tenis ----------
   teamPlayer(team, n) {
     const list = this.state.players.map((p, i) => ({ p, i })).filter((x) => x.p.team === team);
     if (!list.length) return -1;
@@ -511,13 +500,13 @@ export class SportHost {
     this.push({ k: 'point', team, why });
     const [a, b] = s.score;
     const hi = Math.max(a, b), diff = Math.abs(a - b);
-    const done = s.sport === 'tenis' ? hi >= 7 && diff >= 2 : (hi >= 11 && diff >= 2) || hi >= 15;
+    const done = hi >= 7 && diff >= 2; // tenis: tie-break sampai 7, selisih 2
     if (done) {
       this.later(1500, () => this.end(a > b ? 0 : 1));
       return;
     }
     const prev = this.serveTeam;
-    this.serveTeam = s.sport === 'tenis' ? Math.floor((r.pts + 1) / 2) % 2 : team;
+    this.serveTeam = Math.floor((r.pts + 1) / 2) % 2;
     if (this.serveTeam !== prev) this.serverOrder[this.serveTeam]++;
     this.later(1700, () => this.setupPoint());
   }
@@ -544,13 +533,6 @@ export class SportHost {
       }
       return this.point(hitter, 'win');
     }
-    // bulu tangkis: kok jatuh = poin selesai
-    if (this.serveFlight) {
-      const ok = side === -hSide && Math.abs(x) >= 1.95 && this.inBounds(x, z);
-      return ok ? this.point(hitter, 'in') : this.fault();
-    }
-    if (side === -hSide && this.inBounds(x, z)) return this.point(hitter, 'in');
-    return this.point(1 - hitter, side === hSide ? 'net' : 'out');
   }
 
   // ---------- Kejadian bola ----------
@@ -882,7 +864,7 @@ export class SportHost {
         const tg = racketTarget(s, p.team, b.x, b.z, yaw, c, false);
         const hw = halfWidth(s) * (miss ? 1.25 : 0.75);
         tg.tz = Math.max(-hw, Math.min(hw, tg.tz));
-        const v = solveShot(s.sport, this.f, b.x, b.y, b.z, tg.tx, tg.tz, shotAngles(s.sport, false, b.y > 2));
+        const v = solveShot(s.sport, this.f, b.x, b.y, b.z, tg.tx, tg.tz, shotAngles(s.sport, false));
         this.botHit(bot, idx, 'swing', v);
         bot.pred = null;
       }

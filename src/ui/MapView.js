@@ -110,7 +110,6 @@ export class MapView {
     };
     court(F.bola, '#3fa34d', 2.5);
     court(F.tenis, '#3b6fb6', 3);
-    court(F.badminton, '#2b8a3e', 2);
     ctx.fillStyle = '#ff7a1a';
     ctx.beginPath();
     ctx.arc(toPx(m.campfire.x), toPx(m.campfire.z), 2.6, 0, Math.PI * 2);
