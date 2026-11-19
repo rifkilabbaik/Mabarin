@@ -620,6 +620,13 @@ class PoolRenderer {
     this.group.removeFromParent();
   }
 
+  /** Langkah bot berikutnya (koordinat dunia) — memutari meja, tidak menembus. */
+  walkStep(from, to, step) {
+    const t = this.table;
+    const p = stepAround({ x: from.x - t.x, z: from.z - t.z }, { x: to.x - t.x, z: to.z - t.z }, step);
+    return { x: t.x + p.x, z: t.z + p.z };
+  }
+
   /** Posisi bot: berdiri di belakang bola putih saat membidik, selain itu di ujung meja. */
   botPose(m, idx, pid) {
     const t = this.table;
@@ -647,6 +654,85 @@ function standSpot(cx, cz, dx, dz) {
   return { x: cx - dx * t, z: cz - dz * t };
 }
 
+// ---------- Jalur karakter memutari meja (tidak menembus meja) ----------
+// Kotak terlarang (koordinat meja): karakter selalu di luar tepi meja + jarak badan.
+const BOX_X = L / 2 + 0.33, BOX_Z = W / 2 + 0.33;
+const CORNERS = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([sx, sz]) => ({ x: sx * (BOX_X + 0.08), z: sz * (BOX_Z + 0.08) }));
+
+function pushOut(p) {
+  if (Math.abs(p.x) >= BOX_X || Math.abs(p.z) >= BOX_Z) return p;
+  const px = BOX_X - Math.abs(p.x), pz = BOX_Z - Math.abs(p.z);
+  return px < pz ? { x: Math.sign(p.x || 1) * (BOX_X + 0.001), z: p.z } : { x: p.x, z: Math.sign(p.z || 1) * (BOX_Z + 0.001) };
+}
+
+/** Apakah garis a→b melewati bagian dalam kotak meja (Liang–Barsky). */
+function crossesTable(a, b) {
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const ex = BOX_X - 1e-3, ez = BOX_Z - 1e-3;
+  let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, a.x + ex], [dx, ex - a.x], [-dz, a.z + ez], [dz, ez - a.z]]) {
+    if (Math.abs(p) < 1e-12) {
+      if (q <= 0) return false;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+  }
+  return t1 - t0 > 1e-6;
+}
+
+/** Jalur terpendek dari a ke b yang memutari meja (lewat sudut-sudut di luar meja). */
+export function pathAround(a, b) {
+  if (!crossesTable(a, b)) return [b];
+  const nodes = [a, ...CORNERS, b];
+  const n = nodes.length;
+  const dist = new Array(n).fill(Infinity), prev = new Array(n).fill(-1), done = new Array(n).fill(false);
+  dist[0] = 0;
+  for (let it = 0; it < n; it++) {
+    let u = -1;
+    for (let i = 0; i < n; i++) if (!done[i] && (u < 0 || dist[i] < dist[u])) u = i;
+    if (u < 0 || dist[u] === Infinity) break;
+    done[u] = true;
+    if (u === n - 1) break;
+    for (let v = 1; v < n; v++) {
+      if (done[v] || crossesTable(nodes[u], nodes[v])) continue;
+      const d = dist[u] + Math.hypot(nodes[v].x - nodes[u].x, nodes[v].z - nodes[u].z);
+      if (d < dist[v]) {
+        dist[v] = d;
+        prev[v] = u;
+      }
+    }
+  }
+  if (prev[n - 1] < 0) return [b];
+  const path = [];
+  for (let v = n - 1; v > 0; v = prev[v]) path.unshift(nodes[v]);
+  return path;
+}
+
+/** Maju sejauh `step` dari `from` menuju `to` lewat jalur memutari meja (koordinat meja). */
+export function stepAround(from, to, step) {
+  let p = pushOut({ x: from.x, z: from.z });
+  const goal = pushOut({ x: to.x, z: to.z });
+  let left = step;
+  for (const w of pathAround(p, goal)) {
+    const d = Math.hypot(w.x - p.x, w.z - p.z);
+    if (d <= left) {
+      p = { x: w.x, z: w.z };
+      left -= d;
+    } else {
+      p = { x: p.x + ((w.x - p.x) / d) * left, z: p.z + ((w.z - p.z) / d) * left };
+      break;
+    }
+  }
+  return p;
+}
+
 // ======================================================================
 // Kontrol pemain: POV, bidik 2 lapis, garis lintasan, spin, power tarik-lepas, bola di tangan
 // ======================================================================
@@ -656,6 +742,8 @@ const EYE_STAND = 1.62; // berdiri: sedikit di atas kepala agar meja terlihat lu
 const EYE_WALK = 1.36; // berjalan: setinggi mata
 const WALK_SPEED = 1.5;
 const KEEP = 0.34; // jarak minimal dari tepi kain (tidak bisa menembus meja)
+const BASE_FOV = 62;
+const BODY_SPEED = 2.6; // kecepatan badan berpindah tempat (memutari meja)
 const ROAM = 2.4; // seberapa jauh boleh berjalan dari meja
 
 class PoolControls {
@@ -666,14 +754,15 @@ class PoolControls {
     this.look = { yaw: 0, pitch: -0.5 };
     this.lookOff = { yaw: 0, pitch: 0 };
     this.aim = 0;
-    this.zoom = 0.45;
+    this.zoom = 0.2; // cubit/scroll saat membungkuk = zoom lensa (kamera tetap di mata karakter)
     this.power = 0;
     this.pulling = null;
     this.spin = { top: 0, side: 0 };
     this.place = null;
     this.placing = false;
     this.topK = 0;
-    this.fov = 62;
+    this.curFov = BASE_FOV;
+    this.body = null; // posisi badan karakter (koordinat meja), berjalan memutari meja menuju tujuan
     this.aimInit = -1;
     this.dragCue = null;
     this.stickDrag = null;
@@ -689,6 +778,11 @@ class PoolControls {
     this._q = new THREE.Quaternion();
     this._up = new THREE.Vector3(0, 1, 0);
     this.ray = new THREE.Raycaster();
+  }
+
+  /** FOV kamera meja: saat membungkuk, cubit/scroll memperbesar pandangan (zoom lensa). */
+  get fov() {
+    return this.curFov;
   }
 
   // ---------- HUD ----------
@@ -1052,22 +1146,34 @@ class PoolControls {
     $('pl-cap').textContent = this.power > 0.04 ? `${Math.round(this.power * 100)}%` : 'Tarik';
     this.renderWarn();
     this.renderModes();
-    // bidikan untuk tampilan (stik & garis bantu) hanya saat membungkuk
+    // bidikan untuk tampilan: stik, garis bantu & bola bayangan saat membungkuk dan saat berdiri
     const local = this.ctx.local();
     const c = this.place || cue;
+    const showAim = this.mode === 'bend' || this.mode === 'stand' || this.placing;
     if (r) {
-      r.aimView = mine && c && (m.stage === 'aim' || m.stage === 'place') && (this.mode === 'bend' || this.placing)
-        ? { cx: c.x, cz: c.z, dx: Math.cos(this.aim), dz: Math.sin(this.aim), pull: this.power, place: this.place, placing: this.placing, guides: this.canAim ? this.guides(m, c) : null }
+      const guideOk = !this.placing && (this.canAim || (this.mode === 'stand' && this.bendAllowed(m)));
+      r.aimView = mine && c && (m.stage === 'aim' || m.stage === 'place') && showAim
+        ? { cx: c.x, cz: c.z, dx: Math.cos(this.aim), dz: Math.sin(this.aim), pull: this.power, place: this.place, placing: this.placing, guides: guideOk ? this.guides(m, c) : null }
         : null;
     }
-    // posisi karakter (pemain lain melihatnya berjalan, berdiri, atau membungkuk)
+    // posisi karakter (pemain lain melihatnya berjalan, berdiri, atau membungkuk). Badan berjalan
+    // memutari meja menuju tujuan — tidak pernah menembus meja, walau bola putih jauh di tengah.
     if (local && t && this.pos) {
+      let goal, facing;
       if (this.mode === 'bend' && c) {
-        const p = standSpot(c.x, c.z, Math.cos(this.aim), Math.sin(this.aim));
-        local.pin = { x: t.x + p.x, z: t.z + p.z, facing: Math.atan2(Math.cos(this.aim), Math.sin(this.aim)) };
+        goal = standSpot(c.x, c.z, Math.cos(this.aim), Math.sin(this.aim));
+        facing = Math.atan2(Math.cos(this.aim), Math.sin(this.aim));
       } else {
-        local.pin = { x: t.x + this.pos.x, z: t.z + this.pos.z, facing: Math.atan2(Math.cos(this.look.yaw), Math.sin(this.look.yaw)) };
+        goal = this.pos;
+        facing = Math.atan2(Math.cos(this.look.yaw), Math.sin(this.look.yaw));
       }
+      if (!this.body) this.body = { x: goal.x, z: goal.z };
+      const prev = this.body;
+      this.body = stepAround(prev, goal, dt * BODY_SPEED);
+      const mx = this.body.x - prev.x, mz = this.body.z - prev.z;
+      const rest = Math.hypot(goal.x - this.body.x, goal.z - this.body.z);
+      if (rest > 0.08 && Math.hypot(mx, mz) > 1e-5) facing = Math.atan2(mx, mz); // menghadap arah jalan
+      local.pin = { x: t.x + this.body.x, z: t.z + this.body.z, facing };
       // badan membungkuk / tegak perlahan
       this.poseK = clamp(this.poseK + (this.mode === 'bend' ? dt : -dt) / 0.55, 0, 1);
       local.character.cuePose = this.poseK * this.poseK * (3 - 2 * this.poseK);
@@ -1171,9 +1277,11 @@ class PoolControls {
       // POV membungkuk di belakang stik (+ menoleh)
       const dx = Math.cos(this.aim), dz = Math.sin(this.aim);
       const p = standSpot(cue.x, cue.z, dx, dz);
-      const k = this.zoom;
-      const ex = p.x + (cue.x - dx * 0.55 - p.x) * k, ez = p.z + (cue.z - dz * 0.55 - p.z) * k;
-      const ey = 0.48 + (0.2 - 0.48) * k;
+      // mata karakter: condong paling jauh 0,3 m dari tempat berdiri (di atas bantalan), tidak masuk ke atas meja
+      const reach = Math.hypot(cue.x - p.x, cue.z - p.z);
+      const lean = clamp(reach - 0.4, 0, 0.3);
+      const ex = p.x + dx * lean, ez = p.z + dz * lean;
+      const ey = 0.3 + 0.14 * clamp((reach - 0.7) / 1.4, 0, 1); // bola jauh: kepala sedikit lebih tinggi
       const yaw = this.aim + this.lookOff.yaw;
       const dist = Math.hypot(cue.x + dx * 0.6 - ex, cue.z + dz * 0.6 - ez);
       const pitch = Math.atan2(-ey, dist) + this.lookOff.pitch;
@@ -1221,6 +1329,9 @@ class PoolControls {
       this.camQuat.slerp(this._q, k);
     }
     this.lastFrom = this.mode;
+    const wantFov = this.mode === 'bend' ? BASE_FOV - this.zoom * 32 : BASE_FOV;
+    this.curFov += (wantFov - this.curFov) * (1 - Math.exp(-dt * 10));
+    if (Math.abs(wantFov - this.curFov) < 0.05) this.curFov = wantFov;
     pos.copy(this.camPos);
     quat.copy(this.camQuat);
     // menaruh bola putih: tampak atas seluruh meja
@@ -1229,7 +1340,7 @@ class PoolControls {
     if (this.topK > 0.001) {
       const cam = this.ctx.camera;
       const aspect = cam.aspect || 1;
-      const tan = Math.tan(THREE.MathUtils.degToRad(this.fov / 2));
+      const tan = Math.tan(THREE.MathUtils.degToRad(BASE_FOV / 2));
       const landscape = aspect >= 1;
       const halfV = landscape ? W / 2 + 0.22 : L / 2 + 0.22;
       const halfH = landscape ? L / 2 + 0.22 : W / 2 + 0.22;

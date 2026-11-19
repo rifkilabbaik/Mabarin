@@ -17,6 +17,14 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+:root { --full-h: 100vh; }
+@supports (height: 100dvh) { :root { --full-h: 100dvh; } }
+html {
+  /* iPhone: teks tidak membesar saat HP diputar, dan ketuk dua kali tidak memperbesar halaman */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
 html, body {
   margin: 0;
   height: 100%;
@@ -1620,7 +1628,7 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
   --pl-modes-top: calc(168px + var(--safe-t));
   --pl-spin-top: calc(320px + var(--safe-t));
   --pl-power-top: calc(392px + var(--safe-t));
-  --pl-power-len: calc((100vh - 290px) / 2);
+  --pl-power-len: calc((var(--full-h) - 290px) / 2);
 }
 .pl-power {
   left: auto; right: calc(12px + var(--safe-r)); top: var(--pl-power-top); bottom: auto;
@@ -1649,7 +1657,7 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
     --pl-modes-top: calc(152px + var(--safe-t));
     --pl-spin-top: calc(198px + var(--safe-t));
     --pl-power-top: calc(262px + var(--safe-t));
-    --pl-power-len: calc((100vh - 184px) / 2);
+    --pl-power-len: calc((var(--full-h) - 184px) / 2);
   }
   .pl-joy { width: 108px; height: 108px; left: calc(18px + var(--safe-l)); bottom: calc(14px + var(--safe-b)); }
 }

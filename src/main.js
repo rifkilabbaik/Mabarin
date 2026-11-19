@@ -13,6 +13,7 @@ import { ItemController } from './player/ItemController.js';
 import { connectP2P, getInviteRoomFromUrl } from './net/P2PNetwork.js';
 import { createLocalNetwork } from './net/LocalNetwork.js';
 import { UI } from './ui/UI.js';
+import { installZoomGuard, viewportSize } from './ui/zoomGuard.js';
 import { MapView } from './ui/MapView.js';
 import { Hotbar } from './ui/Hotbar.js';
 import { CustomizePanel } from './ui/CustomizePanel.js';
@@ -57,11 +58,15 @@ const projectiles = new Projectiles(scene, world);
 const fields = buildFields(world);
 const audio = new AudioManager();
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+installZoomGuard();
+const fitView = () => {
+  const { w, h } = viewportSize();
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.setSize(w, h);
+};
+window.addEventListener('resize', fitView);
+window.visualViewport?.addEventListener('resize', fitView);
 
 // ---------- State ----------
 let state = 'menu';

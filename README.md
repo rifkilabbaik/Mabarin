@@ -23,6 +23,8 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 - **HP**: tombol sistem jadi satu kapsul di atas; tombol lompat & aksi sejajar di kanan bawah, tombol pilih item kecil di atasnya.
 - **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** (bulat) di kanan atas. Di bawah gear berurutan tombol **rekam pesan suara** dan **chat**; ketuk gear untuk memunculkan mikrofon, menu, menyerah (game papan), dan keluar. Di bawahnya lagi ada **tombol kamera** untuk mengganti tampilan.
 
+- **iPhone/iPad**: Safari mengabaikan larangan zoom, jadi game memblokir cubit/ketuk-dua-kali yang memperbesar halaman dan mengembalikan skala ke normal setelah mengetik chat atau memutar HP.
+
 ### Kontrol
 
 | | PC / Laptop | HP / Tablet |
@@ -76,11 +78,11 @@ Meja biliar **9 kaki** (bidang main 2,54 × 1,27 m) bergaya klasik — bingkai k
 
 - **Tampilan POV dari mata karakter, tanpa kamera bebas.** Kolom kanan (dari atas): gear → rekam suara → chat → tiga ikon mode → tombol efek bola putih → bar stik. Ikon mode:
   - **Berdiri** — berdiri tegak, pandangan lebih tinggi & luas ke meja. Geser layar untuk menoleh (kiri/kanan, atas/bawah).
-  - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Pindah dari berdiri ke membungkuk (dan sebaliknya) memakai transisi halus kamera & badan. Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari bola putih. Cubit / scroll = maju-mundur kamera.
-  - **Berjalan** — berjalan mengelilingi meja dengan joystick yang tampil di kiri bawah (sentuh atau mouse) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Bisa dipakai juga sambil menunggu lawan.
+  - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Pindah dari berdiri ke membungkuk (dan sebaliknya) memakai transisi halus kamera & badan. Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari meja. Karakter selalu berdiri **di luar meja** — bila bola putih jauh di tengah, karakter tetap di tepi meja (pandangan condong sedikit di atas bantalan); cubit / scroll = zoom lensa untuk melihat bola yang jauh.
+  - **Berjalan** — berjalan mengelilingi meja dengan joystick yang tampil di kiri bawah (sentuh atau mouse) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Saat karakter (atau bot) berpindah tempat menembak, ia berjalan memutari meja lewat sudut-sudutnya, tidak pernah menembus meja. Bisa dipakai juga sambil menunggu lawan.
   - Setelah menembak, karakter otomatis **berdiri** supaya pandangan lebih luas dan kamera bisa digeser. Pemain lain melihatmu berjalan, berdiri, atau membungkuk memegang stik.
 - **Geser stik vs geser layar** — saat membungkuk, menggeser **stik** membuat stik ikut bergerak (bidikan berputar di sekitar bola putih); menggeser bagian lain layar memutar pandangan seperti mata.
-- **Bidik** — geser stik, atau ketuk bola yang ingin dituju. Garis bantu, bola hantu, dan stik hanya tampil saat membungkuk (tidak saat berdiri/berjalan).
+- **Bidik** — geser stik, atau ketuk bola yang ingin dituju. Garis bantu, bola bayangan, dan stik tampil saat membungkuk **dan saat berdiri** (saat giliranmu); saat berjalan disembunyikan.
 - **Garis lintasan dinamis** — garis dari bola putih ke titik sentuh (lingkaran bola hantu), arah bola sasaran setelah dipukul (makin lurus makin panjang), dan arah pantulan bola putih (ikut berubah oleh efek atas/bawah). Bila mengenai bantalan, tampil arah pantulannya. Peringatan muncul bila sasaran bukan bolamu.
 - **Pemilih efek** — ketuk bola kecil di kanan bawah, lalu pilih titik pukul di bola besar: atas = bola putih ikut maju, bawah = bola putih tertarik mundur, kiri/kanan = efek saat memantul di bantalan.
 - **Power tarik-lepas** — bar stik di kolom kanan (setengah tinggi layar, di bawah tombol efek): tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.

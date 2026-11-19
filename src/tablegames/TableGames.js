@@ -811,16 +811,28 @@ export class TableGames {
         if (mod?.stand) {
           // bot berdiri & berjalan sendiri (posisi diatur tampilan game, mis. memutari meja pool)
           const pose = ts.renderer?.botPose?.(m, idx, p.id) || this.seatOf(m, idx);
-          const dx = pose.x - b.root.position.x, dz = pose.z - b.root.position.z;
-          const d = Math.hypot(dx, dz);
+          const cur = b.root.position;
+          const d = Math.hypot(pose.x - cur.x, pose.z - cur.z);
           const first = !b.placed;
           b.placed = true;
-          const step = first ? d : Math.min(d, dt * 2.6);
-          if (d > 1e-4) b.root.position.set(b.root.position.x + (dx / d) * step, pose.y ?? t.y - 0.79, b.root.position.z + (dz / d) * step);
-          else b.root.position.y = pose.y ?? t.y - 0.79;
-          b.root.rotation.y = pose.rot;
-          b.cuePose = pose.cue || 0;
-          b.animate(dt, { speed: d > 0.02 && !first ? 2.6 : 0, grounded: true, swimming: false, vy: 0 });
+          let nx = pose.x, nz = pose.z;
+          if (!first && d > 1e-4) {
+            if (ts.renderer?.walkStep) ({ x: nx, z: nz } = ts.renderer.walkStep(cur, pose, dt * 2.6)); // memutari meja
+            else {
+              const k = Math.min(1, (dt * 2.6) / d);
+              nx = cur.x + (pose.x - cur.x) * k;
+              nz = cur.z + (pose.z - cur.z) * k;
+            }
+          }
+          const mx = nx - cur.x, mz = nz - cur.z;
+          const moving = !first && Math.hypot(mx, mz) > 1e-4;
+          cur.set(nx, pose.y ?? t.y - 0.79, nz);
+          // menghadap arah jalan saat berpindah, lalu menghadap arah tujuan (berputar halus)
+          const want = moving && d > 0.08 ? Math.atan2(mx, mz) : pose.rot;
+          const da = Math.atan2(Math.sin(want - b.root.rotation.y), Math.cos(want - b.root.rotation.y));
+          b.root.rotation.y = first ? want : b.root.rotation.y + da * Math.min(1, dt * 10);
+          b.cuePose = moving && d > 0.08 ? 0 : pose.cue || 0;
+          b.animate(dt, { speed: moving ? 2.6 : 0, grounded: true, swimming: false, vy: 0 });
           return;
         }
         const s = this.seatOf(m, idx);
