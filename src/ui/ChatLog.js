@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 const MAX_LINES = 150;
 const RECENT_MS = 10000; // pesan baru tampil 10 detik saat panel tertutup
 const MAX_RECENT_VISIBLE = 6;
@@ -22,7 +23,7 @@ export class ChatLog {
    * @param {{id?:string, name?:string, color?:string, text:string, at?:number, system?:boolean, history?:boolean}} m
    * @returns {boolean} true jika pesan baru ditambahkan
    */
-  add({ id, name, color, text, at = Date.now(), system = false, history = false }) {
+  add({ id, name, color, text, at = Date.now(), system = false, history = false, voice = null }) {
     if (id) {
       if (this.ids.has(id)) return false;
       this.ids.add(id);
@@ -45,10 +46,20 @@ export class ChatLog {
       dot.style.background = color || '#fff';
       const who = document.createElement('b');
       who.textContent = name || 'Pemain';
-      const t = document.createElement('span');
-      t.className = 'msg';
-      t.textContent = text;
-      el.append(dot, who, t);
+      if (voice) {
+        // pesan suara: tombol putar ulang + durasi
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chat-voice';
+        b.innerHTML = `${icon('play')}<span>Pesan suara · ${Math.max(1, Math.round(voice.ms / 1000))} dtk</span>`;
+        b.addEventListener('click', () => voice.onPlay());
+        el.append(dot, who, b);
+      } else {
+        const t = document.createElement('span');
+        t.className = 'msg';
+        t.textContent = text;
+        el.append(dot, who, t);
+      }
     }
 
     // urutkan berdasar waktu (riwayat dari server bisa lebih lama dari pesan lokal)

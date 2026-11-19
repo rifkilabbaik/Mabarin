@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from '../config.js';
+import { L as PL, W as PW, POCKETS, CUSHIONS } from '../tablegames/pool/physics.js';
+import { woodMaterial } from '../tablegames/boardKit.js';
 
 // ---------- Helper geometri low poly ----------
 function prep(geo, color) {
@@ -278,60 +280,229 @@ function buildCardTables(world, markers) {
   });
 }
 
-// ---------- Meja pool (di area olahraga) ----------
-// Permukaan kain 2.0 × 1.0 m (sama dengan src/tablegames/pool/physics.js), tinggi 0.78 m.
-function buildPoolTables(world, markers) {
-  const PL = 2.0, PW = 1.0, H = 0.78, RAIL = 0.11, CUSH = 0.035;
-  const parts = [];
-  // badan meja & kaki
-  parts.push(prep(new THREE.BoxGeometry(PL + RAIL * 2 - 0.06, 0.16, PW + RAIL * 2 - 0.06).translate(0, H - 0.12, 0), '#5c3317'));
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(prep(new THREE.CylinderGeometry(0.07, 0.09, H - 0.12, 8).translate(sx * (PL / 2 - 0.05), (H - 0.12) / 2, sz * (PW / 2 - 0.03)), '#4a2a12'));
-  parts.push(prep(new THREE.BoxGeometry(PL - 0.2, 0.06, 0.08).translate(0, 0.16, 0), '#4a2a12'));
-  // kain
-  parts.push(prep(new THREE.BoxGeometry(PL + 0.02, 0.02, PW + 0.02).translate(0, H - 0.01, 0), '#1f8a4c'));
-  // bantalan hijau (terputus di lubang) & pinggiran kayu
-  const gapC = 0.085, gapS = 0.07;
-  const longSeg = (PL - gapC * 2 - gapS * 2) / 2;
-  for (const sz of [-1, 1]) {
-    for (const sx of [-1, 1]) {
-      const cx = sx * (gapS + longSeg / 2);
-      parts.push(prep(new THREE.BoxGeometry(longSeg, 0.04, CUSH).translate(cx, H + 0.01, sz * (PW / 2 + CUSH / 2)), '#187a40'));
+// ---------- Meja pool 9 kaki (di area olahraga) ----------
+// Ukuran & lubang sama persis dengan fisika (src/tablegames/pool/physics.js).
+const POOL_H = 0.79; // tinggi kain
+const CUSH_W = 0.05; // lebar bantalan
+const RAIL_W = 0.12; // lebar pinggiran kayu
+const OUT_X = PL / 2 + CUSH_W + RAIL_W;
+const OUT_Z = PW / 2 + CUSH_W + RAIL_W;
+
+function clothTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#1f8a4c';
+  g.fillRect(0, 0, 256, 256);
+  const img = g.getImageData(0, 0, 256, 256);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 14;
+    img.data[i] += n;
+    img.data[i + 1] += n;
+    img.data[i + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(6, 3);
+  return t;
+}
+
+function netTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#2b1d12';
+  g.lineWidth = 5;
+  for (let k = -128; k <= 256; k += 24) {
+    g.beginPath();
+    g.moveTo(k, 0);
+    g.lineTo(k + 128, 128);
+    g.moveTo(k + 128, 0);
+    g.lineTo(k, 128);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(3, 1.5);
+  return t;
+}
+
+/** Bentuk 2D (bidang meja dilihat dari atas: x → x, y → -z) di-extrude ke atas setinggi h mulai dari y0. */
+function extrudeTop(shape, h, y0, opts = {}) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 20, ...opts });
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, y0, 0);
+  return g;
+}
+
+const rectShape = (x0, z0, x1, z1) => {
+  const sh = new THREE.Shape();
+  sh.moveTo(x0, -z0);
+  sh.lineTo(x1, -z0);
+  sh.lineTo(x1, -z1);
+  sh.lineTo(x0, -z1);
+  sh.lineTo(x0, -z0);
+  return sh;
+};
+
+/**
+ * Tutup lubang: persegi panjang (dalam koordinat u = sx·x, v = sz·z) dikurangi lingkaran lubang
+ * yang memotong tepi dalamnya. edges: 'corner' (memotong tepi u0 & v0) atau 'side' (memotong tepi v0).
+ */
+function capShape(kind, sx, sz, u0, v0, u1, v1, hu, hv, r) {
+  const pts = [];
+  const arc = (a0, a1) => {
+    for (let k = 0; k <= 14; k++) {
+      const a = a0 + ((a1 - a0) * k) / 14;
+      pts.push([hu + Math.cos(a) * r, hv + Math.sin(a) * r]);
     }
-    parts.push(prep(new THREE.BoxGeometry(PL + RAIL * 2, 0.06, RAIL - CUSH).translate(0, H + 0.0, sz * (PW / 2 + CUSH + (RAIL - CUSH) / 2)), '#7a4520'));
+  };
+  if (kind === 'corner') {
+    const vTop = hv + Math.sqrt(r * r - (u0 - hu) ** 2);
+    const uRight = hu + Math.sqrt(r * r - (v0 - hv) ** 2);
+    pts.push([uRight, v0], [u1, v0], [u1, v1], [u0, v1], [u0, vTop]);
+    arc(Math.atan2(vTop - hv, u0 - hu), Math.atan2(v0 - hv, uRight - hu));
+  } else {
+    const uc = Math.sqrt(r * r - (v0 - hv) ** 2);
+    pts.push([u0, v0], [-uc, v0]);
+    arc(Math.atan2(v0 - hv, -uc), Math.atan2(v0 - hv, uc));
+    pts.push([u1, v0], [u1, v1], [u0, v1]);
+  }
+  const sh = new THREE.Shape();
+  pts.forEach(([u, v], k) => (k ? sh.lineTo(sx * u, -sz * v) : sh.moveTo(sx * u, -sz * v)));
+  sh.closePath();
+  return sh;
+}
+
+const holePath = (x, z, r) => {
+  const h = new THREE.Path();
+  h.absarc(x, -z, r, 0, Math.PI * 2, true);
+  return h;
+};
+
+function poolTableModel() {
+  const g = new THREE.Group();
+  const H = POOL_H;
+  const oak = woodMaterial({ base: '#c4914f', dark: '#8a5a26', light: '#e2b77a', seed: 21 }, 0.6);
+  const oakDark = woodMaterial({ base: '#a87536', dark: '#6e4519', light: '#c99558', seed: 23 }, 0.6);
+  const black = new THREE.MeshLambertMaterial({ color: '#141414' });
+  const cloth = new THREE.MeshLambertMaterial({ map: clothTexture() });
+  const cushionMat = new THREE.MeshLambertMaterial({ color: '#1a7a42' });
+  const chrome = new THREE.MeshStandardMaterial({ color: '#d9dde3', metalness: 1, roughness: 0.22 });
+  const add = (geo, mat, shadow = true) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = shadow;
+    m.receiveShadow = true;
+    g.add(m);
+    return m;
+  };
+  // kain (slate) dengan lubang tembus di keenam lubang
+  const bed = rectShape(-OUT_X + 0.01, -OUT_Z + 0.01, OUT_X - 0.01, OUT_Z - 0.01);
+  for (const p of POCKETS) bed.holes.push(holePath(p.hx, p.hz, p.r));
+  add(extrudeTop(bed, 0.035, H - 0.035), cloth, false);
+  // bantalan hijau: hidung bantalan = garis fisika, ujungnya mengikuti sudut jaw
+  const jawDir = new Map();
+  for (const p of POCKETS) {
+    jawDir.set(`${p.ax.toFixed(4)},${p.az.toFixed(4)}`, p.jawA);
+    jawDir.set(`${p.bx.toFixed(4)},${p.bz.toFixed(4)}`, p.jawB);
+  }
+  for (const c of CUSHIONS) {
+    if (!c.rail) continue;
+    const ax = c.ax, az = c.az, bx = c.ax + c.ux * c.len, bz = c.az + c.uz * c.len;
+    const nx = c.uz, nz = -c.ux; // arah keluar (menjauhi meja)
+    const out = (ax * nx + az * nz) > 0 ? 1 : -1;
+    const ox = nx * out, oz = nz * out;
+    const back = (x, z) => {
+      const d = jawDir.get(`${x.toFixed(4)},${z.toFixed(4)}`) || [ox, oz];
+      const k = CUSH_W / Math.max(0.2, d[0] * ox + d[1] * oz);
+      return [x + d[0] * k, z + d[1] * k];
+    };
+    const [a2x, a2z] = back(ax, az), [b2x, b2z] = back(bx, bz);
+    const sh = new THREE.Shape();
+    sh.moveTo(ax, -az);
+    sh.lineTo(bx, -bz);
+    sh.lineTo(b2x, -b2z);
+    sh.lineTo(a2x, -a2z);
+    sh.lineTo(ax, -az);
+    add(extrudeTop(sh, 0.045, H - 0.005), cushionMat);
+  }
+  // pinggiran kayu (di antara tutup lubang)
+  const capIn = 0.02, capS = 0.11;
+  const railY = H - 0.035, railH = 0.08;
+  for (const sz of [-1, 1]) {
+    for (const [x0, x1] of [[-(PL / 2 - capIn), -capS], [capS, PL / 2 - capIn]]) {
+      const z0 = sz > 0 ? PW / 2 + CUSH_W : -OUT_Z, z1 = sz > 0 ? OUT_Z : -PW / 2 - CUSH_W;
+      add(extrudeTop(rectShape(x0, z0, x1, z1), railH, railY), oak);
+    }
   }
   for (const sx of [-1, 1]) {
-    parts.push(prep(new THREE.BoxGeometry(CUSH, 0.04, PW - gapC * 2).translate(sx * (PL / 2 + CUSH / 2), H + 0.01, 0), '#187a40'));
-    parts.push(prep(new THREE.BoxGeometry(RAIL - CUSH, 0.06, PW + RAIL * 2).translate(sx * (PL / 2 + CUSH + (RAIL - CUSH) / 2), H + 0.0, 0), '#7a4520'));
+    const x0 = sx > 0 ? PL / 2 + CUSH_W : -OUT_X, x1 = sx > 0 ? OUT_X : -PL / 2 - CUSH_W;
+    add(extrudeTop(rectShape(x0, -(PW / 2 - capIn), x1, PW / 2 - capIn), railH, railY), oak);
   }
-  // titik penanda (diamond) di pinggiran
-  for (const sz of [-1, 1]) for (let i = 1; i < 8; i++) if (i !== 4) parts.push(prep(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 6).translate(-PL / 2 + (i * PL) / 8, H + 0.032, sz * (PW / 2 + CUSH + (RAIL - CUSH) / 2)), '#f1e3c6'));
-  for (const sx of [-1, 1]) for (let i = 1; i < 4; i++) parts.push(prep(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 6).translate(sx * (PL / 2 + CUSH + (RAIL - CUSH) / 2), H + 0.032, -PW / 2 + (i * PW) / 4), '#f1e3c6'));
-  // lubang
-  for (const [px, pz, r] of [[-1, -1, 0.068], [0, -1, 0.06], [1, -1, 0.068], [-1, 1, 0.068], [0, 1, 0.06], [1, 1, 0.068]]) {
-    const ox = px * (PL / 2 + (px ? 0.012 : 0)), oz = pz * (PW / 2 + (px ? 0.012 : 0.025));
-    parts.push(prep(new THREE.CylinderGeometry(r, r * 0.9, 0.05, 14).translate(ox, H - 0.012, oz), '#0b0b0b'));
+  // tutup lubang hitam (sudut & tengah) dengan lubang bundar
+  for (const p of POCKETS) {
+    const sx = Math.sign(p.nx) || 1, sz = Math.sign(p.nz);
+    const sh = p.corner
+      ? capShape('corner', sx, sz, PL / 2 - capIn, PW / 2 - capIn, OUT_X, OUT_Z, sx * p.hx, sz * p.hz, p.r + 0.004)
+      : capShape('side', 1, sz, -capS, PW / 2 + CUSH_W, capS, OUT_Z, p.hx, sz * p.hz, p.r + 0.004);
+    add(extrudeTop(sh, railH + 0.006, railY), black);
   }
-  const geo = merge(parts);
-  const mat = lambert();
+  // badan meja (apron) dengan lekukan di bawah lubang untuk keranjang bola
+  const ap = new THREE.Shape();
+  const ax = OUT_X - 0.012, az = OUT_Z - 0.012, n = 0.23, sw = 0.12, sd = 0.2;
+  const pts = [
+    [-ax + n, -az], [-sw, -az], [-sw, -az + sd], [sw, -az + sd], [sw, -az], [ax - n, -az], [ax - n, -az + n], [ax, -az + n],
+    [ax, az - n], [ax - n, az - n], [ax - n, az], [sw, az], [sw, az - sd], [-sw, az - sd], [-sw, az], [-ax + n, az],
+    [-ax + n, az - n], [-ax, az - n], [-ax, -az + n], [-ax + n, -az + n],
+  ];
+  pts.forEach(([x, z], k) => (k ? ap.lineTo(x, -z) : ap.moveTo(x, -z)));
+  ap.lineTo(pts[0][0], -pts[0][1]);
+  add(extrudeTop(ap, 0.2, H - 0.245), oakDark);
+  // kaki meruncing berujung krom
+  const legH = H - 0.245 - 0.04;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const leg = add(new THREE.CylinderGeometry(0.11, 0.07, legH, 4, 1).rotateY(Math.PI / 4), oak);
+    leg.position.set(sx * (PL / 2 - 0.28), 0.04 + legH / 2, sz * (PW / 2 - 0.14));
+    const foot = add(new THREE.CylinderGeometry(0.045, 0.052, 0.04, 18), chrome);
+    foot.position.set(sx * (PL / 2 - 0.28), 0.02, sz * (PW / 2 - 0.14));
+  }
+  // lubang berongga + keranjang jaring tempat bola terkumpul
+  const net = new THREE.MeshLambertMaterial({ map: netTexture(), transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+  const cupMat = new THREE.MeshLambertMaterial({ color: '#0d0d0d', side: THREE.DoubleSide });
+  for (const p of POCKETS) {
+    const cup = add(new THREE.CylinderGeometry(p.r, p.r * 0.95, 0.1, 20, 1, true), cupMat, false);
+    cup.position.set(p.hx, H - 0.035 - 0.05, p.hz);
+    const basket = add(new THREE.SphereGeometry(p.r + 0.012, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), net, false);
+    basket.position.set(p.hx, H - 0.135, p.hz);
+    const rim = add(new THREE.TorusGeometry(p.r + 0.012, 0.006, 6, 20).rotateX(Math.PI / 2), black, false);
+    rim.position.set(p.hx, H - 0.135, p.hz);
+  }
+  return g;
+}
+
+function buildPoolTables(world, markers) {
+  const model = poolTableModel();
   for (const [cx, cz] of CONFIG.sports.poolTables || []) {
     const y = world.getHeight(cx, cz);
-    const m = new THREE.Mesh(geo, mat);
+    const m = model.clone();
     m.position.set(cx, y, cz);
-    m.castShadow = m.receiveShadow = true;
     world.scene.add(m);
-    for (const dx of [-0.7, 0, 0.7]) world.colliders.add(cx + dx, cz, 0.72, y + H + 0.05);
+    for (const dx of [-1.0, 0, 1.0]) world.colliders.add(cx + dx, cz, 0.84, y + POOL_H + 0.05);
     const index = markers.cardTables.length + markers.poolTables.length;
     markers.poolTables.push({
       index,
       kind: 'pool',
       x: cx,
       z: cz,
-      y: y + H, // tinggi kain
+      y: y + POOL_H, // tinggi kain
       ground: y,
       // tempat berdiri saat menunggu giliran (di samping meja, di luar garis bidik)
       seats: [
-        { x: cx - 0.3, z: cz + (PW / 2 + 1.75), y, rot: Math.PI },
-        { x: cx + 0.3, z: cz - (PW / 2 + 1.75), y, rot: 0 },
+        { x: cx - 0.3, z: cz + (OUT_Z + 1.5), y, rot: Math.PI },
+        { x: cx + 0.3, z: cz - (OUT_Z + 1.5), y, rot: 0 },
       ],
     });
   }

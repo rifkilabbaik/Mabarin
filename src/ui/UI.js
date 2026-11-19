@@ -76,10 +76,12 @@ export class UI {
   setInvite(code) {
     this.inviteRoom = code;
     if (!code) return;
+    const pub = /^PUBLIK(-\d+)?$/i.exec(code);
     $('invite-box').hidden = false;
-    $('invite-code').textContent = code;
+    if (pub) $('invite-box').innerHTML = 'Kamu diajak mabar di <strong>Dunia Publik</strong>';
+    else $('invite-code').textContent = code;
     $('btn-join-invite').hidden = false;
-    $('btn-join-invite').textContent = `Gabung Room ${code}`;
+    $('btn-join-invite').textContent = pub ? 'Gabung Dunia Publik' : `Gabung Room ${code}`;
     $('btn-public').classList.remove('primary');
   }
 

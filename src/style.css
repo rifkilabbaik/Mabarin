@@ -1583,3 +1583,73 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
   .pl-spin .pl-ball { width: 30px; height: 30px; }
   .pl-spinpanel { right: calc(60px + var(--safe-r)); top: calc(56px + var(--safe-t)); }
 }
+
+/* ================= Pesan suara ================= */
+#btn-rec { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#btn-rec.recording { background: #e03131 !important; color: #fff; animation: rec-pulse 1s ease-in-out infinite; }
+@keyframes rec-pulse { 50% { box-shadow: 0 0 0 7px rgba(224, 49, 49, 0.35); } }
+.rec-pill {
+  position: fixed; left: 50%; top: calc(14px + var(--safe-t, 0px)); transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px;
+  background: rgba(20, 22, 30, 0.88); color: #fff; font-weight: 750; font-size: 14px; pointer-events: none;
+}
+.rec-pill[hidden] { display: none; }
+.rec-pill i { width: 10px; height: 10px; border-radius: 50%; background: #ff4d4d; animation: rec-dot 0.9s ease-in-out infinite; }
+.rec-pill small { font-weight: 600; opacity: 0.7; }
+@keyframes rec-dot { 50% { opacity: 0.3; } }
+.chat-voice {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 2px; padding: 3px 10px 3px 6px; border: 0; border-radius: 999px;
+  background: rgba(47, 128, 237, 0.85); color: #fff; font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; pointer-events: auto;
+}
+.chat-voice .ic { width: 14px; height: 14px; fill: currentColor; }
+
+/* ================= Meja: kolom di bawah gear (rekam, chat) ================= */
+.cu-side {
+  position: absolute; top: calc(64px + var(--safe-t)); right: calc(12px + var(--safe-r));
+  display: flex; flex-direction: column; gap: 8px; pointer-events: auto;
+}
+.cu-side .icon-btn {
+  width: 44px; height: 44px; min-height: 44px; border-radius: 50%;
+  background: var(--hud-glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+#cu-cam { top: calc(168px + var(--safe-t)); }
+.cu-cam-menu { top: calc(168px + var(--safe-t)); }
+
+/* ================= Pool: gear → rekam → chat → mode → efek → bar stik (kanan, setengah panjang) ================= */
+#pool-ui {
+  --pl-modes-top: calc(168px + var(--safe-t));
+  --pl-spin-top: calc(320px + var(--safe-t));
+  --pl-power-top: calc(392px + var(--safe-t));
+  --pl-power-len: calc((100vh - 290px) / 2);
+}
+.pl-power {
+  left: auto; right: calc(12px + var(--safe-r)); top: var(--pl-power-top); bottom: auto;
+  height: var(--pl-power-len); width: 44px;
+}
+.pl-fine { display: none !important; }
+/* joystick mode Berjalan (selalu terlihat saat berjalan) */
+.pl-joy {
+  position: absolute; left: calc(26px + var(--safe-l)); bottom: calc(26px + var(--safe-b)); width: 124px; height: 124px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0 55%, rgba(255, 255, 255, 0.22) 56% 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55), 0 8px 20px rgba(0, 0, 0, 0.25); touch-action: none; cursor: grab;
+}
+.pl-joy[hidden] { display: none; }
+/* HP tegak: petunjuk naik ke atas joystick supaya tidak bertumpuk */
+@media (max-width: 700px) { #pool-ui.walking .pl-hint { bottom: calc(160px + var(--safe-b)); } }
+.pl-joy.active { background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0 55%, rgba(47, 128, 237, 0.35) 56% 100%); }
+.pl-knob {
+  position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, #ffffff, #cfd6e2); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); pointer-events: none;
+}
+@media (max-height: 500px) {
+  .cu-side { top: calc(60px + var(--safe-t)); gap: 6px; }
+  .cu-side .icon-btn { width: 40px; height: 40px; min-height: 40px; }
+  #cu-cam, .cu-cam-menu { top: calc(152px + var(--safe-t)); }
+  #pool-ui {
+    --pl-modes-top: calc(152px + var(--safe-t));
+    --pl-spin-top: calc(198px + var(--safe-t));
+    --pl-power-top: calc(262px + var(--safe-t));
+    --pl-power-len: calc((100vh - 184px) / 2);
+  }
+  .pl-joy { width: 108px; height: 108px; left: calc(18px + var(--safe-l)); bottom: calc(14px + var(--safe-b)); }
+}

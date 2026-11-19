@@ -77,6 +77,7 @@
         <span class="dock-sep" aria-hidden="true"></span>
         <div id="sys-btns">
           <button id="btn-mic" class="icon-btn" type="button" title="Voice chat (V)" aria-label="Voice chat" data-icon="micOff"></button>
+          <button id="btn-rec" class="icon-btn" type="button" title="Tahan untuk merekam pesan suara" aria-label="Rekam pesan suara (tahan)" data-icon="voiceNote"></button>
           <button id="btn-chat" class="icon-btn" type="button" title="Chat (Enter)" aria-label="Chat" data-icon="chat"></button>
           <button id="btn-games" class="icon-btn" type="button" title="Game (G)" aria-label="Game" data-icon="cards"></button>
           <button id="btn-menu" class="icon-btn" type="button" title="Menu" aria-label="Menu" aria-expanded="false" data-icon="menu"></button>
@@ -163,6 +164,8 @@
         <button id="cu-leave" class="icon-btn" type="button" aria-label="Tinggalkan meja" title="Keluar dari meja" data-icon="logout"></button>
       </div>
       <button id="cu-gear" class="icon-btn" type="button" aria-label="Pengaturan" title="Pengaturan" data-icon="gear"></button>
+      <!-- di bawah gear: rekam pesan suara & chat (dipindah dari dock saat di meja) -->
+      <div id="cu-side" class="cu-side"></div>
       <!-- ganti kamera: di bawah tombol gear -->
       <button id="cu-cam" class="icon-btn" type="button" aria-label="Ganti kamera" title="Ganti kamera" aria-haspopup="true" aria-expanded="false" data-icon="camera"></button>
       <div id="cu-cam-menu" class="cu-cam-menu" role="menu" hidden>

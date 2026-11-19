@@ -3,27 +3,89 @@
 // Hanya memakai + - * / dan Math.sqrt agar hasil simulasi identik di semua perangkat
 // (semua pemain mensimulasikan pukulan yang sama dari state awal yang sama).
 
-export const L = 2.0;
-export const W = 1.0;
+// Meja 9 kaki: permukaan main 100 × 50 inci (2.54 × 1.27 m).
+export const L = 2.54;
+export const W = 1.27;
 export const R = 0.03;
 export const HEAD_X = -L / 4; // titik kepala (bola putih)
 export const FOOT_X = L / 4; // titik kaki (susunan bola)
-export const MAX_SPEED = 6.2;
-const DT = 1 / 240;
+export const MAX_SPEED = 7.0;
+const DT = 1 / 300; // langkah kecil: bola tercepat bergerak < R per langkah (tidak menembus bantalan)
 const ROLL = 0.32; // perlambatan gulir (m/s²)
 const DRAG = 0.16; // perlambatan sebanding kecepatan
 const BALL_E = 0.95;
 const RAIL_E = 0.72;
 
-export const POCKETS = [
-  { x: -L / 2 - 0.012, z: -W / 2 - 0.012, r: 0.062, corner: true },
-  { x: 0, z: -W / 2 - 0.025, r: 0.056, corner: false },
-  { x: L / 2 + 0.012, z: -W / 2 - 0.012, r: 0.062, corner: true },
-  { x: -L / 2 - 0.012, z: W / 2 + 0.012, r: 0.062, corner: true },
-  { x: 0, z: W / 2 + 0.025, r: 0.056, corner: false },
-  { x: L / 2 + 0.012, z: W / 2 + 0.012, r: 0.062, corner: true },
-];
-const MOUTH = 0.075; // dekat lubang: bantalan terbuka
+// ---------- Lubang & bantalan ----------
+// Mulut lubang = jarak antar ujung jaw. Jaw sedikit menyempit ke arah lubang.
+const CORNER_MOUTH = 0.125;
+const SIDE_MOUTH = 0.135;
+const CORNER_JAW = 0.06;
+const SIDE_JAW = 0.05;
+const DROP = 0.012; // bola jatuh setelah pusatnya melewati garis mulut sejauh ini
+const RAIL_JAW_E = 0.6;
+
+const seg = (ax, az, bx, bz, rail) => {
+  const dx = bx - ax, dz = bz - az;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  return { ax, az, ux: dx / len, uz: dz / len, len, rail };
+};
+
+/** Lubang: titik mulut A & B (di garis bantalan), arah ke dalam lubang, lubang 3D untuk tampilan. */
+function makePockets() {
+  const c = CORNER_MOUTH / Math.SQRT2, hs = SIDE_MOUTH / 2;
+  const list = [];
+  for (const sz of [-1, 1]) {
+    for (const sx of [-1, 1]) {
+      // sudut: A di rel panjang, B di rel pendek
+      const ax = sx * (L / 2 - c), az = (sz * W) / 2, bx = (sx * L) / 2, bz = sz * (W / 2 - c);
+      list.push({ corner: true, ax, az, bx, bz, nx: sx * Math.SQRT1_2, nz: sz * Math.SQRT1_2, jawA: [sx * 0.766, sz * 0.643], jawB: [sx * 0.643, sz * 0.766], jaw: CORNER_JAW, hole: 0.068, holeIn: 0.05 });
+    }
+    // tengah rel panjang
+    list.push({ corner: false, ax: -hs, az: (sz * W) / 2, bx: hs, bz: (sz * W) / 2, nx: 0, nz: sz, jawA: [0.242, sz * 0.97], jawB: [-0.242, sz * 0.97], jaw: SIDE_JAW, hole: 0.064, holeIn: 0.04 });
+  }
+  // urutan tetap: kiri-belakang, tengah-belakang, kanan-belakang, kiri-depan, tengah-depan, kanan-depan
+  const order = [0, 2, 1, 3, 5, 4];
+  return order.map((k) => {
+    const p = list[k];
+    const mx = (p.ax + p.bx) / 2, mz = (p.az + p.bz) / 2;
+    return {
+      ...p,
+      mx,
+      mz,
+      tx: (p.bx - p.ax) / Math.sqrt((p.bx - p.ax) ** 2 + (p.bz - p.az) ** 2),
+      tz: (p.bz - p.az) / Math.sqrt((p.bx - p.ax) ** 2 + (p.bz - p.az) ** 2),
+      half: Math.sqrt((p.bx - p.ax) ** 2 + (p.bz - p.az) ** 2) / 2,
+      // sasaran bidik bot & titik lubang 3D
+      x: mx + p.nx * 0.02,
+      z: mz + p.nz * 0.02,
+      hx: mx + p.nx * p.holeIn,
+      hz: mz + p.nz * p.holeIn,
+      r: p.hole,
+    };
+  });
+}
+export const POCKETS = makePockets();
+
+/** Segmen bantalan (garis hidung bantalan) + jaw di setiap mulut lubang. */
+function makeCushions() {
+  const c = CORNER_MOUTH / Math.SQRT2, hs = SIDE_MOUTH / 2;
+  const out = [];
+  for (const sz of [-1, 1]) {
+    const z = (sz * W) / 2;
+    out.push(seg(-L / 2 + c, z, -hs, z, true), seg(hs, z, L / 2 - c, z, true));
+  }
+  for (const sx of [-1, 1]) {
+    const x = (sx * L) / 2;
+    out.push(seg(x, -W / 2 + c, x, W / 2 - c, true));
+  }
+  for (const p of POCKETS) {
+    out.push(seg(p.ax, p.az, p.ax + p.jawA[0] * p.jaw, p.az + p.jawA[1] * p.jaw, false));
+    out.push(seg(p.bx, p.bz, p.bx + p.jawB[0] * p.jaw, p.bz + p.jawB[1] * p.jaw, false));
+  }
+  return out;
+}
+export const CUSHIONS = makeCushions();
 
 export const RED = 'red';
 export const BLUE = 'blue';
@@ -78,7 +140,7 @@ export const round = (v) => Math.round(v * 10000) / 10000;
  */
 export class ShotSim {
   constructor(balls, shot) {
-    this.balls = balls.map((b) => ({ id: b.id, x: b.x, z: b.z, vx: 0, vz: 0, in: !!b.in, rx: 0, rz: 0 }));
+    this.balls = balls.map((b) => ({ id: b.id, x: b.x, z: b.z, vx: 0, vz: 0, in: !!b.in, pk: b.pk, rx: 0, rz: 0 }));
     this.cue = this.balls.find((b) => b.id === 0);
     this.cue.vx = shot.dx * shot.v;
     this.cue.vz = shot.dz * shot.v;
@@ -175,58 +237,60 @@ export class ShotSim {
         moving = true;
       }
     }
-    // bantalan & lubang
+    // lubang: jatuh bila pusat bola melewati garis mulut lubang
     for (const b of bs) {
       if (b.in) continue;
-      for (const p of POCKETS) {
-        const dx = b.x - p.x, dz = b.z - p.z;
-        if (dx * dx + dz * dz < p.r * p.r) {
+      for (let k = 0; k < POCKETS.length; k++) {
+        const p = POCKETS[k];
+        const ox = b.x - p.mx, oz = b.z - p.mz;
+        if (ox * p.nx + oz * p.nz > DROP && Math.abs(ox * p.tx + oz * p.tz) < p.half + 0.01) {
           b.in = true;
+          b.pk = k;
           b.vx = b.vz = 0;
-          b.x = p.x;
-          b.z = p.z;
+          b.x = p.hx;
+          b.z = p.hz;
           this.pots.push(b.id);
-          this.events.push({ t: this.time, k: 'pot', id: b.id });
+          this.events.push({ t: this.time, k: 'pot', id: b.id, pk: k });
           break;
         }
       }
       if (b.in) continue;
-      const nearPocket = POCKETS.some((p) => {
-        const dx = b.x - p.x, dz = b.z - p.z;
-        return dx * dx + dz * dz < (p.r + MOUTH) * (p.r + MOUTH);
-      });
-      if (nearPocket) {
-        // di mulut lubang: hanya tertahan di luar batas meja
-        const lx = L / 2 + 0.03, lz = W / 2 + 0.03;
-        if (b.x > lx || b.x < -lx || b.z > lz || b.z < -lz) {
-          b.x = Math.max(-lx, Math.min(lx, b.x));
-          b.z = Math.max(-lz, Math.min(lz, b.z));
-        }
-        continue;
-      }
-      const mx = L / 2 - R, mz = W / 2 - R;
-      let hit = 0;
-      if (b.x > mx || b.x < -mx) {
-        b.x = b.x > 0 ? mx : -mx;
-        hit = Math.abs(b.vx);
-        b.vx = -b.vx * RAIL_E;
-        if (b.id === 0 && this.side) {
-          b.vz += this.side * 0.3 * hit * (b.x > 0 ? 1 : -1);
+      // jauh dari tepi: tidak perlu cek bantalan
+      if (b.x > -L / 2 + R + 0.01 && b.x < L / 2 - R - 0.01 && b.z > -W / 2 + R + 0.01 && b.z < W / 2 - R - 0.01) continue;
+      // bantalan & jaw: titik terdekat pada segmen (ujung segmen = hidung jaw yang membulat)
+      for (const c of CUSHIONS) {
+        const wx = b.x - c.ax, wz = b.z - c.az;
+        let t = wx * c.ux + wz * c.uz;
+        if (t < 0) t = 0;
+        else if (t > c.len) t = c.len;
+        const qx = c.ax + c.ux * t, qz = c.az + c.uz * t;
+        const dx = b.x - qx, dz = b.z - qz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= R * R || d2 === 0) continue;
+        const d = Math.sqrt(d2);
+        const nx = dx / d, nz = dz / d;
+        b.x = qx + nx * R;
+        b.z = qz + nz * R;
+        const vn = b.vx * nx + b.vz * nz;
+        if (vn >= 0) continue;
+        const e = c.rail ? RAIL_E : RAIL_JAW_E;
+        b.vx -= (1 + e) * vn * nx;
+        b.vz -= (1 + e) * vn * nz;
+        if (b.id === 0 && this.side && c.rail) {
+          // efek samping: bola putih membelok di sepanjang bantalan
+          b.vx += -nz * this.side * 0.3 * -vn;
+          b.vz += nx * this.side * 0.3 * -vn;
           this.side *= 0.6;
         }
-      }
-      if (b.z > mz || b.z < -mz) {
-        b.z = b.z > 0 ? mz : -mz;
-        hit = Math.max(hit, Math.abs(b.vz));
-        b.vz = -b.vz * RAIL_E;
-        if (b.id === 0 && this.side) {
-          b.vx -= this.side * 0.3 * hit * (b.z > 0 ? 1 : -1);
-          this.side *= 0.6;
-        }
-      }
-      if (hit > 0) {
         this.rails++;
-        this.events.push({ t: this.time, k: 'rail', s: hit });
+        this.events.push({ t: this.time, k: 'rail', s: -vn });
+      }
+      // pengaman: bola tidak boleh keluar meja
+      const lim = 0.2;
+      if (b.x > L / 2 + lim || b.x < -L / 2 - lim || b.z > W / 2 + lim || b.z < -W / 2 - lim) {
+        b.x = Math.max(-L / 2 + R, Math.min(L / 2 - R, b.x));
+        b.z = Math.max(-W / 2 + R, Math.min(W / 2 - R, b.z));
+        b.vx = b.vz = 0;
       }
     }
     this.time += DT;
@@ -235,7 +299,7 @@ export class ShotSim {
 
   /** Posisi akhir (dibulatkan) untuk state. */
   final() {
-    return this.balls.map((b) => ({ id: b.id, x: round(b.x), z: round(b.z), in: b.in }));
+    return this.balls.map((b) => (b.in ? { id: b.id, x: round(b.x), z: round(b.z), in: true, pk: b.pk ?? 0 } : { id: b.id, x: round(b.x), z: round(b.z), in: false }));
   }
 }
 

@@ -393,6 +393,7 @@ class PoolRenderer {
     this.group.add(this.cloth);
     this.ballGeo = new THREE.SphereGeometry(R, 22, 16);
     this.meshes = new Map();
+    this.baskets = POCKETS.map(() => []); // urutan bola di keranjang tiap lubang
     this.stick = cueStick();
     this.stick.visible = false;
     // sasaran ketuk tak terlihat yang lebih tebal dari stik (untuk menggeser stik)
@@ -482,15 +483,10 @@ class PoolRenderer {
       const dx = x - mesh.position.x, dz = z - mesh.position.z;
       const moved = Math.sqrt(dx * dx + dz * dz);
       if (b.in) {
-        // jatuh ke lubang lalu hilang
-        if (mesh.visible) {
-          mesh.position.x += dx * Math.min(1, dt * 14);
-          mesh.position.z += dz * Math.min(1, dt * 14);
-          mesh.position.y -= dt * 0.25;
-          if (mesh.position.y < -0.05) mesh.visible = false;
-        }
+        this.toBasket(b, mesh, dt, !mesh.visible);
         continue;
       }
+      this.leaveBasket(b.id, mesh);
       if (!mesh.visible || moved > 0.5) {
         mesh.visible = true;
         mesh.position.set(x, R, z);
@@ -506,6 +502,64 @@ class PoolRenderer {
     }
     for (const [id, mesh] of this.meshes) if (!seen.has(id)) mesh.visible = false;
     this.updateStick(dt, m, viewerId);
+  }
+
+  /** Titik istirahat bola ke-k di keranjang lubang pk (menumpuk di dasar jaring). */
+  basketSlot(pk, k, out) {
+    const p = POCKETS[pk] || POCKETS[0];
+    const rb = p.r + 0.012 - R; // jarak pusat keranjang ke pusat bola
+    const ring = k === 0 ? 0 : 1 + ((k - 1) % 5);
+    const layer = k === 0 ? 0 : Math.floor((k - 1) / 5);
+    const d = ring ? 0.033 : 0;
+    const a = (ring - 1) * ((Math.PI * 2) / 5) + layer * 0.6;
+    const y = -0.135 - Math.sqrt(Math.max(0, rb * rb - d * d)) + layer * 0.05;
+    return out.set(p.hx + Math.cos(a) * d, y, p.hz + Math.sin(a) * d);
+  }
+
+  /** Bola masuk: menggelinding ke lubang, jatuh lewat lubang, lalu terkumpul di keranjang. */
+  toBasket(b, mesh, dt, instant) {
+    const list = this.baskets[b.pk ?? 0];
+    let k = list.indexOf(b.id);
+    if (k < 0) {
+      for (const l of this.baskets) {
+        const i = l.indexOf(b.id);
+        if (i >= 0) l.splice(i, 1);
+      }
+      list.push(b.id);
+      k = list.length - 1;
+      mesh.visible = true;
+      mesh.userData.fall = instant ? null : { t: 0, from: mesh.position.clone() };
+    }
+    const slot = this.basketSlot(b.pk ?? 0, k, this._v);
+    const f = mesh.userData.fall;
+    if (!f) {
+      mesh.position.copy(slot);
+      return;
+    }
+    f.t += dt;
+    const p = POCKETS[b.pk ?? 0];
+    if (f.t < 0.14) {
+      const e = f.t / 0.14;
+      mesh.position.set(f.from.x + (p.hx - f.from.x) * e, R - e * R * 0.6, f.from.z + (p.hz - f.from.z) * e);
+    } else if (f.t < 0.34) {
+      const e = (f.t - 0.14) / 0.2;
+      mesh.position.set(p.hx, R * 0.4 - (0.13 + R * 0.4) * e * e, p.hz);
+    } else if (f.t < 0.52) {
+      const e = (f.t - 0.34) / 0.18;
+      mesh.position.set(p.hx + (slot.x - p.hx) * e, -0.13 + (slot.y + 0.13) * e, p.hz + (slot.z - p.hz) * e);
+    } else {
+      mesh.position.copy(slot);
+      mesh.userData.fall = null;
+      this.sound('plop', { volume: 0.5 });
+    }
+  }
+
+  leaveBasket(id, mesh) {
+    mesh.userData.fall = null;
+    for (const l of this.baskets) {
+      const i = l.indexOf(id);
+      if (i >= 0) l.splice(i, 1);
+    }
   }
 
   /** Stik & garis bantu untuk pemain yang sedang giliran. */
@@ -624,6 +678,9 @@ class PoolControls {
     this.dragCue = null;
     this.stickDrag = null;
     this.sentBend = null;
+    this.joy = { x: 0, y: 0, id: null };
+    this.poseK = 0; // 0 = berdiri, 1 = membungkuk (transisi halus)
+    this.trans = null;
     this.camPos = null;
     this.camQuat = new THREE.Quaternion();
     this._a = new THREE.Vector3();
@@ -653,7 +710,7 @@ class PoolControls {
         <button type="button" class="icon-btn" data-mode="walk" title="Berjalan" aria-label="Berjalan">${icon('walk')}</button>
       </div>
       <button type="button" class="pl-spin" id="pl-spin" title="Efek bola putih" aria-label="Efek bola putih"><span class="pl-ball"><i id="pl-dot"></i></span></button>
-      <div class="pl-fine" id="pl-fine" title="Bidik halus: geser naik-turun"><div class="pl-ticks" id="pl-ticks"></div></div>
+      <div class="pl-joy" id="pl-joy" hidden><div class="pl-knob" id="pl-knob"></div></div>
       <button type="button" class="btn primary pl-done" id="pl-done" hidden>${icon('check')}<span>Selesai</span></button>
       <p class="pl-hint" id="pl-hint" hidden></p>
       <div class="pl-spinpanel" id="pl-spinpanel" hidden>
@@ -670,7 +727,6 @@ class PoolControls {
     this.ui?.remove();
     const local = this.ctx.local();
     if (local) local.character.cuePose = 0;
-    if (this.ctx.input) this.ctx.input.joyInCards = false;
   }
 
   /** Ganti mode: berdiri (pandangan luas), membungkuk (membidik), berjalan (mencari posisi). */
@@ -694,11 +750,13 @@ class PoolControls {
       this.look = { yaw: this.aim, pitch: -0.55 };
     }
     this.mode = mode;
-    if (this.ctx.input) this.ctx.input.joyInCards = mode === 'walk';
+    this.joy = { x: 0, y: 0, id: null };
+    $('pl-joy').hidden = mode !== 'walk';
+    $('pool-ui')?.classList.toggle('walking', mode === 'walk');
     if (!quiet) this.ctx.audio.play('click');
     this.renderModes();
-    if (mode === 'walk') this.hint(this.ctx.input?.mode === 'touch' ? 'Joystick di kiri untuk berjalan · geser layar untuk menoleh' : 'WASD / panah untuk berjalan · geser layar untuk menoleh');
-    else if (mode === 'bend') this.hint('Geser stik untuk membidik · tarik bar kiri lalu lepas untuk memukul');
+    if (mode === 'walk') this.hint(this.ctx.input?.mode === 'touch' ? 'Geser joystick untuk berjalan · geser layar untuk menoleh' : 'Joystick / WASD untuk berjalan · geser layar untuk menoleh');
+    else if (mode === 'bend') this.hint('Geser stik untuk membidik · tarik bar stik di kanan lalu lepas');
     else this.hint('');
     void t;
   }
@@ -751,24 +809,37 @@ class PoolControls {
       this.pulling = null;
       this.power = 0;
     });
-    // bidik halus: geser strip vertikal
-    const fine = $('pl-fine');
-    fine.addEventListener('pointerdown', (e) => {
+    // joystick (mode Berjalan): bisa disentuh atau digeser dengan mouse
+    const joy = $('pl-joy');
+    const setJoy = (e) => {
+      const r = joy.getBoundingClientRect();
+      let x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      let y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const d = Math.hypot(x, y);
+      if (d > 1) {
+        x /= d;
+        y /= d;
+      }
+      this.joy.x = x;
+      this.joy.y = -y;
+      $('pl-knob').style.transform = `translate(calc(-50% + ${x * 34}px), calc(-50% + ${y * 34}px))`;
+    };
+    joy.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      fine.setPointerCapture(e.pointerId);
-      this.fineDrag = { id: e.pointerId, y: e.clientY };
+      joy.setPointerCapture(e.pointerId);
+      this.joy.id = e.pointerId;
+      joy.classList.add('active');
+      setJoy(e);
     });
-    fine.addEventListener('pointermove', (e) => {
-      if (!this.fineDrag || this.fineDrag.id !== e.pointerId) return;
-      const dy = e.clientY - this.fineDrag.y;
-      this.fineDrag.y = e.clientY;
-      if (this.canAim) this.aim += dy * 0.0011;
-      this.fineOffset = (this.fineOffset || 0) + dy;
-      $('pl-ticks').style.backgroundPositionY = `${this.fineOffset}px`;
-    });
-    const fineEnd = () => (this.fineDrag = null);
-    fine.addEventListener('pointerup', fineEnd);
-    fine.addEventListener('pointercancel', fineEnd);
+    joy.addEventListener('pointermove', (e) => this.joy.id === e.pointerId && setJoy(e));
+    const joyEnd = (e) => {
+      if (this.joy.id !== e.pointerId) return;
+      this.joy = { x: 0, y: 0, id: null };
+      joy.classList.remove('active');
+      $('pl-knob').style.transform = 'translate(-50%, -50%)';
+    };
+    joy.addEventListener('pointerup', joyEnd);
+    joy.addEventListener('pointercancel', joyEnd);
     // mode
     for (const b of $('pl-modes').querySelectorAll('[data-mode]')) b.addEventListener('click', () => this.setMode(b.dataset.mode));
     // pemilih efek (spin)
@@ -905,7 +976,8 @@ class PoolControls {
 
   /** Berjalan dengan joystick / WASD, relatif arah pandang; tertahan di luar tepi meja. */
   walk(dt) {
-    const mv = this.ctx.input?.move;
+    const kb = this.ctx.input?.move;
+    const mv = this.joy && (this.joy.x || this.joy.y) ? this.joy : kb;
     if (!mv || (!mv.x && !mv.y)) return;
     const fx = Math.cos(this.look.yaw), fz = Math.sin(this.look.yaw);
     const rx = -fz, rz = fx;
@@ -972,7 +1044,6 @@ class PoolControls {
     // HUD
     this.ui.hidden = m.phase !== 'play';
     $('pl-power').hidden = !this.canAim;
-    $('pl-fine').hidden = !this.canAim;
     $('pl-spin').hidden = !this.canAim;
     $('pl-done').hidden = !(mine && this.placing);
     $('pl-modes').hidden = this.placing;
@@ -994,11 +1065,12 @@ class PoolControls {
       if (this.mode === 'bend' && c) {
         const p = standSpot(c.x, c.z, Math.cos(this.aim), Math.sin(this.aim));
         local.pin = { x: t.x + p.x, z: t.z + p.z, facing: Math.atan2(Math.cos(this.aim), Math.sin(this.aim)) };
-        local.character.cuePose = 1;
       } else {
         local.pin = { x: t.x + this.pos.x, z: t.z + this.pos.z, facing: Math.atan2(Math.cos(this.look.yaw), Math.sin(this.look.yaw)) };
-        local.character.cuePose = 0;
       }
+      // badan membungkuk / tegak perlahan
+      this.poseK = clamp(this.poseK + (this.mode === 'bend' ? dt : -dt) / 0.55, 0, 1);
+      local.character.cuePose = this.poseK * this.poseK * (3 - 2 * this.poseK);
     }
   }
 
@@ -1122,19 +1194,33 @@ class PoolControls {
     const cp = Math.cos(P.pitch);
     this._b.set(this._a.x + Math.cos(P.yaw) * cp, this._a.y + Math.sin(P.pitch), this._a.z + Math.sin(P.yaw) * cp);
     this._q.setFromRotationMatrix(this._m.lookAt(this._a, this._b, this._up));
-    // transisi halus antar mode
     if (!this.camPos) {
       this.camPos = this._a.clone();
       this.camQuat.copy(this._q);
+      this.lastMode = this.mode;
     }
-    const k = this.mode === 'bend' && !this.modeBlend ? 1 : 1 - Math.exp(-dt * 9);
-    this.camPos.lerp(this._a, k);
-    this.camQuat.slerp(this._q, k);
-    if (this.camPos.distanceTo(this._a) < 0.01) this.modeBlend = false;
+    // transisi antar mode: kamera turun/naik perlahan (berdiri → membungkuk & sebaliknya)
     if (this.lastMode !== this.mode) {
       this.lastMode = this.mode;
-      this.modeBlend = true;
+      this.trans = { t: 0, dur: this.mode === 'bend' || this.lastFrom === 'bend' ? 0.65 : 0.35, pos: this.camPos.clone(), quat: this.camQuat.clone() };
     }
+    if (this.trans) {
+      const tr = this.trans;
+      tr.t = Math.min(1, tr.t + dt / tr.dur);
+      const e = tr.t * tr.t * (3 - 2 * tr.t);
+      this.camPos.lerpVectors(tr.pos, this._a, e);
+      this.camQuat.slerpQuaternions(tr.quat, this._q, e);
+      if (tr.t >= 1) this.trans = null;
+    } else if (this.mode === 'bend') {
+      // membidik: kamera langsung mengikuti stik
+      this.camPos.copy(this._a);
+      this.camQuat.copy(this._q);
+    } else {
+      const k = 1 - Math.exp(-dt * 12);
+      this.camPos.lerp(this._a, k);
+      this.camQuat.slerp(this._q, k);
+    }
+    this.lastFrom = this.mode;
     pos.copy(this.camPos);
     quat.copy(this.camQuat);
     // menaruh bola putih: tampak atas seluruh meja

@@ -29,6 +29,7 @@ import pool from './tablegames/games/pool.js';
 import { buildFields } from './sports/fields.js';
 import { Sports } from './sports/Sports.js';
 import { VoiceChat } from './net/VoiceChat.js';
+import { VoiceNotes } from './net/VoiceNotes.js';
 import { registerPWA } from './pwa.js';
 
 const $ = (id) => document.getElementById(id);
@@ -140,6 +141,8 @@ const input = new InputManager({
 
 // Voice chat berbasis jarak (WebRTC)
 const voice = new VoiceChat({ audio, ui, button: $('btn-mic') });
+// Pesan suara: tahan untuk merekam, lepas untuk mengirim ke semua pemain
+const voiceNotes = new VoiceNotes({ audio, ui, button: $('btn-rec'), voice });
 
 // Permainan kartu di meja (tampilan orang-pertama)
 const TABLE_GAMES = [kilat, catur, dam, ludo, empat, mancala, pool];
@@ -259,6 +262,7 @@ async function startGame(mode, profile) {
   cards.attach({ net, local, remotes, profile: () => myProfile });
   sports.attach({ net, local, remotes, profile: () => myProfile });
   voice.attach({ net, local, remotes });
+  voiceNotes.attach({ net, remotes, me: () => ({ id: net.me.id, name: myProfile?.name || 'Pemain', color: myProfile?.color || '#4dabf7' }) });
   startAfkWatch();
 
   const joinedAt = performance.now();
@@ -295,6 +299,18 @@ async function startGame(mode, profile) {
     }
     ui.setConnected(false);
     ui.toast('Koneksi ke server terputus. Muat ulang halaman untuk menyambung lagi.');
+  });
+
+  // Koneksi langsung ke pemain lain gagal (biasanya jaringan seluler/CGNAT tanpa server TURN): beri tahu sekali
+  let warnedP2P = false;
+  net.onProblem?.((p) => {
+    if (p.code !== 'peer-connect-failed' || warnedP2P) return;
+    warnedP2P = true;
+    ui.toast(
+      p.turn
+        ? 'Ada pemain yang gagal tersambung walau lewat server cadangan. Coba muat ulang halaman.'
+        : 'Ada pemain yang tidak bisa tersambung langsung — jaringan (sering data seluler) memblokir koneksi P2P. Coba Wi-Fi atau jaringan lain.'
+    );
   });
 
   // Chat dikirim sebagai event (RPC); riwayat 50 pesan terakhir disimpan host di state room.

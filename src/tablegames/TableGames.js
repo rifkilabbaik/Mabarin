@@ -274,9 +274,11 @@ export class TableGames {
 
   /** Tombol chat, mikrofon & menu ikut masuk ke baki tombol meja (di samping tombol keluar). */
   borrowSysButtons(on) {
-    const ids = ['btn-chat', 'btn-mic', 'btn-menu'];
-    if (on) for (const id of ids) $('cu-tray').insertBefore($(id), $('cu-leave'));
-    else for (const id of ['btn-mic', 'btn-chat', 'btn-games', 'btn-menu']) $('sys-btns').appendChild($(id));
+    if (on) {
+      // di bawah gear: rekam pesan suara, lalu chat; mikrofon & menu di baki gear
+      for (const id of ['btn-rec', 'btn-chat']) $('cu-side').appendChild($(id));
+      for (const id of ['btn-mic', 'btn-menu']) $('cu-tray').insertBefore($(id), $('cu-leave'));
+    } else for (const id of ['btn-mic', 'btn-rec', 'btn-chat', 'btn-games', 'btn-menu']) $('sys-btns').appendChild($(id));
   }
 
   get viewTop() {
@@ -515,7 +517,6 @@ export class TableGames {
     this.local.seat = null;
     this.local.pin = null;
     this.local.character.cuePose = 0;
-    this.input.joyInCards = false;
     if (seat) {
       this.local.position.set(seat.x - Math.sin(seat.rot) * 0.7, seat.y - 0.46, seat.z - Math.cos(seat.rot) * 0.7);
       this.local.facing = seat.rot + Math.PI;

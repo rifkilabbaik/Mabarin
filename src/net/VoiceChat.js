@@ -105,7 +105,7 @@ export class VoiceChat {
 
   // ---------- Koneksi ----------
   createPeer(id) {
-    const pc = new RTCPeerConnection({ iceServers: ICE });
+    const pc = new RTCPeerConnection({ iceServers: [...ICE, ...(this.net?.turn || [])] });
     const peer = { id, pc, sender: null, at: performance.now(), level: 0, nodes: null, el: null };
     pc.ontrack = (e) => this.attachStream(peer, e.streams[0] || new MediaStream([e.track]));
     pc.onconnectionstatechange = () => {

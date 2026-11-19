@@ -19,9 +19,9 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 
 ### Tampilan (HUD)
 
-- **PC**: satu *dock* di bawah layar berisi hotbar item + tombol mikrofon, chat, game, dan menu; peta kecil di kanan atas.
+- **PC**: satu *dock* di bawah layar berisi hotbar item + tombol mikrofon, rekam pesan suara, chat, game, dan menu; peta kecil di kanan atas.
 - **HP**: tombol sistem jadi satu kapsul di atas; tombol lompat & aksi sejajar di kanan bawah, tombol pilih item kecil di atasnya.
-- **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** (bulat) di kanan atas. Ketuk gear untuk memunculkan chat, mikrofon, menu, menyerah (game papan), dan keluar. Tepat di bawah gear ada **tombol kamera** untuk mengganti tampilan.
+- **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** (bulat) di kanan atas. Di bawah gear berurutan tombol **rekam pesan suara** dan **chat**; ketuk gear untuk memunculkan mikrofon, menu, menyerah (game papan), dan keluar. Di bawahnya lagi ada **tombol kamera** untuk mengganti tampilan.
 
 ### Kontrol
 
@@ -72,22 +72,24 @@ Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player
 
 ## Pool
 
-Meja biliar ada di area olahraga (dekat lapangan tenis, juga tampil di peta). Buka **Game → Pool**, undang teman atau tambah bot. Di lobi, bandar memilih **15 bola** (7 merah, 7 biru, 1 hitam) atau **9 bola** (4 + 4 + 1, ronde cepat). Bola putih = bola tembak.
+Meja biliar **9 kaki** (bidang main 2,54 × 1,27 m) bergaya klasik — bingkai kayu oak, tutup lubang hitam, kain hijau, kaki meruncing berkaki krom — ada di area olahraga (dekat lapangan tenis, juga tampil di peta). Buka **Game → Pool**, undang teman atau tambah bot. Di lobi, bandar memilih **15 bola** (7 merah, 7 biru, 1 hitam) atau **9 bola** (4 + 4 + 1, ronde cepat). Bola putih = bola tembak.
 
-- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Kolom kanan (dari atas): gear → tiga ikon mode → tombol efek bola putih → strip bidik halus sampai bawah layar. Ikon mode:
+- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Kolom kanan (dari atas): gear → rekam suara → chat → tiga ikon mode → tombol efek bola putih → bar stik. Ikon mode:
   - **Berdiri** — berdiri tegak, pandangan lebih tinggi & luas ke meja. Geser layar untuk menoleh (kiri/kanan, atas/bawah).
-  - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari bola putih. Cubit / scroll = maju-mundur kamera.
-  - **Berjalan** — berjalan mengelilingi meja dengan joystick (HP, kiri bawah) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Bisa dipakai juga sambil menunggu lawan.
+  - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Pindah dari berdiri ke membungkuk (dan sebaliknya) memakai transisi halus kamera & badan. Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari bola putih. Cubit / scroll = maju-mundur kamera.
+  - **Berjalan** — berjalan mengelilingi meja dengan joystick yang tampil di kiri bawah (sentuh atau mouse) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Bisa dipakai juga sambil menunggu lawan.
   - Setelah menembak, karakter otomatis **berdiri** supaya pandangan lebih luas dan kamera bisa digeser. Pemain lain melihatmu berjalan, berdiri, atau membungkuk memegang stik.
 - **Geser stik vs geser layar** — saat membungkuk, menggeser **stik** membuat stik ikut bergerak (bidikan berputar di sekitar bola putih); menggeser bagian lain layar memutar pandangan seperti mata.
-- **Bidik dua lapis** — kasar: geser stik, atau ketuk bola yang ingin dituju. Halus: geser strip bergerigi di kanan (di bawah tombol efek bola putih).
+- **Bidik** — geser stik, atau ketuk bola yang ingin dituju. Garis bantu, bola hantu, dan stik hanya tampil saat membungkuk (tidak saat berdiri/berjalan).
 - **Garis lintasan dinamis** — garis dari bola putih ke titik sentuh (lingkaran bola hantu), arah bola sasaran setelah dipukul (makin lurus makin panjang), dan arah pantulan bola putih (ikut berubah oleh efek atas/bawah). Bila mengenai bantalan, tampil arah pantulannya. Peringatan muncul bila sasaran bukan bolamu.
 - **Pemilih efek** — ketuk bola kecil di kanan bawah, lalu pilih titik pukul di bola besar: atas = bola putih ikut maju, bawah = bola putih tertarik mundur, kiri/kanan = efek saat memantul di bantalan.
-- **Power tarik-lepas** — bar di kiri berisi gambar stik, sejajar & sama panjang dengan strip bidik halus: tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
+- **Power tarik-lepas** — bar stik di kolom kanan (setengah tinggi layar, di bawah tombol efek): tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.
 - **Warna & sisa bola** tampil di samping nama tiap pemain di daftar giliran (bulat merah-biru = meja masih terbuka, bola hitam "8" = tinggal bola 8). Peringatan merah muncul di atas bila bidikan mengenai bola lawan lebih dulu.
 - **Bola di tangan** — saat pukulan pembuka (di daerah kepala) atau setelah lawan foul: kamera pindah ke atas, geser bola putih ke tempat yang sah, lalu **Selesai** (langsung membungkuk siap menembak).
 
 Aturan (sederhana): meja terbuka sampai ada yang memasukkan bola — pemain yang **pertama memasukkan bola mengunci warna itu**, lawan mendapat warna lainnya. Masukkan bolamu untuk terus memukul. **Foul** bila bola putih masuk, tidak mengenai bola apa pun, atau lebih dulu mengenai bola lawan / bola 8 → lawan mendapat bola di tangan. Setelah warnamu habis, masukkan **bola 8** (tanpa sebut lubang) untuk menang; bola 8 masuk lebih cepat atau sambil foul = kalah. Bola 8 yang masuk saat pukulan pembuka dikembalikan ke titik kaki. Waktu bidik 45 detik; bila habis, pukulan dilakukan otomatis.
+
+**Lubang & bantalan akurat** — lubang berupa lubang 3D sungguhan (bukan gambar hitam) dengan **keranjang jaring** di bawahnya: bola yang masuk jatuh ke keranjang lubang itu dan tetap terlihat di sana. Bantalan dan *jaw* (sudut miring di mulut lubang) dihitung sebagai segmen garis dengan ujung membulat, sehingga bola yang menyentuh bantalan atau tepi mulut lubang memantul dengan benar; bola baru masuk setelah melewati garis mulut lubang.
 
 Semua perangkat mensimulasikan setiap pukulan sendiri dari posisi & parameter pukulan yang sama (fisika memakai operasi yang hasilnya identik di semua perangkat), jadi gerak bola mulus tanpa mengirim posisi bola terus-menerus; bandar tetap menetapkan hasil resminya.
 
@@ -114,8 +116,12 @@ Fisika bola dihitung oleh pembuat pertandingan (`sb` 20×/detik); pemain lain me
 Tekan tombol **mikrofon** (atau `V`) untuk bicara. Semua pemain otomatis bisa *mendengar* pemain yang bicara dalam radius ±26 m (maks. 8 orang terdekat). Ikon mikrofon hijau muncul di atas kepala pemain yang sedang bicara.
 
 - Audio mengalir **langsung antar perangkat** (WebRTC peer-to-peer); jaringan game hanya dipakai untuk bertukar sinyal awal.
-- Memakai **server STUN publik Google** (gratis, tanpa akun) untuk menemukan alamat. **Tidak ada server TURN**, jadi pada sebagian jaringan dengan NAT ketat (beberapa operator seluler, Wi‑Fi kantor/sekolah) suara mungkin tidak tersambung — fitur lain tetap normal.
+- Memakai **server STUN publik Google** (gratis, tanpa akun) untuk menemukan alamat, ditambah server **TURN** bila dikonfigurasi (lihat *Server TURN* di bawah). Tanpa TURN, pada sebagian jaringan dengan NAT ketat (beberapa operator seluler, Wi‑Fi kantor/sekolah) suara mungkin tidak tersambung.
 - Butuh HTTPS (GitHub Pages sudah HTTPS) dan izin mikrofon.
+
+## Pesan suara
+
+**Tahan** tombol rekam (ikon gelombang suara, di sebelah mikrofon; di meja game ada di bawah gear) untuk merekam, **lepas** untuk mengirim. Rekaman (maks. 15 detik) langsung diputar untuk dirimu dan semua pemain di room, ikon bicara muncul di atas kepala pengirim, dan tercatat di chat dengan tombol putar ulang. Pertama kali dipakai, browser meminta izin mikrofon.
 
 ## Pemain AFK
 
@@ -126,7 +132,7 @@ Pemain yang tidak menyentuh kontrol selama **45 detik** mendapat peringatan "Mas
 Game online lewat GitHub Pages: **https://rifkilabbaik.github.io/Mabarin/**
 
 1. Buka link di PC atau HP, isi nama & atur karakter.
-2. **Masuk Dunia Publik** → semua pemain masuk room yang sama. Atau **Buat Room Privat** → menu → Undang ke room untuk membagikan link (`...#r=RXXXX`).
+2. **Masuk Dunia Publik** → semua pemain masuk room yang sama. Link undangan dari Dunia Publik (`...#r=RPUBLIK`) membawa teman ke dunia publik yang sama. Atau **Buat Room Privat** → menu → Undang ke room untuk membagikan link (`...#r=RXXXX`).
 3. Di HP, pilih "Tambahkan ke Layar Utama" / "Install app" untuk memasang sebagai aplikasi.
 
 ### Deploy otomatis (GitHub Pages)
@@ -140,15 +146,27 @@ Jika Source masih **Deploy from a branch**, GitHub juga menerbitkan `index.html`
 
 Multiplayer memakai **Trystero** (`src/net/P2PNetwork.js`):
 
-1. **Perkenalan** — pemain menemukan satu sama lain lewat puluhan **relay Nostr publik** yang gratis (pesan perkenalan dienkripsi). Tidak perlu akun, API key, atau kartu kredit, dan tidak ada kuota bulanan.
+1. **Perkenalan** — pemain menemukan satu sama lain lewat **11 relay Nostr publik** yang gratis (pesan perkenalan dienkripsi): 5 relay pilihan lama (agar tetap cocok dengan versi sebelumnya) + relay besar dari daftar yang sudah diuji Trystero. Banyak relay sekaligus membuat pemain tetap punya relay bersama walau sebagian relay mati atau diblokir operator internet. Tidak perlu akun, API key, atau kartu kredit, dan tidak ada kuota bulanan.
 2. **Bermain** — setelah tersambung, posisi, chat, game meja, olahraga, dan suara mengalir **langsung antar browser** (WebRTC), tidak lewat server mana pun.
 
 Batasan yang perlu diketahui:
 
 - **Maks. 20 pemain per room** (`src/config.js` → `maxPlayersPerRoom`). Dunia Publik yang penuh otomatis pindah ke *publik-2*, *publik-3*, dst. Room ramai memakai jaringan bertingkat (`scale()`) agar HP tidak kewalahan.
-- **Jaringan sangat ketat** (sebagian operator seluler / Wi‑Fi kantor-sekolah dengan NAT simetris) kadang tidak bisa tersambung langsung karena tidak ada server TURN gratis tanpa akun. Bila teman tidak terlihat, coba jaringan lain (mis. Wi‑Fi ⇄ data seluler).
+- **Jaringan sangat ketat** (sebagian operator seluler / Wi‑Fi kantor-sekolah dengan NAT simetris/CGNAT) kadang tidak bisa tersambung langsung. Game memberi tahu bila ini terjadi. Solusinya server **TURN** (jalur cadangan) — lihat di bawah. Tanpa TURN, coba jaringan lain (mis. Wi‑Fi ⇄ data seluler).
 - **Host** (penyimpan riwayat chat & pengeluar pemain AFK) = pemain yang paling dulu masuk; otomatis pindah bila ia keluar. **Riwayat chat** hilang bila semua pemain keluar.
-- Relay publik dikelola komunitas Nostr; Trystero memakai beberapa sekaligus, jadi satu relay mati tidak masalah.
+- Relay publik dikelola komunitas Nostr; game memakai 11 sekaligus, jadi beberapa relay mati tidak masalah. Bila dua pemain tidak punya relay bersama, pemain ketiga yang tersambung ke keduanya ikut menjembatani.
+
+#### Server TURN (opsional, disarankan untuk pemain data seluler)
+
+Daftar layanan TURN gratis (mis. Metered Open Relay atau ExpressTURN), lalu isi **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Isi |
+|---|---|
+| `TURN_URLS` | alamat TURN dipisah koma, mis. `turn:host:80,turns:host:443?transport=tcp` |
+| `TURN_USERNAME`, `TURN_CREDENTIAL` | nama pengguna & kata sandi TURN |
+| `TURN_API` | *(alternatif)* URL yang mengembalikan daftar `iceServers` JSON, mis. endpoint kredensial Metered |
+
+Workflow deploy membaca secret ini saat build (`VITE_TURN_*`) dan dipakai untuk koneksi game & voice chat. Catatan: kredensial TURN ikut terkirim ke browser pemain (semua klien butuh), jadi gunakan akun gratis khusus game ini.
 
 ## Pengembangan
 
@@ -179,6 +197,7 @@ Tiap klien mensimulasikan karakternya sendiri (client-authoritative) lalu menyia
 | `chat`, `act`, `bonk` (RPC) | pesan chat, animasi aksi, bonk | P2P |
 | `cg`, `cg-inv`, `sp-a`, `sp-inv`, `sp-tk` (RPC) | aksi & undangan game meja / lapangan, sleding | P2P |
 | `vs` (RPC) | sinyal WebRTC voice chat (offer/answer) | P2P |
+| `vn` (RPC) | pesan suara (audio terkompresi, maks. 15 detik) | P2P |
 | `chatlog` (room state, ditulis host) | 50 pesan terakhir | P2P |
 
 Pemain lain di-render dengan **snapshot interpolation** (jeda 120 ms) memakai cap waktu pengirim.

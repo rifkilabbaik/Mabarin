@@ -8,6 +8,32 @@ import { CONFIG } from '../config.js';
 
 const P = CONFIG.p2p;
 
+// Relay sinyal (Nostr). Lima relay pertama = pilihan otomatis Trystero untuk appId ini pada versi
+// sebelumnya (tetap dipakai supaya pemain yang masih memakai versi lama tetap bisa bertemu).
+// Ditambah relay besar dari daftar yang sudah diuji Trystero: bila sebagian relay mati atau diblokir
+// operator internet, pemain masih punya relay bersama untuk saling menemukan.
+const RELAYS = [
+  'wss://relay.masize.com',
+  'wss://nostr.liberty.fans',
+  'wss://nostr.sathoarder.com',
+  'wss://relay.notoshi.win',
+  'wss://nostr-01.yakihonne.com',
+  'wss://relay.primal.net',
+  'wss://relay.nostr.net',
+  'wss://relay.snort.social',
+  'wss://relay.ditto.pub',
+  'wss://nostr-pub.wellorder.net',
+  'wss://yabu.me',
+];
+
+/** Kode room dunia publik: "PUBLIK" (shard 1) atau "PUBLIK-2", "PUBLIK-3", ... → nomor shard (0 = bukan publik). */
+export function publicShardOf(code) {
+  const m = /^PUBLIK(?:-(\d+))?$/i.exec(String(code || ''));
+  if (!m) return 0;
+  const n = Number(m[1] || 1);
+  return n >= 1 && n <= P.publicShards ? n : 1;
+}
+
 /**
  * mode:
  *  - 'public'  : dunia publik (room "publik-1"; bila penuh pindah ke "publik-2", dst.)
@@ -15,19 +41,31 @@ const P = CONFIG.p2p;
  *  - 'invite'  : gabung room dari link (#r=KODE)
  */
 export async function connectP2P({ mode }) {
-  const T = await import('trystero');
+  const [T, turn] = await Promise.all([import('trystero'), loadTurnServers()]);
+  let code = mode === 'invite' ? getInviteRoomFromUrl() : null;
+  let firstShard = 1;
+  if (mode === 'invite') {
+    if (!code) throw new Error('NO_ROOM_CODE');
+    // link undangan dari dunia publik (#r=RPUBLIK / #r=RPUBLIK-2) → masuk ke dunia publik yang sama,
+    // bukan ke room privat bernama "PUBLIK"
+    const shard = publicShardOf(code);
+    if (shard) {
+      mode = 'public';
+      firstShard = shard;
+    }
+  }
   if (mode !== 'invite') clearRoomHash();
   if (mode === 'public') {
-    for (let shard = 1; shard <= P.publicShards; shard++) {
-      const net = await join(T, `publik-${shard}`, { isPublic: true, roomCode: shard === 1 ? 'PUBLIK' : `PUBLIK-${shard}` });
+    const order = [firstShard, ...Array.from({ length: P.publicShards }, (_, i) => i + 1).filter((n) => n !== firstShard)];
+    for (const shard of order) {
+      const net = await join(T, `publik-${shard}`, { isPublic: true, roomCode: shard === 1 ? 'PUBLIK' : `PUBLIK-${shard}` }, turn);
       if (!net.full) return net;
       net.leave();
     }
     throw new Error('ROOM_LIMIT_EXCEEDED');
   }
-  const code = mode === 'invite' ? getInviteRoomFromUrl() : randomCode();
-  if (!code) throw new Error('NO_ROOM_CODE');
-  const net = await join(T, `room-${code.toUpperCase()}`, { isPublic: false, roomCode: code.toUpperCase() });
+  if (!code) code = randomCode();
+  const net = await join(T, `room-${code.toUpperCase()}`, { isPublic: false, roomCode: code.toUpperCase() }, turn);
   if (net.full) {
     net.leave();
     throw new Error('ROOM_LIMIT_EXCEEDED');
@@ -36,19 +74,22 @@ export async function connectP2P({ mode }) {
   return net;
 }
 
-async function join(T, roomId, info) {
-  const relayUrls = testRelayUrls();
+async function join(T, roomId, info, turn) {
+  const relayUrls = testRelayUrls() || RELAYS;
   const room = T.joinRoom(
     {
       appId: P.appId,
       identity: 'none', // tiap tab = pemain sendiri
       maxUsers: CONFIG.maxPlayersPerRoom,
       use: [T.scale()], // room ramai: otomatis jaringan bertingkat agar HP tidak kewalahan
-      ...(relayUrls ? { relayConfig: { urls: relayUrls, redundancy: relayUrls.length } } : {}),
+      relayConfig: { urls: relayUrls, redundancy: relayUrls.length },
+      // TURN: jalur cadangan saat koneksi langsung diblokir jaringan (mis. data seluler/CGNAT)
+      ...(turn ? { turnConfig: turn } : {}),
     },
     roomId
   );
   const net = createMeshNetwork(room, info);
+  net.turn = turn || []; // dipakai juga oleh voice chat
   await withTimeout(room.ready, 15000, 'IDENTITY_FAILED');
   const self = await room.getSelf();
   net.me.id = self.peerId;
@@ -75,6 +116,7 @@ function createMeshNetwork(room, { isPublic, roomCode }) {
   const others = new Map();
   const joinCallbacks = [];
   const disconnectCallbacks = [];
+  const problemCallbacks = [];
   const eventListeners = new Map();
   const roomState = {};
   let left = false;
@@ -164,7 +206,13 @@ function createMeshNetwork(room, { isPublic, roomCode }) {
   room.onPeerLeave(({ peerId }) => remove(peerId));
   room.onError((e) => {
     if (e.code === 'room-full') net.full = true;
-    else console.warn('[p2p]', e.code, e.message);
+    else {
+      console.warn('[p2p]', e.code, e.message);
+      if (e.code === 'peer-connect-failed') {
+        net.failedPeers.add(e.peerId);
+        problemCallbacks.forEach((cb) => cb({ code: e.code, turn: !!e.turnConfigured }));
+      }
+    }
   });
 
   actState.onMessage((d, { peerId }) => {
@@ -200,6 +248,12 @@ function createMeshNetwork(room, { isPublic, roomCode }) {
     full: false,
     me,
     relays: () => 0,
+    failedPeers: new Set(),
+    /** Masalah koneksi ke pemain lain (mis. jaringan memblokir koneksi langsung). */
+    onProblem(cb) {
+      problemCallbacks.push(cb);
+      return () => {};
+    },
     peerCount: () => others.size,
     inviteUrl: () => `${location.origin}${location.pathname}#r=R${roomCode}`,
     onPlayerJoin(cb) {
@@ -237,6 +291,30 @@ function createMeshNetwork(room, { isPublic, roomCode }) {
   };
   window.addEventListener('pagehide', () => net.leave());
   return net;
+}
+
+/**
+ * Server TURN opsional (diisi saat build lewat secret repo, lihat README):
+ *  - VITE_TURN_URLS (pisah koma) + VITE_TURN_USERNAME + VITE_TURN_CREDENTIAL, dan/atau
+ *  - VITE_TURN_API: URL yang mengembalikan daftar iceServers JSON (mis. endpoint kredensial Metered).
+ */
+async function loadTurnServers() {
+  const env = import.meta.env || {};
+  const out = [];
+  const urls = String(env.VITE_TURN_URLS || '').split(',').map((u) => u.trim()).filter((u) => /^turns?:/i.test(u));
+  if (urls.length) out.push({ urls, username: env.VITE_TURN_USERNAME || '', credential: env.VITE_TURN_CREDENTIAL || '' });
+  if (env.VITE_TURN_API) {
+    try {
+      const list = await withTimeout(fetch(env.VITE_TURN_API).then((r) => r.json()), 5000, 'TURN_TIMEOUT');
+      for (const s of Array.isArray(list) ? list : list?.iceServers || []) {
+        const u = [].concat(s?.urls || []).filter((x) => /^turns?:/i.test(x));
+        if (u.length) out.push({ urls: u, username: s.username || '', credential: s.credential || '' });
+      }
+    } catch (e) {
+      console.warn('[p2p] TURN tidak tersedia', e?.message || e);
+    }
+  }
+  return out.length ? out : null;
 }
 
 function openRelays(T) {
