@@ -1,14 +1,14 @@
 # Mabarin
 
 Game dunia terbuka **multiplayer** berbasis web (PWA) dengan **Three.js** + jaringan **peer-to-peer** ([Trystero](https://github.com/dmotz/trystero)).
-Art style **low poly** (flat shading) dengan karakter **chibi** yang bisa dikustomisasi.
+Art style **low poly** (flat shading) dengan karakter **pria / perempuan** yang bisa dikustomisasi.
 Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitHub Pages**, pemain saling tersambung langsung (WebRTC).
 
 ## Fitur
 
 - **Pulau low poly prosedural** (seed tetap, dunia identik di semua pemain): bukit, gunung bersalju, pantai, laut beranimasi, hutan, api unggun, tenda, plaza meja game, dan **kompleks olahraga**.
-- **Karakter chibi** dengan animasi jalan, lari, lompat, berenang, duduk, dash, sleding, tendang, pukul raket. Kepala mengikuti arah pandang saat duduk di meja game.
-- **Kustomisasi karakter**: bentuk tubuh (normal / tinggi / pendek / gempal), warna kulit, 8 gaya rambut + warna, 4 gaya mata, atasan / bawahan / sepatu + warna, topi, kacamata, ransel / sayap / jubah, syal / dasi.
+- **Karakter low poly berproporsi nyata** (model *Character Base*, lihat Kredit) yang di-rig otomatis: pinggul, torso, kepala, bahu, **siku**, tangan, paha, dan **lutut**. Animasi jalan & lari (lutut dan siku menekuk), lompat, berenang, duduk, dash, sleding, tendang, pukul raket, membungkuk membidik pool (menekuk di pinggul), memegang kartu. Kepala mengikuti arah pandang saat duduk di meja game.
+- **Kustomisasi karakter**: **jenis kelamin (pria / perempuan)** — versi perempuan dibentuk dari model yang sama (bahu lebih sempit, pinggang ramping, pinggul lebih lebar, dada, lengan & rahang lebih ramping, sedikit lebih pendek) — bentuk tubuh (normal / tinggi / pendek / gemuk), warna kulit, 8 gaya rambut + warna, 4 gaya mata (+ alis & mulut), atasan / bawahan / sepatu + warna, topi, kacamata, kumis, ransel / sayap / jubah, syal / dasi. Semua pakaian, rambut, topi, dan aksesoris menyesuaikan ukuran kepala & badan tiap bentuk tubuh; batas pakaian (lengan baju, pinggang, celana pendek, sepatu bot, kerah) digambar tegas per piksel.
 - **Hotbar properti**: Tangan, Palu Bonk, Pedang Kayu, Pistol Air, Kursi, Gitar. Senjata bersifat "bonk" (terpental & pusing, tanpa nyawa). Pemain yang sedang main game tidak bisa di-bonk.
 - **Game meja**: Kartu Kilat, Catur, Dam, Ludo, Empat Sejajar & Mancala dengan tiga pilihan kamera (kepala, bebas, atas).
 - **Pool** di meja biliar area olahraga: tampilan POV, berjalan memutari meja saat membidik.
@@ -211,7 +211,10 @@ src/
   main.js                    loop game, alur menu ke bermain, chat & riwayat, AFK
   config.js                  angka penting (dunia, kecepatan, kamera, jaringan, lapangan, AFK)
   world/                     terrain, air, langit, props, collider, kursi, semprotan air
-  character/Character.js     karakter chibi (mesh + animasi + item + kepala mengikuti pandangan)
+  character/Character.js     karakter (tulang & skinning, rambut/topi/wajah/pakaian, animasi, item)
+  character/bodyModel.js     rig otomatis model dasar: bagian tubuh, bobot tulang, morf pria/perempuan
+                             & bentuk tubuh, ukuran kepala/badan, shader warna pakaian
+  character/baseMesh.js      data mesh model dasar (dibuat oleh scripts/convert-character.mjs)
   character/looks.js         pilihan kustomisasi + validasi
   character/items.js         item hotbar + raket + kursi
   controls/                  keyboard, Pointer Lock, sentuh, joystick
@@ -232,10 +235,20 @@ src/
   audio/                     efek suara & musik lofi (Web Audio)
   ui/                        layar awal, HUD, chat, peta, hotbar, kustomisasi, menu game, ikon SVG
 public/                      favicon & ikon PWA
+assets/character-base.glb    model karakter dasar asli (sumber baseMesh.js)
+scripts/convert-character.mjs  konversi GLB → src/character/baseMesh.js
 ```
+
+### Model karakter
+
+Model asli ada di `assets/character-base.glb` (mesh statis pose A, tanpa tulang). Jalankan `node scripts/convert-character.mjs` untuk mengubahnya menjadi `src/character/baseMesh.js` (vertex dilas, kaki di y = 0). Saat game dimuat, `bodyModel.js` menyamakan arah segitiga (sebagian bagian model asli terbalik), menentukan bagian tubuh & bobot tulang tiap vertex, lalu membentuk versi pria/perempuan dan tiap bentuk tubuh. Grup Three.js karakter (pinggul, torso, kepala, bahu, siku, tangan, paha, lutut) langsung dipakai sebagai tulang `SkinnedMesh`.
 
 ### Tips kustomisasi
 
 - Ganti `world.seed` di `src/config.js` untuk pulau yang berbeda (lapangan ikut diratakan di `sports.zone`).
 - Kualitas grafis otomatis: HP/tablet memakai mode `low`. Paksa dengan `?q=high` atau `?q=low` di URL.
 - Debug di console browser: `window.__game`.
+
+## Kredit
+
+- Model karakter dasar: **"Character Base" oleh madtrollstudio** ([Poly Pizza](https://poly.pizza/m/qbDLeTtb8K)), dipakai sebagai dasar semua karakter (di-rig, dibentuk ulang untuk versi perempuan, dan diberi pakaian secara prosedural). Ikuti lisensi yang tercantum di halaman model tersebut (umumnya cantumkan nama pembuat).

@@ -1,8 +1,12 @@
-// Pilihan kustomisasi karakter chibi. Semua klien memakai daftar yang sama,
+// Pilihan kustomisasi karakter. Semua klien memakai daftar yang sama,
 // jadi yang dikirim lewat jaringan cukup id-nya saja.
 import { CONFIG } from '../config.js';
 
 export const LOOK_OPTIONS = {
+  gender: [
+    { id: 'm', label: 'Pria' },
+    { id: 'f', label: 'Perempuan' },
+  ],
   body: [
     { id: 'normal', label: 'Normal' },
     { id: 'tall', label: 'Tinggi' },
@@ -75,6 +79,7 @@ export const LOOK_OPTIONS = {
 };
 
 export const DEFAULT_LOOK = {
+  gender: 'm',
   body: 'normal',
   skin: '#f5c9a0',
   hair: 'spiky',
@@ -111,6 +116,7 @@ export function randomLook(rand = Math.random) {
   };
   const maybe = (key, p) => (rand() < p ? 'none' : pick(key));
   return {
+    gender: pick('gender'),
     body: pick('body'),
     skin: pick('skin'),
     hair: pick('hair'),
@@ -125,28 +131,5 @@ export function randomLook(rand = Math.random) {
     face: maybe('face', 0.65),
     back: maybe('back', 0.65),
     neck: maybe('neck', 0.65),
-  };
-}
-
-// Proporsi chibi per bentuk tubuh (satuan dunia, kaki di y = 0).
-const BASE = {
-  normal: { leg: 0.42, torsoH: 0.4, torsoR: 0.21, headR: 0.4, arm: 0.36, limb: 0.075 },
-  tall: { leg: 0.56, torsoH: 0.47, torsoR: 0.2, headR: 0.38, arm: 0.44, limb: 0.072 },
-  short: { leg: 0.3, torsoH: 0.33, torsoR: 0.21, headR: 0.41, arm: 0.3, limb: 0.072 },
-  chubby: { leg: 0.4, torsoH: 0.41, torsoR: 0.3, headR: 0.41, arm: 0.36, limb: 0.095 },
-};
-export const BODY_DIMS = {};
-for (const [k, b] of Object.entries(BASE)) {
-  const hipY = b.leg + 0.06;
-  const neck = b.torsoH + 0.02; // dari pinggul ke leher
-  const headC = neck + b.headR * 0.9; // pusat kepala dari pinggul
-  BODY_DIMS[k] = {
-    ...b,
-    hipY,
-    neck,
-    headC,
-    height: hipY + headC + b.headR,
-    faceY: hipY + headC, // tinggi mata saat berdiri
-    seatedEye: headC + 0.06, // tinggi mata di atas dudukan saat duduk
   };
 }
