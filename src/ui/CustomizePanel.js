@@ -1,14 +1,7 @@
 import { LOOK_OPTIONS, randomLook, sanitizeLook } from '../character/looks.js';
 
 const TABS = [
-  {
-    label: 'Tubuh',
-    sections: [
-      { key: 'gender', label: 'Jenis kelamin' },
-      { key: 'body', label: 'Bentuk tubuh' },
-      { key: 'skin', label: 'Warna kulit', colors: LOOK_OPTIONS.skin },
-    ],
-  },
+  { label: 'Tubuh', sections: [{ key: 'body', label: 'Bentuk tubuh' }, { key: 'skin', label: 'Warna kulit', colors: LOOK_OPTIONS.skin }] },
   { label: 'Rambut', sections: [{ key: 'hair', label: 'Gaya rambut' }, { key: 'hairColor', label: 'Warna rambut', colors: LOOK_OPTIONS.hairColor }] },
   { label: 'Wajah', sections: [{ key: 'eyes', label: 'Mata' }, { key: 'face', label: 'Aksesoris wajah' }] },
   {

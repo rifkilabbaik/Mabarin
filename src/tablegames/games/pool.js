@@ -738,8 +738,7 @@ export function stepAround(from, to, step) {
 // ======================================================================
 const $ = (id) => document.getElementById(id);
 
-const EYE_STAND = 1.62; // berdiri: sedikit di atas kepala agar meja terlihat luas
-const EYE_WALK = 1.36; // berjalan: setinggi mata
+const EYE_STAND = 1.62; // berdiri & berjalan: setinggi mata orang dewasa (sedikit di atas kepala chibi)
 const WALK_SPEED = 1.5;
 const KEEP = 0.34; // jarak minimal dari tepi kain (tidak bisa menembus meja)
 const BASE_FOV = 62;
@@ -1149,9 +1148,10 @@ class PoolControls {
     // bidikan untuk tampilan: stik, garis bantu & bola bayangan saat membungkuk dan saat berdiri
     const local = this.ctx.local();
     const c = this.place || cue;
-    const showAim = this.mode === 'bend' || this.mode === 'stand' || this.placing;
+    // stik, garis bantu & bola bayangan hanya saat membungkuk (sebelum membungkuk tidak terlihat)
+    const showAim = this.mode === 'bend' || this.placing;
     if (r) {
-      const guideOk = !this.placing && (this.canAim || (this.mode === 'stand' && this.bendAllowed(m)));
+      const guideOk = !this.placing && this.canAim;
       r.aimView = mine && c && (m.stage === 'aim' || m.stage === 'place') && showAim
         ? { cx: c.x, cz: c.z, dx: Math.cos(this.aim), dz: Math.sin(this.aim), pull: this.power, place: this.place, placing: this.placing, guides: guideOk ? this.guides(m, c) : null }
         : null;
@@ -1288,7 +1288,7 @@ class PoolControls {
       return { ex, ey, ez, yaw, pitch };
     }
     // berdiri / berjalan: dari mata karakter, menoleh bebas
-    const eye = (this.mode === 'walk' ? EYE_WALK : EYE_STAND) + t.ground - t.y;
+    const eye = EYE_STAND + t.ground - t.y;
     return { ex: this.pos?.x || 0, ey: eye, ez: this.pos?.z || 0, yaw: this.look.yaw, pitch: this.look.pitch };
   }
 

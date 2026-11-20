@@ -256,7 +256,8 @@ export class LocalPlayer {
 
     // --- rotasi karakter mengikuti arah gerak ---
     this.speed = Math.hypot(vel.x, vel.z);
-    if (this.speed > 0.4 && this.slideT <= 0) {
+    if (this.lockFacing != null) this.facing = this.lockFacing; // orang pertama: badan menghadap arah kamera
+    else if (this.speed > 0.4 && this.slideT <= 0) {
       this.facing = dampAngle(this.facing, Math.atan2(vel.x, vel.z), 12, dt);
     }
 

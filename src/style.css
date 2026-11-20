@@ -1661,3 +1661,6 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
   }
   .pl-joy { width: 108px; height: 108px; left: calc(18px + var(--safe-l)); bottom: calc(14px + var(--safe-b)); }
 }
+
+/* tombol ganti kamera (orang pertama aktif) */
+#btn-view.on { background: rgba(47, 128, 237, 0.85); color: #fff; }

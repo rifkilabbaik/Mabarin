@@ -74,7 +74,8 @@ export class RemotePlayer {
     this.offset = this.offset === null || Math.abs(min - this.offset) > 1000 ? min : lerp(this.offset, min, 0.1);
   }
 
-  update(dt, now) {
+  /** `dist2`: jarak kuadrat ke pemain lokal — pemain jauh dianimasikan lebih jarang (hemat CPU). */
+  update(dt, now, dist2 = 0) {
     this.readProfile();
     this.readItem();
     this.readMovement(now);
@@ -139,7 +140,13 @@ export class RemotePlayer {
     root.visible = true;
     root.position.set(r.x, r.y, r.z);
     root.rotation.y = r.ry;
-    this.character.animate(dt, {
+    const every = dist2 > 45 * 45 ? 3 : dist2 > 25 * 25 ? 2 : 1;
+    this.animAcc = (this.animAcc || 0) + dt;
+    this.animN = ((this.animN || 0) + 1) % every;
+    if (this.animN !== 0) return;
+    const adt = Math.min(this.animAcc, 0.1);
+    this.animAcc = 0;
+    this.character.animate(adt, {
       speed: r.spd,
       grounded: (r.flags & FLAG_GROUNDED) !== 0,
       swimming: (r.flags & FLAG_SWIM) !== 0,

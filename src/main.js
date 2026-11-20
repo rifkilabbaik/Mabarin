@@ -142,7 +142,30 @@ const input = new InputManager({
   onDash: () => state === 'playing' && input.enabled && sports.dash(),
   onSlide: () => state === 'playing' && input.enabled && sports.slide(),
   onVoice: () => state === 'playing' && voice.toggle(),
+  onView: () => state === 'playing' && toggleView(),
 });
+
+// ---------- Kamera orang ketiga / orang pertama ----------
+let viewFP = false;
+try {
+  viewFP = localStorage.getItem('mb-view') === 'fp';
+} catch {}
+function setView(fp, quiet = false) {
+  viewFP = fp;
+  camRig.setFirstPerson(fp);
+  $('btn-view').classList.toggle('on', fp);
+  $('btn-view').setAttribute('aria-pressed', String(fp));
+  try {
+    localStorage.setItem('mb-view', fp ? 'fp' : 'tp');
+  } catch {}
+  if (!quiet) ui.toast(fp ? 'Kamera orang pertama' : 'Kamera orang ketiga');
+}
+function toggleView() {
+  if (cards.inTable) return;
+  setView(!viewFP);
+}
+$('btn-view').addEventListener('click', () => state === 'playing' && toggleView());
+const _eyeV = new THREE.Vector3();
 
 // Voice chat berbasis jarak (WebRTC)
 const voice = new VoiceChat({ audio, ui, button: $('btn-mic') });
@@ -263,6 +286,7 @@ async function startGame(mode, profile) {
   camRig.yaw = local.facing + Math.PI;
   camRig.pitch = 0.3;
   camRig.initialized = false;
+  setView(viewFP, true);
   items.attach(local, net, remotes);
   cards.attach({ net, local, remotes, profile: () => myProfile });
   sports.attach({ net, local, remotes, profile: () => myProfile });
@@ -546,11 +570,21 @@ function frame(timestamp) {
     if (cards.inTable) cards.applyLook(look);
     else camRig.applyInput(look);
     if (customize.isOpen && !local.sitting) local.facing = camRig.yaw; // hadap kamera saat ganti baju
+    // orang pertama (kecuali saat ganti baju): kamera di mata, badan menghadap arah kamera, kepala sendiri disembunyikan
+    const fp = viewFP && !customize.isOpen && !cards.inTable;
+    if (camRig.firstPerson !== fp) camRig.setFirstPerson(fp);
+    local.lockFacing = fp && !local.sitting && !local.pin ? camRig.yaw + Math.PI : null;
     local.update(dt, input, camRig);
+    if (!cards.inTable) {
+      const ch = local.character;
+      ch.head.getWorldPosition(_eyeV);
+      camRig.eyeHeight = _eyeV.y + ch.dims.headR * 0.95 - local.position.y;
+      ch.head.visible = camRig.fpBlend < 0.55;
+    }
     sports.update(dt);
     if (cards.inTable) cards.updateCamera(dt);
     else camRig.update(dt, local.position);
-    for (const rp of remotes.values()) rp.update(dt, now);
+    for (const rp of remotes.values()) rp.update(dt, now, rp.character.root.position.distanceToSquared(local.position));
     items.update(dt, input.mode === 'touch');
     voice.update(dt);
     updateAfk(now);
