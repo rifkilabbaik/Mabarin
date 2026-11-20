@@ -137,6 +137,10 @@ export class UI {
 
     // Menu utama (ikon garis tiga)
     $('btn-menu').addEventListener('click', () => this.toggleMenu());
+    // HUD dunia gaya meja: tombol sistem dipindah ke kolom kanan & baki gear
+    this.placeWorldButtons();
+    $('w-gear').addEventListener('click', () => this.setWorldTray(!this.worldTray));
+    $('btn-games').addEventListener('click', () => this.setWorldTray(false));
     $('m-customize').addEventListener('click', () => {
       this.toggleMenu(false);
       this.onCustomize?.();
@@ -273,8 +277,22 @@ export class UI {
     const pill = $('room-pill');
     pill.classList.toggle('offline', net.kind === 'local');
     $('room-label').textContent =
-      net.kind === 'local' ? 'Offline' : net.isPublic ? 'Dunia Publik' : `Room ${net.roomCode}`;
+      net.kind === 'local' ? 'Offline' : net.isPublic ? 'Publik' : net.roomCode;
     $('btn-invite').hidden = net.kind === 'local';
+  }
+
+  /** Kolom kanan (rekam, chat, kamera) & baki gear (mikrofon, game, menu). Dipanggil lagi setelah keluar dari meja. */
+  placeWorldButtons() {
+    for (const id of ['btn-rec', 'btn-chat', 'btn-view']) $('w-side').appendChild($(id));
+    for (const id of ['btn-mic', 'btn-games', 'btn-menu']) $('w-tray').appendChild($(id));
+  }
+
+  setWorldTray(on) {
+    this.worldTray = on;
+    $('hud').classList.toggle('tray-open', on);
+    $('w-gear').classList.toggle('on', on);
+    $('w-gear').setAttribute('aria-expanded', String(on));
+    if (!on) this.toggleMenu(false);
   }
 
   setConnected(ok) {

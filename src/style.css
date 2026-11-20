@@ -1664,3 +1664,43 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
 
 /* tombol ganti kamera (orang pertama aktif) */
 #btn-view.on { background: rgba(47, 128, 237, 0.85); color: #fff; }
+
+/* ================= HUD dunia gaya meja (HUD B) =================
+   kiri: peta + info room ringkas · kanan: gear, di bawahnya rekam → chat → kamera; baki gear: mic, game, menu */
+#minimap-btn { left: calc(12px + var(--safe-l)); right: auto; top: calc(12px + var(--safe-t)); width: 120px; height: 120px; }
+body[data-input='touch'] #minimap-btn { left: calc(12px + var(--safe-l)); right: auto; top: calc(12px + var(--safe-t)); width: 88px; height: 88px; }
+.hud-top-left { top: calc(140px + var(--safe-t)); }
+body[data-input='touch'] .hud-top-left { top: calc(106px + var(--safe-t)); }
+#room-pill { font-size: 12px; padding: 4px 10px 4px 8px; gap: 5px; min-height: 0; height: 26px; }
+#room-pill .ico-sm { width: 13px; height: 13px; }
+#dock .dock-sep, #sys-btns { display: none !important; }
+body[data-input='touch'] #dock { display: none !important; }
+#w-gear {
+  position: absolute; top: calc(12px + var(--safe-t)); right: calc(12px + var(--safe-r));
+  width: 44px; height: 44px; min-height: 44px; border-radius: 50%; background: var(--hud-glass);
+  transition: transform 0.25s, background 0.2s;
+}
+#w-gear svg { fill: none; width: 24px; height: 24px; }
+#w-gear.on { background: #2f80ed; transform: rotate(60deg); }
+.w-side { position: absolute; top: calc(64px + var(--safe-t)); right: calc(12px + var(--safe-r)); display: flex; flex-direction: column; gap: 8px; }
+.w-side .icon-btn, .w-tray .icon-btn {
+  width: 44px; height: 44px; min-height: 44px; border-radius: 50%;
+  background: var(--hud-glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.w-tray {
+  position: absolute; top: calc(12px + var(--safe-t)); right: calc(64px + var(--safe-r));
+  display: flex; gap: 8px; opacity: 0; transform: translateX(10px); pointer-events: none !important;
+  transition: opacity 0.18s, transform 0.18s;
+}
+#hud.tray-open .w-tray { opacity: 1; transform: none; pointer-events: auto !important; }
+#hud .w-tray .icon-btn { pointer-events: none; }
+#hud.tray-open .w-tray .icon-btn { pointer-events: auto; }
+#hud-menu, body[data-input='touch'] #hud-menu { top: calc(64px + var(--safe-t)); bottom: auto; left: auto; right: calc(64px + var(--safe-r)); transform: none; }
+body[data-input='touch'] #chat { top: calc(140px + var(--safe-t)); width: min(300px, 44vw); }
+body[data-input='touch'] #chat-log { max-height: 24vh; }
+@media (max-height: 500px) {
+  #w-gear, .w-side .icon-btn, .w-tray .icon-btn { width: 40px; height: 40px; min-height: 40px; }
+  .w-side { top: calc(58px + var(--safe-t)); gap: 6px; }
+  .w-tray { right: calc(58px + var(--safe-r)); gap: 6px; }
+  #hud-menu, body[data-input='touch'] #hud-menu { top: calc(58px + var(--safe-t)); right: calc(58px + var(--safe-r)); }
+}

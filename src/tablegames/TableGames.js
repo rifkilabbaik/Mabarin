@@ -278,7 +278,11 @@ export class TableGames {
       // di bawah gear: rekam pesan suara, lalu chat; mikrofon & menu di baki gear
       for (const id of ['btn-rec', 'btn-chat']) $('cu-side').appendChild($(id));
       for (const id of ['btn-mic', 'btn-menu']) $('cu-tray').insertBefore($(id), $('cu-leave'));
-    } else for (const id of ['btn-mic', 'btn-rec', 'btn-chat', 'btn-games', 'btn-menu']) $('sys-btns').appendChild($(id));
+    } else {
+      // kembali ke HUD dunia: kolom kanan & baki gear
+      for (const id of ['btn-rec', 'btn-chat', 'btn-view']) $('w-side').appendChild($(id));
+      for (const id of ['btn-mic', 'btn-games', 'btn-menu']) $('w-tray').appendChild($(id));
+    }
   }
 
   get viewTop() {

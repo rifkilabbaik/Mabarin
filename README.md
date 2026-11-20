@@ -19,8 +19,8 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 
 ### Tampilan (HUD)
 
-- **PC**: satu *dock* di bawah layar berisi hotbar item + tombol mikrofon, rekam pesan suara, chat, game, dan menu; peta kecil di kanan atas.
-- **HP**: tombol sistem jadi satu kapsul di atas; tombol lompat & aksi sejajar di kanan bawah, tombol pilih item kecil di atasnya.
+- **Dunia (sama seperti di meja game)**: kiri atas **peta** + info room ringkas (Publik / kode room / Offline · jumlah pemain). Kanan atas tombol **gear**; di bawahnya **rekam pesan suara → chat → kamera** (orang pertama/ketiga). Ketuk gear untuk baki **mikrofon, game, menu**. PC: hotbar item di bawah tengah.
+- **HP**: tata letak yang sama; joystick di kiri bawah, tombol lompat & aksi di kanan bawah, tombol pilih item kecil di atasnya.
 - **Meja game**: layar bersih — hanya **daftar giliran** di kiri atas (ikon karakter, nama, jumlah kartu, hitung mundur pada pemain yang sedang giliran, arah urutan) dan tombol **gear** (bulat) di kanan atas. Di bawah gear berurutan tombol **rekam pesan suara** dan **chat**; ketuk gear untuk memunculkan mikrofon, menu, menyerah (game papan), dan keluar. Di bawahnya lagi ada **tombol kamera** untuk mengganti tampilan.
 
 - **iPhone/iPad**: Safari mengabaikan larangan zoom, jadi game memblokir cubit/ketuk-dua-kali yang memperbesar halaman dan mengembalikan skala ke normal setelah mengetik chat atau memutar HP.
