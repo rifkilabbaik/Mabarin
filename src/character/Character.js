@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { clamp, damp, lerp } from '../utils/math.js';
 import { createChatBubble, createNameTag, disposeSprite } from './labels.js';
 import { BODY_DIMS, DEFAULT_LOOK, sanitizeLook } from './looks.js';
 import { buildHeldItem } from './items.js';
 
 // ---------- Helper geometri berwarna (digabung jadi satu mesh per bagian tubuh) ----------
-const CHAR_MAT = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+const CHAR_MAT = new THREE.MeshLambertMaterial({ vertexColors: true }); // shading halus (tidak bersegi)
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const _s = new THREE.Vector3(), _p = new THREE.Vector3(), _c = new THREE.Color();
 
 function piece(geo, color, { pos = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
   const g = geo.index ? geo.toNonIndexed() : geo.clone();
   g.deleteAttribute('uv');
-  g.deleteAttribute('normal');
   _q.setFromEuler(_e.set(rot[0], rot[1], rot[2]));
   _m.compose(_p.set(pos[0], pos[1], pos[2]), _q, _s.set(scale[0], scale[1], scale[2]));
   g.applyMatrix4(_m);
@@ -32,8 +32,7 @@ function piece(geo, color, { pos = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1]
 function mergeGeo(pieces) {
   const g = mergeGeometries(pieces, false);
   pieces.forEach((p) => p.dispose());
-  g.computeVertexNormals();
-  return g;
+  return g; // normal bawaan tiap bentuk dipertahankan → permukaan halus
 }
 
 function meshOf(geo) {
@@ -78,9 +77,9 @@ function release(mesh) {
 }
 
 const shade = (hex, k) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexString();
-const Ico = (r, d = 0) => new THREE.IcosahedronGeometry(r, d);
-const Cyl = (rt, rb, h, s = 8) => new THREE.CylinderGeometry(rt, rb, h, s);
-const Box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+const Ico = (r) => new THREE.SphereGeometry(r, 18, 12); // bola halus (dulu ikosahedron bersegi)
+const Cyl = (rt, rb, h, s = 16) => new THREE.CylinderGeometry(rt, rb, h, s);
+const Box = (w, h, d) => new RoundedBoxGeometry(w, h, d, 3, Math.min(w, h, d) * 0.3); // sudut membulat
 
 // ---------- Kepala: wajah, rambut, topi, aksesoris wajah ----------
 function headPieces(look, d) {
@@ -93,13 +92,13 @@ function headPieces(look, d) {
   const ex = r * 0.33, ey = -r * 0.04, ez = r * 0.92;
   const black = '#1b1d29';
   for (const s of [-1, 1]) {
-    if (look.eyes === 'happy') P.push(piece(new THREE.TorusGeometry(0.06, 0.018, 4, 8, Math.PI), black, { pos: [s * ex, ey, ez] }));
-    else if (look.eyes === 'sleepy') P.push(piece(new THREE.CapsuleGeometry(0.026, 0.09, 2, 6), black, { pos: [s * ex, ey - 0.01, ez], rot: [0, 0, Math.PI / 2] }));
+    if (look.eyes === 'happy') P.push(piece(new THREE.TorusGeometry(0.06, 0.018, 8, 16, Math.PI), black, { pos: [s * ex, ey, ez] }));
+    else if (look.eyes === 'sleepy') P.push(piece(new THREE.CapsuleGeometry(0.026, 0.09, 4, 12), black, { pos: [s * ex, ey - 0.01, ez], rot: [0, 0, Math.PI / 2] }));
     else if (look.eyes === 'big') {
-      P.push(piece(new THREE.SphereGeometry(0.085, 8, 6), black, { pos: [s * ex, ey, ez - 0.01], scale: [1, 1.1, 0.5] }));
+      P.push(piece(new THREE.SphereGeometry(0.085, 16, 12), black, { pos: [s * ex, ey, ez - 0.01], scale: [1, 1.1, 0.5] }));
       P.push(piece(Ico(0.03, 0), '#ffffff', { pos: [s * ex + 0.025, ey + 0.04, ez + 0.035] }));
     } else {
-      P.push(piece(new THREE.CapsuleGeometry(0.05, 0.07, 2, 6), black, { pos: [s * ex, ey, ez - 0.01], scale: [1, 1, 0.6] }));
+      P.push(piece(new THREE.CapsuleGeometry(0.05, 0.07, 4, 12), black, { pos: [s * ex, ey, ez - 0.01], scale: [1, 1, 0.6] }));
       P.push(piece(Ico(0.02, 0), '#ffffff', { pos: [s * ex + 0.02, ey + 0.04, ez + 0.025] }));
     }
     P.push(piece(Ico(0.055, 0), '#ff8fa3', { pos: [s * r * 0.58, -r * 0.3, r * 0.78], scale: [1, 0.6, 0.45] }));
@@ -107,8 +106,8 @@ function headPieces(look, d) {
 
   // rambut (bagian atas disembunyikan bila memakai topi)
   const hc = look.hairColor, hat = look.hat !== 'none';
-  const cap = () => piece(new THREE.SphereGeometry(r * 1.06, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.42), hc, { pos: [0, 0.02, -0.01] });
-  const back = (thetaLen, rr = 1.08) => piece(new THREE.SphereGeometry(r * rr, 12, 7, Math.PI - 0.25, Math.PI + 0.5, 0, Math.PI * thetaLen), hc, { pos: [0, 0, -0.02] });
+  const cap = () => piece(new THREE.SphereGeometry(r * 1.06, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), hc, { pos: [0, 0.02, -0.01] });
+  const back = (thetaLen, rr = 1.08) => piece(new THREE.SphereGeometry(r * rr, 24, 14, Math.PI - 0.25, Math.PI + 0.5, 0, Math.PI * thetaLen), hc, { pos: [0, 0, -0.02] });
   let hairExtra = 0;
   switch (look.hair) {
     case 'spiky':
@@ -118,7 +117,7 @@ function headPieces(look, d) {
         for (const [th, ph] of spikes) {
           const n = new THREE.Vector3(Math.sin(th) * Math.sin(ph), Math.cos(th), Math.sin(th) * Math.cos(ph));
           const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
-          const g = piece(new THREE.ConeGeometry(0.11, 0.3, 4), hc, {});
+          const g = piece(new THREE.ConeGeometry(0.11, 0.3, 8), hc, {});
           g.applyQuaternion(q);
           g.translate(n.x * r * 0.98, n.y * r * 0.98, n.z * r * 0.98);
           P.push(g);
@@ -140,7 +139,7 @@ function headPieces(look, d) {
       if (!hat) P.push(cap());
       P.push(back(0.5, 1.05));
       P.push(piece(Ico(0.13, 0), hc, { pos: [0, r * 0.15, -r * 1.05] }));
-      P.push(piece(new THREE.ConeGeometry(0.12, 0.42, 6), hc, { pos: [0, -r * 0.35, -r * 1.12], rot: [Math.PI + 0.2, 0, 0] }));
+      P.push(piece(new THREE.ConeGeometry(0.12, 0.42, 12), hc, { pos: [0, -r * 0.35, -r * 1.12], rot: [Math.PI + 0.2, 0, 0] }));
       break;
     case 'buns':
       if (!hat) P.push(cap());
@@ -171,28 +170,28 @@ function headPieces(look, d) {
   // topi
   let hatExtra = 0;
   if (look.hat === 'cap') {
-    P.push(piece(new THREE.SphereGeometry(r * 1.08, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), '#e03131', { pos: [0, r * 0.08, 0] }));
-    P.push(piece(new THREE.CylinderGeometry(r * 0.85, r * 0.85, 0.04, 12, 1, false, -Math.PI / 2, Math.PI), '#b02525', { pos: [0, r * 0.12, r * 0.55] }));
+    P.push(piece(new THREE.SphereGeometry(r * 1.08, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), '#e03131', { pos: [0, r * 0.08, 0] }));
+    P.push(piece(new THREE.CylinderGeometry(r * 0.85, r * 0.85, 0.04, 24, 1, false, -Math.PI / 2, Math.PI), '#b02525', { pos: [0, r * 0.12, r * 0.55] }));
     hatExtra = 0.12;
   } else if (look.hat === 'cowboy') {
-    P.push(piece(Cyl(r * 1.75, r * 1.75, 0.05, 14), '#a0672f', { pos: [0, r * 0.5, 0] }));
-    P.push(piece(Cyl(r * 0.72, r * 0.86, 0.36, 10), '#a0672f', { pos: [0, r * 0.5 + 0.2, 0] }));
-    P.push(piece(Cyl(r * 0.88, r * 0.88, 0.07, 10), '#4a2f1b', { pos: [0, r * 0.5 + 0.06, 0] }));
+    P.push(piece(Cyl(r * 1.75, r * 1.75, 0.05, 28), '#a0672f', { pos: [0, r * 0.5, 0] }));
+    P.push(piece(Cyl(r * 0.72, r * 0.86, 0.36, 20), '#a0672f', { pos: [0, r * 0.5 + 0.2, 0] }));
+    P.push(piece(Cyl(r * 0.88, r * 0.88, 0.07, 20), '#4a2f1b', { pos: [0, r * 0.5 + 0.06, 0] }));
     hatExtra = 0.4;
   } else if (look.hat === 'beanie') {
-    P.push(piece(new THREE.SphereGeometry(r * 1.09, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), '#4263eb', { pos: [0, r * 0.05, 0], scale: [1, 1.1, 1] }));
-    P.push(piece(new THREE.TorusGeometry(r * 1.06, 0.06, 5, 16), '#3b5bdb', { pos: [0, r * 0.08, 0], rot: [Math.PI / 2, 0, 0] }));
+    P.push(piece(new THREE.SphereGeometry(r * 1.09, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), '#4263eb', { pos: [0, r * 0.05, 0], scale: [1, 1.1, 1] }));
+    P.push(piece(new THREE.TorusGeometry(r * 1.06, 0.06, 10, 32), '#3b5bdb', { pos: [0, r * 0.08, 0], rot: [Math.PI / 2, 0, 0] }));
     P.push(piece(Ico(0.11, 0), '#f8f9fa', { pos: [0, r * 1.25, 0] }));
     hatExtra = 0.25;
   } else if (look.hat === 'party') {
-    P.push(piece(new THREE.ConeGeometry(r * 0.5, 0.55, 8), '#f783ac', { pos: [0.05, r + 0.2, 0], rot: [0, 0, -0.15] }));
+    P.push(piece(new THREE.ConeGeometry(r * 0.5, 0.55, 16), '#f783ac', { pos: [0.05, r + 0.2, 0], rot: [0, 0, -0.15] }));
     P.push(piece(Ico(0.08, 0), '#ffd43b', { pos: [0.12, r + 0.5, 0] }));
     hatExtra = 0.6;
   } else if (look.hat === 'crown') {
-    P.push(piece(Cyl(r * 0.62, r * 0.6, 0.16, 10), '#f5c518', { pos: [0, r * 0.88, 0] }));
+    P.push(piece(Cyl(r * 0.62, r * 0.6, 0.16, 20), '#f5c518', { pos: [0, r * 0.88, 0] }));
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
-      P.push(piece(new THREE.ConeGeometry(0.07, 0.17, 4), '#f5c518', { pos: [Math.sin(a) * r * 0.6, r * 0.88 + 0.16, Math.cos(a) * r * 0.6] }));
+      P.push(piece(new THREE.ConeGeometry(0.07, 0.17, 8), '#f5c518', { pos: [Math.sin(a) * r * 0.6, r * 0.88 + 0.16, Math.cos(a) * r * 0.6] }));
     }
     P.push(piece(new THREE.OctahedronGeometry(0.05, 0), '#e03131', { pos: [0, r * 0.88, r * 0.63] }));
     hatExtra = 0.25;
@@ -203,7 +202,7 @@ function headPieces(look, d) {
     const dark = look.face === 'shades';
     for (const s of [-1, 1]) {
       if (dark) P.push(piece(Box(0.17, 0.11, 0.03), '#111318', { pos: [s * ex, ey, ez + 0.05] }));
-      else P.push(piece(new THREE.TorusGeometry(0.085, 0.016, 4, 10), '#343a40', { pos: [s * ex, ey, ez + 0.05] }));
+      else P.push(piece(new THREE.TorusGeometry(0.085, 0.016, 8, 20), '#343a40', { pos: [s * ex, ey, ez + 0.05] }));
       P.push(piece(Box(0.02, 0.02, r * 0.85), dark ? '#111318' : '#343a40', { pos: [s * (ex + 0.09), ey + 0.01, ez - r * 0.38] }));
     }
     P.push(piece(Box(ex * 2 - 0.16, 0.02, 0.02), dark ? '#111318' : '#343a40', { pos: [0, ey + 0.02, ez + 0.05] }));
@@ -219,30 +218,30 @@ function torsoPieces(look, d) {
   const tc = look.topColor, bc = look.bottomColor, skin = look.skin;
   const R = d.torsoR, H = d.torsoH;
   const dress = look.top === 'dress';
-  P.push(piece(Cyl(R * 1.02, R * 1.04, 0.14, 10), dress ? tc : bc, { pos: [0, 0, 0], scale: [1, 1, 0.86] }));
-  P.push(piece(Cyl(R * 0.9, R, H, 10), tc, { pos: [0, H / 2, 0], scale: [1, 1, 0.86] }));
-  P.push(piece(new THREE.SphereGeometry(R * 0.9, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), tc, { pos: [0, H - 0.01, 0], scale: [1, 0.45, 0.86] }));
-  P.push(piece(Cyl(0.075, 0.085, 0.08, 8), skin, { pos: [0, H + 0.02, 0] }));
+  P.push(piece(Cyl(R * 1.02, R * 1.04, 0.14, 20), dress ? tc : bc, { pos: [0, 0, 0], scale: [1, 1, 0.86] }));
+  P.push(piece(Cyl(R * 0.9, R, H, 20), tc, { pos: [0, H / 2, 0], scale: [1, 1, 0.86] }));
+  P.push(piece(new THREE.SphereGeometry(R * 0.9, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), tc, { pos: [0, H - 0.01, 0], scale: [1, 0.45, 0.86] }));
+  P.push(piece(Cyl(0.075, 0.085, 0.08, 16), skin, { pos: [0, H + 0.02, 0] }));
   const dark = shade(tc, 0.75);
   if (look.top === 'shirt') {
-    for (const s of [-1, 1]) P.push(piece(new THREE.ConeGeometry(0.06, 0.09, 3), '#f8f9fa', { pos: [s * 0.05, H - 0.02, R * 0.78], rot: [Math.PI / 2 + 0.3, 0, s * 0.5] }));
+    for (const s of [-1, 1]) P.push(piece(new THREE.ConeGeometry(0.06, 0.09, 8), '#f8f9fa', { pos: [s * 0.05, H - 0.02, R * 0.78], rot: [Math.PI / 2 + 0.3, 0, s * 0.5] }));
     for (let i = 0; i < 3; i++) P.push(piece(Ico(0.014, 0), '#f8f9fa', { pos: [0, H * (0.75 - i * 0.22), R * 0.9] }));
   } else if (look.top === 'hoodie') {
-    P.push(piece(new THREE.TorusGeometry(0.17, 0.065, 5, 10, Math.PI), tc, { pos: [0, H + 0.03, -0.04], rot: [-Math.PI / 2 + 0.25, 0, Math.PI] }));
+    P.push(piece(new THREE.TorusGeometry(0.17, 0.065, 10, 20, Math.PI), tc, { pos: [0, H + 0.03, -0.04], rot: [-Math.PI / 2 + 0.25, 0, Math.PI] }));
     P.push(piece(Box(R * 1.1, H * 0.28, 0.04), dark, { pos: [0, H * 0.25, R * 0.86] }));
   } else if (look.top === 'jacket') {
     P.push(piece(Box(0.035, H * 0.95, 0.03), '#f1f3f5', { pos: [0, H * 0.5, R * 0.88] }));
     P.push(piece(Box(R * 1.6, 0.06, R * 1.8), dark, { pos: [0, 0.05, 0] }));
   }
-  if (dress) P.push(piece(Cyl(R * 1.0, R * 1.65, 0.34, 12), tc, { pos: [0, -0.13, 0] }));
-  else if (look.bottom === 'skirt') P.push(piece(Cyl(R * 1.0, R * 1.45, 0.26, 12), bc, { pos: [0, -0.09, 0] }));
+  if (dress) P.push(piece(Cyl(R * 1.0, R * 1.65, 0.34, 24), tc, { pos: [0, -0.13, 0] }));
+  else if (look.bottom === 'skirt') P.push(piece(Cyl(R * 1.0, R * 1.45, 0.26, 24), bc, { pos: [0, -0.09, 0] }));
 
   // leher & punggung
   if (look.neck === 'scarf') {
-    P.push(piece(new THREE.TorusGeometry(0.13, 0.06, 5, 12), '#f03e3e', { pos: [0, H + 0.02, 0], rot: [Math.PI / 2, 0, 0] }));
+    P.push(piece(new THREE.TorusGeometry(0.13, 0.06, 10, 24), '#f03e3e', { pos: [0, H + 0.02, 0], rot: [Math.PI / 2, 0, 0] }));
     P.push(piece(Box(0.11, 0.26, 0.05), '#f03e3e', { pos: [0.1, H - 0.12, R * 0.88], rot: [0.1, 0, 0.12] }));
   } else if (look.neck === 'bowtie') {
-    for (const s of [-1, 1]) P.push(piece(new THREE.ConeGeometry(0.06, 0.11, 4), '#c92a2a', { pos: [s * 0.06, H - 0.01, R * 0.86], rot: [0, 0, s * Math.PI / 2] }));
+    for (const s of [-1, 1]) P.push(piece(new THREE.ConeGeometry(0.06, 0.11, 8), '#c92a2a', { pos: [s * 0.06, H - 0.01, R * 0.86], rot: [0, 0, s * Math.PI / 2] }));
     P.push(piece(Box(0.04, 0.04, 0.04), '#c92a2a', { pos: [0, H - 0.01, R * 0.88] }));
   }
   if (look.back === 'backpack') {
@@ -259,8 +258,8 @@ function armPieces(look, d) {
   const lower = longSleeve ? look.topColor : look.skin;
   return [
     piece(Ico(r * 1.15, 0), upper, { pos: [0, -0.01, 0] }),
-    piece(Cyl(r, r * 0.95, L / 2, 7), upper, { pos: [0, -L / 4, 0] }),
-    piece(Cyl(r * 0.95, r * 0.9, L / 2, 7), lower, { pos: [0, -L * 0.75, 0] }),
+    piece(Cyl(r, r * 0.95, L / 2, 14), upper, { pos: [0, -L / 4, 0] }),
+    piece(Cyl(r * 0.95, r * 0.9, L / 2, 14), lower, { pos: [0, -L * 0.75, 0] }),
     piece(Ico(r * 1.2, 0), look.skin, { pos: [0, -L - r * 0.5, 0] }),
   ];
 }
@@ -272,8 +271,8 @@ function legPieces(look, d) {
   const thigh = bare ? look.skin : look.bottomColor;
   const shin = bare || look.bottom === 'shorts' ? look.skin : look.bottomColor;
   const P = [
-    piece(Cyl(r * 1.08, r, L * 0.5, 7), thigh, { pos: [0, -L * 0.25, 0] }),
-    piece(Cyl(r, r * 0.92, L * 0.5, 7), shin, { pos: [0, -L * 0.75, 0] }),
+    piece(Cyl(r * 1.08, r, L * 0.5, 14), thigh, { pos: [0, -L * 0.25, 0] }),
+    piece(Cyl(r, r * 0.92, L * 0.5, 14), shin, { pos: [0, -L * 0.75, 0] }),
   ];
   const fy = -L - 0.02;
   if (look.shoes === 'boots') {
@@ -296,8 +295,8 @@ function wings(torso, d) {
     const pivot = new THREE.Group();
     pivot.position.set(s * 0.1, d.torsoH * 0.72, -d.torsoR * 0.8);
     const w = build([
-      piece(new THREE.ConeGeometry(0.26, 0.7, 4), '#f8f9fa', { pos: [s * 0.36, 0.05, 0], rot: [0, 0, s * 1.15], scale: [1, 1, 0.18] }),
-      piece(new THREE.ConeGeometry(0.17, 0.45, 4), '#f1f3f5', { pos: [s * 0.28, -0.18, 0], rot: [0, 0, s * 1.5], scale: [1, 1, 0.18] }),
+      piece(new THREE.ConeGeometry(0.26, 0.7, 8), '#f8f9fa', { pos: [s * 0.36, 0.05, 0], rot: [0, 0, s * 1.15], scale: [1, 1, 0.18] }),
+      piece(new THREE.ConeGeometry(0.17, 0.45, 8), '#f1f3f5', { pos: [s * 0.28, -0.18, 0], rot: [0, 0, s * 1.5], scale: [1, 1, 0.18] }),
     ]);
     pivot.add(w);
     pivot.userData.side = s;
