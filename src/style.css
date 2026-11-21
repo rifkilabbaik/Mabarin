@@ -1294,6 +1294,9 @@ body.in-cards[data-input='touch'] #chat { top: auto; bottom: calc(12px + var(--s
 .cp-row.out { opacity: 0.45; }
 .cp-av { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 2px var(--c, #fff); background: #fff; }
 .cp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.cp-place { font-size: 11.5px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #ffd43b; color: #3d2600; }
+.cp-place.ko { background: rgba(255, 255, 255, 0.2); color: #fff; }
+.cp-row.done { opacity: 0.7; }
 .cp-badge { font-size: 12px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); }
 .cp-time { position: relative; width: 28px; height: 28px; display: grid; place-items: center; font-size: 11.5px; font-weight: 800; }
 .cp-time svg { position: absolute; inset: 0; transform: rotate(-90deg); }
@@ -1384,6 +1387,8 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
 /* ================= Opsi lobi (mis. jumlah bola pool) ================= */
 .cu-opts { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0 2px; }
 .cu-opts[hidden] { display: none; }
+.cu-opt-note { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted, #5c6577); }
+.cu-opt-note .cp-balls { padding: 0; background: none; }
 .cu-opt-label { font-weight: 700; font-size: 14px; color: var(--muted, #5c6577); }
 .cu-seg { display: inline-flex; padding: 3px; border-radius: 999px; background: #eef1f6; gap: 2px; }
 .cu-seg button { border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font: inherit; font-weight: 750; font-size: 14px; color: #3a4252; cursor: pointer; }
@@ -1476,6 +1481,19 @@ body.in-cards #hud-menu { top: calc(62px + var(--safe-t)); }
 .cu-end-banner h3 { margin: 0; font-size: 20px; font-weight: 850; line-height: 1.15; }
 .cu-end-banner p { margin: 2px 0 0; font-size: 13.5px; font-weight: 650; opacity: 0.85; line-height: 1.25; }
 .cu-end-banner p:empty { display: none; }
+.cu-end-banner[data-kind='place'] { background: linear-gradient(135deg, #f1f3f5, #ced4da); color: #212529; }
+.cu-end-banner[data-kind='place'] .cu-crown { color: #868e96; }
+.cu-end-banner:has(.cu-ranks:not([hidden])) { border-radius: 26px; }
+.cu-ranks { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0 1px; padding: 0; list-style: none; }
+.cu-ranks[hidden] { display: none; }
+.cu-ranks li { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.55); color: #212529; font-size: 12.5px; font-weight: 700; max-width: 100%; }
+.cu-ranks li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; }
+.cu-ranks li b { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 850; color: #fff; background: #868e96; white-space: nowrap; }
+.cu-ranks li.r1 b { background: #f59f00; }
+.cu-ranks li.r2 b { background: #868e96; }
+.cu-ranks li.r3 b { background: #c2703d; }
+.cu-ranks li.last b { background: #495057; }
+.cu-ranks li.me { outline: 2px solid currentColor; outline-offset: -2px; }
 .cu-end-banner[data-kind='lose'] { background: linear-gradient(135deg, #495057, #343a40); color: #f1f3f5; }
 .cu-end-banner[data-kind='lose'] .cu-crown { color: #e03131; }
 .cu-end-banner[data-kind='draw'], .cu-end-banner[data-kind='other'] { background: linear-gradient(135deg, #e7f5ff, #a5d8ff); color: #10324f; }

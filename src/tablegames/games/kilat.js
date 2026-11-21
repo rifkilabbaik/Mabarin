@@ -20,13 +20,15 @@ const hash = (str) => { let h = 0; for (let i = 0; i < str.length; i++) h = (h *
 class KilatHost extends HostBase {
   constructor(o) {
     super({ ...o, game: 'kilat', min: 2, max: 4 });
+    this.ranked = true; // lanjut sampai tersisa satu pemain (juara 1, 2, 3, terakhir)
     this.deck = [];
     this.pile = [];
-    Object.assign(this.state, { hands: {}, discard: [], drawN: 0, color: null, dir: 1, drew: false, kilat: [] });
+    Object.assign(this.state, { hands: {}, discard: [], drawN: 0, color: null, dir: 1, drew: false, kilat: [], shuf: 0 });
     this.push();
   }
 
   beforePublish() {
+    if (this.state.phase === 'play') this.refill(); // tumpukan habis: langsung dikocok ulang (tidak menunggu waktu habis)
     this.state.drawN = this.deck.length;
     this.state.discard = this.pile.slice(-PILE_SHOW);
     this.state.pileN = this.pile.length;
@@ -57,13 +59,26 @@ class KilatHost extends HostBase {
     return this.next(from, n, this.state.dir);
   }
 
+  /** Tumpukan ambil habis: kartu buangan (kecuali teratas) dikocok jadi tumpukan baru. */
+  refill() {
+    if (this.deck.length || this.pile.length < 2) return false;
+    const top = this.pile.pop();
+    this.state.shufN = Math.min(this.pile.length, PILE_SHOW);
+    this.deck = shuffle(this.pile);
+    this.pile = [top];
+    this.state.shuf = (this.state.shuf || 0) + 1;
+    return true;
+  }
+
   drawOne() {
-    if (!this.deck.length) {
-      const top = this.pile.pop();
-      this.deck = shuffle(this.pile);
-      this.pile = top ? [top] : [];
-    }
+    this.refill();
     return this.deck.pop() || null;
+  }
+
+  rankRest(ids) {
+    // permainan berhenti lebih awal (mis. pemain keluar): sisa kartu paling sedikit di atas
+    const n = (id) => this.state.hands[id]?.length ?? 99;
+    return [...ids].sort((a, b) => n(a) - n(b));
   }
 
   give(pid, n) {
@@ -95,8 +110,10 @@ class KilatHost extends HostBase {
     s.color = c.wild ? (SUITS.includes(col) ? col : bestColor(hand)) : c.suit;
     const ev = { k: 'play', p: pid, c: card, col: s.color };
     if (!hand.length) {
-      this.end(pid, { c: card });
-      return;
+      // kartu habis: jadi juara berikutnya; sisanya lanjut bermain
+      if (this.finish(pid, { p: pid, c: card })) return;
+      ev.fin = s.ranks.length;
+      s.kilat = s.kilat.filter((id) => id !== pid);
     }
     if (hand.length === 1 && !s.kilat.includes(pid)) {
       this.give(pid, 2);
@@ -122,6 +139,11 @@ class KilatHost extends HostBase {
     this.push(ev);
   }
 
+  /** Tumpukan & buangan kosong (semua kartu di tangan): boleh lewat tanpa mengambil. */
+  noCards() {
+    return !this.deck.length && this.pile.length < 2;
+  }
+
   draw(pid) {
     const s = this.state;
     if (!this.isTurn(pid) || s.drew) return;
@@ -133,7 +155,7 @@ class KilatHost extends HostBase {
   }
 
   pass(pid) {
-    if (!this.isTurn(pid) || !this.state.drew) return;
+    if (!this.isTurn(pid) || (!this.state.drew && !this.noCards())) return;
     this.setTurn(this.step(this.state.turn));
     this.push({ k: 'pass', p: pid });
   }
@@ -152,7 +174,7 @@ class KilatHost extends HostBase {
   }
 
   onTimeout(p) {
-    if (!this.state.drew) this.draw(p.id);
+    if (!this.state.drew && !this.noCards()) this.draw(p.id);
     if (this.isTurn(p.id)) this.pass(p.id);
   }
 
@@ -163,7 +185,7 @@ class KilatHost extends HostBase {
     if (card) {
       if (hand.length === 2 && Math.random() < 0.85) this.kilat(p.id);
       this.play(p.id, card, bestColor(hand.filter((c) => c !== card)));
-    } else if (!s.drew) this.draw(p.id);
+    } else if (!s.drew && !this.noCards()) this.draw(p.id);
     else this.pass(p.id);
   }
 }
@@ -225,6 +247,97 @@ class KilatRenderer {
     this.flights = []; // kartu tertutup yang sedang terbang ke pemain lain
     this.pool = [];
     this.lastQueued = new Map();
+    this.side = side;
+    this.shuffle = null; // animasi kocok ulang: buangan diambil, dikocok, ditaruh jadi tumpukan baru
+    this.shufPool = [];
+    this.lastShuf = undefined;
+    this.prevDiscard = [];
+  }
+
+  /** Kartu buangan (selain teratas) diangkat, dibalik, dikocok (riffle), lalu ditaruh di tempat tumpukan. */
+  startShuffle(m) {
+    const top = m.discard?.[m.discard.length - 1];
+    const from = [];
+    for (let i = this.prevDiscard.length - 1; i >= 0 && from.length < 12; i--) {
+      const c = this.pile[i];
+      if (!c || !c.visible || this.prevDiscard[i] === top) continue;
+      from.push({ pos: c.position.clone(), quat: c.quaternion.clone(), key: faceKey(this.prevDiscard[i]) });
+    }
+    while (from.length < 8) {
+      // buangan lama tidak terlihat (mis. baru bergabung): mulai dari alas tumpukan
+      from.push({ pos: this.pileSlot.clone().setY(this.table.y + 0.004 + from.length * 0.0016), quat: _q.setFromEuler(_e.set(-Math.PI / 2, 0, from.length * 0.4)).clone(), key: 'back' });
+    }
+    if (this.shuffle) for (const c of this.shuffle.cards) this.shufPool.push(c.mesh);
+    const y0 = this.table.y;
+    const mid = this.pileSlot.clone().lerp(this.drawSlot, 0.5).setY(y0 + 0.13);
+    const down = new THREE.Quaternion().setFromEuler(_e.set(Math.PI / 2, 0, -0.2));
+    const n = from.length;
+    const cards = from.map((f, i) => {
+      const mesh = this.shufPool.pop() || makeCard(null);
+      setCardFace(mesh, f.key);
+      mesh.scale.setScalar(CARD_S);
+      mesh.visible = true;
+      this.group.add(mesh);
+      mesh.position.copy(f.pos);
+      mesh.quaternion.copy(f.quat);
+      const half = i % 2 ? 1 : -1; // dua belahan untuk riffle
+      return { mesh, f, i, half, slot: Math.floor(i / 2) + (half > 0 ? 0.5 : 0) };
+    });
+    this.shuffle = { t: 0, cards, mid, down, n };
+    const dealer = m.players.some((p) => p.id === m.dealer) ? m.dealer : m.players[m.turn]?.id;
+    this.shuffle.who = dealer;
+    this.reach(dealer, this.pileSlot);
+  }
+
+  updateShuffle(dt) {
+    const sh = this.shuffle;
+    if (!sh) return;
+    const t0 = sh.t;
+    sh.t += dt;
+    const t = sh.t;
+    const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+    const sd = this.side;
+    const GATHER = 0.5, SPLIT = 0.72, TAP = 1.48, PLACE = 1.85;
+    if (t0 < GATHER && t >= GATHER) this.sound('shuffle');
+    if (t0 < TAP && t >= TAP) this.reach(sh.who, this.drawSlot);
+    const drawH = this.drawSlot.y + 0.004;
+    const sp = ease((t - GATHER) / (SPLIT - GATHER));
+    const pl = ease((t - TAP) / (PLACE - TAP));
+    for (const c of sh.cards) {
+      const m = c.mesh;
+      const hi = Math.floor(c.i / 2);
+      // 1) diangkat dari buangan & dibalik jadi tertutup, bertumpuk di atas meja
+      const g = ease((t - c.i * 0.022) / (GATHER - 0.24));
+      // 2) dibelah dua ke kiri & kanan
+      const off = c.half * 0.075 * sp;
+      const sx = sh.mid.x + sd.x * off, sz = sh.mid.z + sd.z * off;
+      const sy = sh.mid.y + (c.i + (hi - c.i) * sp) * 0.0018 + sp * 0.01;
+      // 3) diselipkan bergantian dari bawah (riffle)
+      const rf = ease((t - SPLIT - (c.slot / sh.n) * 0.42) / 0.14);
+      let x = sx + (sh.mid.x - sx) * rf, z = sz + (sh.mid.z - sz) * rf;
+      let y = sy + (sh.mid.y + c.i * 0.0016 - sy) * rf + Math.sin(rf * Math.PI) * 0.03;
+      if (g < 1) {
+        x = c.f.pos.x + (x - c.f.pos.x) * g;
+        z = c.f.pos.z + (z - c.f.pos.z) * g;
+        y = c.f.pos.y + (y - c.f.pos.y) * g + Math.sin(g * Math.PI) * 0.07;
+        m.quaternion.slerpQuaternions(c.f.quat, sh.down, g);
+      } else m.quaternion.copy(sh.down).multiply(_q.setFromEuler(_e.set(0, c.half * 0.2 * sp * (1 - rf), 0)));
+      // 4) dirapikan lalu 5) ditaruh di tempat tumpukan
+      if (pl > 0) {
+        x += (this.drawSlot.x - sh.mid.x) * pl;
+        z += (this.drawSlot.z - sh.mid.z) * pl;
+        y += (drawH + c.i * 0.0011 - (sh.mid.y + c.i * 0.0016)) * pl;
+      }
+      m.position.set(x, y, z);
+    }
+    if (t >= PLACE) {
+      for (const c of sh.cards) {
+        c.mesh.visible = false;
+        c.mesh.removeFromParent();
+        this.shufPool.push(c.mesh);
+      }
+      this.shuffle = null;
+    }
   }
 
   /** Antrekan pengambilan `n` kartu oleh pemain (satu per satu, tangan meraih tumpukan). */
@@ -304,10 +417,10 @@ class KilatRenderer {
   }
 
   updateDraws(dt, m, viewerId) {
-    // mulai ambil kartu yang sudah waktunya
+    // mulai ambil kartu yang sudah waktunya (ditahan selama tumpukan baru dikocok)
     for (let i = 0; i < this.queue.length; i++) {
       const q = this.queue[i];
-      if (q.at > this.time) continue;
+      if (q.at > this.time || (this.shuffle && !q.deal)) continue;
       this.queue.splice(i--, 1);
       if (!m.players.some((p) => p.id === q.pid)) continue;
       if (!q.deal) this.reach(q.pid, this.drawSlot);
@@ -346,6 +459,11 @@ class KilatRenderer {
     const live = m.phase !== 'lobby';
     const discard = live ? m.discard || [] : [];
     // tumpukan buangan: kartu-kartu terakhir berserakan sedikit agar jelas terlihat, alasnya makin tinggi
+    if (m.shuf !== this.lastShuf) {
+      if (this.lastShuf !== undefined && m.phase === 'play') this.startShuffle(m);
+      this.lastShuf = m.shuf;
+    }
+    this.prevDiscard = discard;
     const under = Math.max(0, (m.pileN ?? discard.length) - discard.length);
     const baseH = under * 0.0011;
     this.pileBase.visible = live && under > 0;
@@ -392,8 +510,9 @@ class KilatRenderer {
       a.card.quaternion.slerpQuaternions(a.fromQ, a.card.userData.tq, k);
       if (a.t >= 1) this.anim = null;
     }
+    this.updateShuffle(dt);
     this.updateDraws(dt, m, viewerId);
-    const n = live ? m.drawN || 0 : 0;
+    const n = live && !this.shuffle ? m.drawN || 0 : 0;
     const hgt = 0.004 + Math.min(n, 90) * 0.0011;
     this.drawBox.visible = this.drawTop.visible = live && n > 0;
     this.drawBox.scale.y = hgt;
@@ -412,6 +531,7 @@ class KilatRenderer {
   }
 
   dispose() {
+    if (this.shuffle) this.shuffle.cards.forEach((c) => c.mesh.removeFromParent());
     this.fans.dispose();
     this.group.removeFromParent();
   }
@@ -472,7 +592,8 @@ class KilatControls {
     });
     const hand = m.hands?.[me] || [];
     if (r) r.canDraw = mine && !m.drew; // ambil kartu dengan mengetuk tumpukan
-    this.btnPass.hidden = !mine || !m.drew;
+    const noCards = !m.drawN && (m.pileN ?? 0) < 2; // semua kartu ada di tangan: boleh lewat
+    this.btnPass.hidden = !mine || (!m.drew && !noCards);
     this.btnKilat.hidden = !mine || hand.length !== 2 || m.kilat?.includes(me);
     if (m.phase !== 'play') {
       this.colorPanel.hidden = true;

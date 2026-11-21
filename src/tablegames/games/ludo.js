@@ -48,6 +48,7 @@ function movable(tokens, die) {
 class LudoHost extends HostBase {
   constructor(o) {
     super({ ...o, game: 'ludo', min: 2, max: 4, turnMs: 25000 });
+    this.ranked = true; // lanjut sampai tersisa satu pemain (juara 1, 2, 3, terakhir)
     Object.assign(this.state, { tokens: {}, colors: {}, die: 0, rolled: false, movable: [], sixes: 0 });
     this.push();
   }
@@ -115,7 +116,14 @@ class LudoHost extends HostBase {
       }
     }
     const ev = { k: 'move', p: pid, t, from, to: toks[t], cap: captured };
-    if (toks.every((x) => x === FINISH)) return this.end(pid, ev);
+    if (toks.every((x) => x === FINISH)) {
+      // semua pion sampai: juara berikutnya, sisanya lanjut
+      if (this.finish(pid, ev)) return;
+      s.sixes = 0;
+      this.setTurn(this.next());
+      this.push(ev);
+      return;
+    }
     this.push(ev);
     this.finishTurn(pid, s.die === 6 || !!captured || toks[t] === FINISH);
   }
@@ -142,6 +150,12 @@ class LudoHost extends HostBase {
   onLeave(pid, idx) {
     delete this.state.tokens[pid];
     super.onLeave(pid, idx);
+  }
+
+  rankRest(ids) {
+    // permainan berhenti lebih awal: pion paling jauh di atas
+    const prog = (id) => (this.state.tokens[id] || []).reduce((a, x) => a + (x < 0 ? 0 : x + 1), 0);
+    return [...ids].sort((a, b) => prog(b) - prog(a));
   }
 
   onTimeout(p) {

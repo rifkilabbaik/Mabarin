@@ -132,6 +132,34 @@ export function rack(count, rnd = Math.random) {
   return balls.map((b) => ({ ...b, x: round(b.x), z: round(b.z) }));
 }
 
+/** Warna grup untuk 3–4 pemain (satu warna per pemain). */
+export const MULTI_GROUPS = ['red', 'blue', 'yellow', 'purple'];
+
+/**
+ * Susunan 3–4 pemain: 12 bola berwarna (4 atau 3 per pemain) + bola 8 di tengah,
+ * segitiga 5 baris tanpa dua sudut belakang. Mengembalikan { balls, cols } (cols: id → warna grup).
+ */
+export function rackMulti(players, rnd = Math.random) {
+  const n = players >= 4 ? 4 : 3;
+  const per = 12 / n;
+  const ids = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13];
+  const cols = {};
+  ids.forEach((id, i) => (cols[id] = MULTI_GROUPS[Math.floor(i / per)]));
+  const dx = R * Math.sqrt(3) + 0.0004;
+  const dz = R * 2 + 0.0004;
+  const spots = [];
+  for (let k = 0; k < 5; k++) for (let j = 0; j <= k; j++) if (!(k === 4 && (j === 0 || j === 4))) spots.push({ x: FOOT_X + k * dx, z: (j - k / 2) * dz });
+  const order = [...ids];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  const balls = [{ id: 0, x: HEAD_X, z: 0, in: false }];
+  let p = 0;
+  spots.forEach((sp, i) => balls.push({ id: i === 4 ? 8 : order[p++], x: round(sp.x), z: round(sp.z), in: false }));
+  return { balls, cols };
+}
+
 export const round = (v) => Math.round(v * 10000) / 10000;
 
 /**

@@ -31,6 +31,8 @@ export class HostBase {
       turnAt: 0,
       turnMs,
       winner: null,
+      ranks: [], // urutan selesai (juara 1, 2, …); di akhir permainan berisi peringkat lengkap
+      out: [], // pemain gugur (yang pertama gugur = peringkat terakhir)
       ev: { n: 0, k: 'open' },
     };
   }
@@ -109,6 +111,8 @@ export class HostBase {
     if ((s.phase !== 'lobby' && s.phase !== 'end') || s.players.length < this.min) return;
     s.invited = [];
     s.winner = null;
+    s.ranks = [];
+    s.out = [];
     s.phase = 'play';
     this.setup();
     this.push({ k: 'start' });
@@ -116,9 +120,51 @@ export class HostBase {
 
   end(winner, extra = {}) {
     const s = this.state;
+    const here = (id) => s.players.some((p) => p.id === id);
+    const top = s.ranks.filter(here);
+    if (top.length) winner = top[0];
     s.phase = 'end';
     s.winner = winner;
+    // peringkat lengkap: yang selesai duluan, sisa pemain (diurutkan game), lalu yang gugur (terakhir gugur di atas)
+    if (winner) {
+      if (!top.includes(winner)) top.push(winner);
+      const rest = s.players.filter((p) => !top.includes(p.id) && !s.out.includes(p.id)).map((p) => p.id);
+      s.ranks = [...top, ...(this.rankRest?.(rest) || rest), ...s.out.filter(here).reverse()];
+    } else s.ranks = [];
     this.push({ k: 'win', p: winner, ...extra });
+  }
+
+  // ---------- Peringkat (game 3–4 pemain lanjut sampai tersisa satu) ----------
+  isDone(pid) {
+    const s = this.state;
+    return s.phase === 'play' && (s.ranks.includes(pid) || s.out.includes(pid));
+  }
+
+  activePlayers() {
+    return this.state.players.filter((p) => !this.isDone(p.id));
+  }
+
+  /** Pemain selesai lebih dulu → juara berikutnya. true bila permainan berakhir. */
+  finish(pid, ev) {
+    const s = this.state;
+    if (!s.ranks.includes(pid)) s.ranks.push(pid);
+    if (ev) ev.fin = s.ranks.length;
+    return this.checkDone(ev);
+  }
+
+  /** Pemain gugur → peringkat terbawah yang masih kosong. true bila permainan berakhir. */
+  knockOut(pid, ev) {
+    const s = this.state;
+    if (!s.out.includes(pid)) s.out.push(pid);
+    if (ev) ev.ko = pid;
+    return this.checkDone(ev);
+  }
+
+  checkDone(ev) {
+    const left = this.activePlayers();
+    if (left.length > 1) return false;
+    this.end(this.state.ranks[0] || left[0]?.id || null, ev);
+    return true;
   }
 
   // ---------- Giliran ----------
@@ -136,9 +182,17 @@ export class HostBase {
     this.onTurn?.();
   }
 
+  /** Pemain berikutnya (melewati pemain yang sudah selesai / gugur). */
   next(from = this.state.turn, n = 1, dir = 1) {
-    const len = this.state.players.length;
-    return (((from + dir * n) % len) + len) % len;
+    const ps = this.state.players;
+    const len = ps.length;
+    let i = from;
+    for (let k = 0; k < n; k++) {
+      let guard = len;
+      do i = (((i + dir) % len) + len) % len;
+      while (guard-- > 0 && this.isDone(ps[i].id));
+    }
+    return i;
   }
 
   removePlayer(pid) {
@@ -156,6 +210,7 @@ export class HostBase {
       }
       this.onLeave(pid, idx);
       if (s.phase === 'end') return; // permainan selesai karena pemain keluar
+      if (this.ranked && this.checkDone({ left: pid })) return; // tersisa satu pemain aktif
     } else {
       s.players.splice(idx, 1);
     }
@@ -169,6 +224,7 @@ export class HostBase {
     s.players.splice(idx, 1);
     if (idx < s.turn) s.turn--;
     if (s.turn >= s.players.length) s.turn = 0;
+    if (this.isDone(s.players[s.turn]?.id)) s.turn = this.next(s.turn);
     if (wasTurn) this.setTurn(s.turn);
   }
 

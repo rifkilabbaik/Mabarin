@@ -521,6 +521,7 @@ export class TableGames {
     this.local.seat = null;
     this.local.pin = null;
     this.local.character.cuePose = 0;
+    this.local.character.cueHold = 0;
     if (seat) {
       this.local.position.set(seat.x - Math.sin(seat.rot) * 0.7, seat.y - 0.46, seat.z - Math.cos(seat.rot) * 0.7);
       this.local.facing = seat.rot + Math.PI;
@@ -585,6 +586,7 @@ export class TableGames {
       const k = ease(this.camT);
       cam.position.lerpVectors(this.camFrom.pos, this._pa, k);
       cam.quaternion.slerpQuaternions(this.camFrom.quat, this._qa, k);
+      this.controls.afterCamera?.(cam); // mis. stik pool sendiri yang terlihat dari sudut pandang orang pertama
       return;
     }
     if (!this.local.seat) return;
@@ -694,15 +696,40 @@ export class TableGames {
     }
     if (m.phase === 'end') {
       const w = m.players.find((p) => p.id === m.winner);
-      // menang / kalah / seri (penonton: siapa yang menang)
+      // menang / juara ke-n / kalah / seri (penonton: siapa yang menang)
       const playing = m.players.some((p) => p.id === this.myId);
-      const kind = m.winner === this.myId ? 'win' : (m.winner || m.players.length === 1) && playing ? 'lose' : m.winner ? 'other' : 'draw';
-      const head = { win: 'Kamu menang!', lose: 'Kamu kalah', other: `${w?.name || 'Pemain'} menang`, draw: 'Seri' }[kind];
+      const ranks = (m.ranks || []).filter((id) => m.players.some((p) => p.id === id));
+      const n = ranks.length;
+      const place = ranks.indexOf(this.myId);
+      const multi = n >= 3;
+      let kind = m.winner === this.myId ? 'win' : (m.winner || m.players.length === 1) && playing ? 'lose' : m.winner ? 'other' : 'draw';
+      if (multi && place > 0) kind = place === n - 1 ? 'lose' : 'place';
+      const head = multi && place >= 0
+        ? place === 0 ? 'Kamu juara 1!' : place === n - 1 ? 'Kamu di posisi terakhir' : `Kamu juara ${place + 1}!`
+        : { win: 'Kamu menang!', lose: 'Kamu kalah', other: `${w?.name || 'Pemain'} menang`, draw: 'Seri' }[kind];
       $('cu-end-banner').dataset.kind = kind;
       $('cu-end-icon').innerHTML = icon(kind === 'lose' ? 'flag' : kind === 'draw' ? 'users' : 'crown');
       $('cu-result').textContent = head;
       const detail = this.controls?.endText?.(m) || '';
       $('cu-winner').textContent = detail && detail !== head ? detail : '';
+      // daftar peringkat (3–4 pemain): Juara 1, 2, 3, Terakhir
+      const list = $('cu-ranks');
+      list.hidden = !multi;
+      if (multi) {
+        list.replaceChildren(
+          ...ranks.map((id, i) => {
+            const li = document.createElement('li');
+            li.className = i === n - 1 ? 'last' : `r${i + 1}`;
+            if (id === this.myId) li.classList.add('me');
+            const b = document.createElement('b');
+            b.textContent = i === n - 1 ? 'Terakhir' : `Juara ${i + 1}`;
+            const nm = document.createElement('span');
+            nm.textContent = id === this.myId ? 'Kamu' : m.players.find((p) => p.id === id)?.name || 'Pemain';
+            li.append(b, nm);
+            return li;
+          })
+        );
+      }
       $('cu-again').hidden = !isHost || m.players.length < mod.min;
       $('cu-end-wait').hidden = !!isHost;
     }
@@ -716,8 +743,9 @@ export class TableGames {
     const chip = this.controls?.chip?.(m);
     const rows = m.players.map((p, i) => {
       const row = document.createElement('div');
-      const out = m.alive && m.alive[p.id] === false;
-      row.className = `cp-row${i === m.turn ? ' cur' : ''}${p.id === this.myId ? ' me' : ''}${out ? ' out' : ''}`;
+      const fin = m.ranks ? m.ranks.indexOf(p.id) : -1;
+      const out = (m.alive && m.alive[p.id] === false) || m.out?.includes(p.id);
+      row.className = `cp-row${i === m.turn ? ' cur' : ''}${p.id === this.myId ? ' me' : ''}${out ? ' out' : ''}${fin >= 0 ? ' done' : ''}`;
       row.innerHTML = `<img class="cp-av" alt=""><span class="cp-name"></span>${
         i === m.turn && m.turnMs ? '<span class="cp-time"><svg viewBox="0 0 28 28"><circle class="trk" cx="14" cy="14" r="12"/><circle class="bar" cx="14" cy="14" r="12"/></svg><b></b></span>' : ''
       }`;
@@ -726,7 +754,7 @@ export class TableGames {
       img.style.setProperty('--c', this.controls?.playerColor?.(m, p) || p.color);
       row.querySelector('.cp-name').textContent = p.id === this.myId ? 'Kamu' : p.name;
       // info tambahan di samping nama (mis. warna & sisa bola pool)
-      const badge = this.controls?.playerBadge?.(m, p);
+      const badge = fin >= 0 ? `<span class="cp-place">#${fin + 1}</span>` : out && m.out?.includes(p.id) ? '<span class="cp-place ko">Gugur</span>' : this.controls?.playerBadge?.(m, p);
       if (badge) row.querySelector('.cp-name').insertAdjacentHTML('afterend', badge);
       return row;
     });
@@ -780,6 +808,11 @@ export class TableGames {
         break;
     }
     this.controls?.onEvent?.(ev, m);
+    // pemain selesai lebih dulu (juara 1, 2, …) atau gugur; permainan berlanjut
+    if (ev.fin && m.phase === 'play') {
+      this.flash(ev.p === this.myId ? `Kamu juara ${ev.fin}!` : `${name(ev.p)} juara ${ev.fin}!`);
+      this.audio.play(ev.p === this.myId ? 'win' : 'pop');
+    } else if (ev.ko && m.phase === 'play') this.flash(ev.ko === this.myId ? 'Kamu gugur' : `${name(ev.ko)} gugur`);
   }
 
   // ---------- Tampilan meja untuk semua pemain (termasuk penonton) ----------

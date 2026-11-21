@@ -503,6 +503,8 @@ function buildPoolTables(world, markers) {
       seats: [
         { x: cx - 0.3, z: cz + (OUT_Z + 1.5), y, rot: Math.PI },
         { x: cx + 0.3, z: cz - (OUT_Z + 1.5), y, rot: 0 },
+        { x: cx - (OUT_X + 1.3), z: cz - 0.45, y, rot: Math.PI / 2 },
+        { x: cx + (OUT_X + 1.3), z: cz + 0.45, y, rot: -Math.PI / 2 },
       ],
     });
   }

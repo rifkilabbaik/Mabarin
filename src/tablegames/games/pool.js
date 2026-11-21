@@ -1,19 +1,24 @@
 import * as THREE from 'three';
 import { HostBase } from '../HostBase.js';
 import { icon } from '../../ui/icons.js';
-import { BLUE, FOOT_X, HEAD_X, L, MAX_SPEED, POCKETS, R, RED, ShotSim, W, clampCuePos, colorOfBall, rack, round, traceAim, validCuePos } from '../pool/physics.js';
+import { BLUE, FOOT_X, HEAD_X, L, MAX_SPEED, MULTI_GROUPS, POCKETS, R, RED, ShotSim, W, clampCuePos, colorOfBall, rack, rackMulti, round, traceAim, validCuePos } from '../pool/physics.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const GROUP_NAME = { [RED]: 'Merah', [BLUE]: 'Biru' };
-const GROUP_COLOR = { [RED]: '#e03131', [BLUE]: '#1c7ed6' };
+const GROUP_NAME = { [RED]: 'Merah', [BLUE]: 'Biru', yellow: 'Kuning', purple: 'Ungu' };
+const GROUP_COLOR = { [RED]: '#e03131', [BLUE]: '#1c7ed6', yellow: '#f59f00', purple: '#9c36b5' };
+/** Warna grup sebuah bola (3–4 pemain memakai pembagian warna dari state). */
+const colorIn = (s, id) => s?.cols?.[id] || colorOfBall(id);
 const round6 = (v) => Math.round(v * 1e6) / 1e6;
 
 // ======================================================================
-// Bandar: aturan sederhana 8-ball (dua warna + bola 8)
+// Bandar: aturan sederhana 8-ball (dua warna + bola 8).
+// 3–4 pemain: tiap pemain punya warna bola sendiri; habiskan warnamu lalu masukkan bola 8
+// untuk jadi juara berikutnya (bola 8 dikembalikan untuk pemain lain). Bola 8 masuk terlalu
+// cepat = gugur. Lanjut sampai tersisa satu pemain.
 // ======================================================================
 class PoolHost extends HostBase {
   constructor(o) {
-    super({ ...o, game: 'pool', min: 1, max: 2, turnMs: 45000 }); // 1 pemain = latihan solo
+    super({ ...o, game: 'pool', min: 1, max: 4, turnMs: 45000 }); // 1 pemain = latihan solo
     Object.assign(this.state, { opts: { balls: 15 }, balls: rack(15), stage: 'lobby', groups: {}, shot: null, kitchen: true, brk: true, botAim: null, starter: 1, bend: {} });
     this.forfeitOnLeave = true;
     this.push();
@@ -29,15 +34,27 @@ class PoolHost extends HostBase {
 
   setup() {
     const s = this.state;
-    s.balls = rack(s.opts.balls === 9 ? 9 : 15);
+    const multi = s.players.length >= 3;
+    s.multi = multi;
+    this.ranked = multi;
+    this.forfeitOnLeave = !multi;
     s.groups = {};
+    if (multi) {
+      const r = rackMulti(s.players.length);
+      s.balls = r.balls;
+      s.cols = r.cols;
+      s.players.forEach((p, i) => (s.groups[p.id] = MULTI_GROUPS[i]));
+    } else {
+      s.balls = rack(s.opts.balls === 9 ? 9 : 15);
+      s.cols = null;
+    }
     s.shot = null;
     s.stage = 'place'; // pukulan pembuka: bola putih boleh digeser di daerah kepala
     s.kitchen = true;
     s.brk = true;
     s.botAim = null;
     s.bend = {};
-    s.starter = s.players.length < 2 ? 0 : s.starter ? 0 : 1;
+    s.starter = s.players.length < 2 ? 0 : multi ? Math.floor(Math.random() * s.players.length) : s.starter ? 0 : 1;
     this.pending = null;
     this.botPlan = null;
     this.setTurn(s.starter);
@@ -45,7 +62,43 @@ class PoolHost extends HostBase {
   }
 
   remaining(group, balls = this.state.balls) {
-    return balls.filter((b) => !b.in && colorOfBall(b.id) === group).length;
+    return balls.filter((b) => !b.in && colorIn(this.state, b.id) === group).length;
+  }
+
+  /** Bola 8 kembali ke titik kaki (geser bila tertutup bola lain). */
+  respotEight() {
+    const s = this.state;
+    const e = s.balls.find((b) => b.id === 8);
+    e.in = false;
+    e.x = FOOT_X;
+    e.z = 0;
+    for (let k = 0; k < 20 && !validCuePos(s.balls.filter((b) => b.id !== 8), e.x, e.z); k++) e.x = round(e.x + 0.065);
+  }
+
+  /** Pemain gugur / keluar: bola warnanya diangkat dari meja (masuk keranjang terdekat). */
+  clearGroup(g) {
+    if (!g) return;
+    for (const b of this.state.balls) {
+      if (b.in || b.id === 0 || b.id === 8 || colorIn(this.state, b.id) !== g) continue;
+      let best = 0, bd = Infinity;
+      POCKETS.forEach((p, i) => {
+        const d = (p.x - b.x) ** 2 + (p.z - b.z) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = i;
+        }
+      });
+      b.in = true;
+      b.pk = best;
+    }
+  }
+
+  /** Giliran pindah ke pemain aktif berikutnya (bola di tangan bila foul). */
+  passTurn(stage, ev) {
+    const s = this.state;
+    this.setTurn(this.next(s.turn));
+    s.stage = stage;
+    this.push(ev);
   }
 
   place(pid, x, z) {
@@ -113,6 +166,7 @@ class PoolHost extends HostBase {
     this.pending = null;
     const s = this.state;
     if (s.phase !== 'play') return;
+    if (s.multi) return this.resolveMulti(sim, by, onEight);
     s.balls = sim.final();
     const g = s.groups[by] || null;
     const opp = s.players.find((p) => p.id !== by);
@@ -167,6 +221,62 @@ class PoolHost extends HostBase {
     }
   }
 
+  /** 3–4 pemain: tiap pemain punya warna sendiri, juara berurutan sampai tersisa satu. */
+  resolveMulti(sim, by, onEight) {
+    const s = this.state;
+    s.balls = sim.final();
+    const cuePot = sim.pots.includes(0);
+    if (this.isDone(by) || this.index(by) < 0) {
+      // penembak keluar / menyerah saat bola bergulir
+      if (cuePot) this.respotCue();
+      if (sim.pots.includes(8)) this.respotEight();
+      if (this.cur()?.id === by || this.isDone(this.cur()?.id)) return this.passTurn(cuePot ? 'place' : 'aim', { k: 'switch', p: by, pots: sim.pots });
+      s.stage = cuePot ? 'place' : 'aim';
+      s.turnAt = Date.now();
+      return this.push();
+    }
+    const g = s.groups[by];
+    const first = sim.first;
+    let foul = null;
+    if (cuePot) foul = 'Bola putih masuk';
+    else if (first === null) foul = 'Tidak kena bola';
+    else if (!s.brk && onEight && first !== 8) foul = 'Harus kena bola 8 duluan';
+    else if (!s.brk && !onEight && colorIn(s, first) !== g) foul = first === 8 ? 'Kena bola 8 duluan' : 'Kena bola lawan duluan';
+    const brk = s.brk;
+    s.brk = false;
+    s.kitchen = false;
+    if (cuePot) this.respotCue();
+    if (sim.pots.includes(8)) {
+      this.respotEight();
+      if (!brk) {
+        // warnanya sudah habis & tanpa foul = juara berikutnya; selain itu gugur
+        const win = onEight && !foul;
+        if (!win) this.clearGroup(g);
+        const ev = { p: by, why: win ? 'eight' : 'eightLose', foul, pots: sim.pots };
+        if (win ? this.finish(by, ev) : this.knockOut(by, ev)) return;
+        ev.k = win ? 'fin' : 'ko';
+        return this.passTurn(foul ? 'place' : 'aim', ev);
+      }
+    }
+    const ownPot = sim.pots.some((id) => id !== 0 && id !== 8 && colorIn(s, id) === g);
+    if (foul) {
+      const to = s.players[this.next(s.turn)]?.id;
+      return this.passTurn('place', { k: 'foul', p: by, why: foul, to, pots: sim.pots });
+    }
+    if (ownPot) {
+      s.stage = 'aim';
+      s.turnAt = Date.now();
+      return this.push({ k: 'again', p: by, pots: sim.pots });
+    }
+    this.passTurn('aim', { k: 'switch', p: by, pots: sim.pots });
+  }
+
+  onLeave(pid, idx) {
+    const s = this.state;
+    if (s.multi) this.clearGroup(s.groups[pid]);
+    super.onLeave(pid, idx);
+  }
+
   onAction(a, from) {
     if (a.a === 'shoot') this.shoot(from, a);
     else if (a.a === 'place') this.place(from, a.x, a.z);
@@ -176,7 +286,18 @@ class PoolHost extends HostBase {
       this.push();
     }
     else if (a.a === 'resign') {
-      const other = this.state.players.find((p) => p.id !== from);
+      const s = this.state;
+      if (s.multi) {
+        // 3–4 pemain: yang menyerah gugur, sisanya lanjut
+        if (this.isDone(from)) return;
+        this.clearGroup(s.groups[from]);
+        const ev = { why: 'resign', by: from };
+        if (this.knockOut(from, ev)) return;
+        ev.k = 'ko';
+        if (this.isTurn(from) && s.stage !== 'roll') return this.passTurn(s.balls.find((b) => b.id === 0)?.in ? 'place' : 'aim', ev);
+        return this.push(ev);
+      }
+      const other = s.players.find((p) => p.id !== from);
       this.end(other?.id || null, { why: 'resign', by: from });
     }
   }
@@ -203,8 +324,8 @@ class PoolHost extends HostBase {
 // ---------- Bot: pilih bola & lubang (bola hantu), uji dengan simulasi ----------
 function planShot(s, pid) {
   const g = s.groups[pid] || null;
-  const onEight = !!g && s.balls.filter((b) => !b.in && colorOfBall(b.id) === g).length === 0;
-  const targets = s.balls.filter((b) => !b.in && b.id !== 0 && (onEight ? b.id === 8 : g ? colorOfBall(b.id) === g : b.id !== 8));
+  const onEight = !!g && s.balls.filter((b) => !b.in && colorIn(s, b.id) === g).length === 0;
+  const targets = s.balls.filter((b) => !b.in && b.id !== 0 && (onEight ? b.id === 8 : g ? colorIn(s, b.id) === g : b.id !== 8));
   const cue0 = s.balls.find((b) => b.id === 0);
   if (s.brk) {
     const z = (Math.random() - 0.5) * 0.2;
@@ -220,7 +341,7 @@ function planShot(s, pid) {
       if (validCuePos(s.balls, x, z, s.kitchen)) cues.push({ x, z });
     }
   }
-  const legal = (id) => (onEight ? id === 8 : g ? colorOfBall(id) === g : id !== 8);
+  const legal = (id) => (onEight ? id === 8 : g ? colorIn(s, id) === g : id !== 8);
   const cands = [];
   for (const c of cues) {
     const balls = s.balls.map((b) => (b.id === 0 ? { ...b, x: c.x, z: c.z, in: false } : b));
@@ -321,19 +442,28 @@ function ballTexture(base, spot, label) {
 }
 
 let ballMats = null;
-function ballMaterial(id) {
+/** Material bola menurut warna grup (cue, eight, red, blue, yellow, purple). */
+function ballMaterial(key) {
+  const mk = (base, spot, label) => new THREE.MeshPhongMaterial({ map: ballTexture(base, spot, label), shininess: 90, specular: '#555' });
   ballMats ||= {
-    cue: new THREE.MeshPhongMaterial({ map: ballTexture('#f8f6ef', '#e03131'), shininess: 90, specular: '#666' }),
-    [RED]: new THREE.MeshPhongMaterial({ map: ballTexture('#e03131', '#ffe3e3'), shininess: 90, specular: '#555' }),
-    [BLUE]: new THREE.MeshPhongMaterial({ map: ballTexture('#1c7ed6', '#d0ebff'), shininess: 90, specular: '#555' }),
-    eight: new THREE.MeshPhongMaterial({ map: ballTexture('#141414', '#ffffff', '8'), shininess: 90, specular: '#777' }),
+    cue: mk('#f8f6ef', '#e03131'),
+    [RED]: mk('#e03131', '#ffe3e3'),
+    [BLUE]: mk('#1c7ed6', '#d0ebff'),
+    yellow: mk('#fab005', '#fff3bf'),
+    purple: mk('#9c36b5', '#f3d9fa'),
+    eight: mk('#141414', '#ffffff', '8'),
   };
-  return ballMats[colorOfBall(id)];
+  return ballMats[key] || ballMats.cue;
 }
+
+const CUE_LEN = 1.3;
+const CUE_GRIP = 0.85; // ujung stik → pegangan tangan kanan
+const _Z = new THREE.Vector3(0, 0, 1), _dir = new THREE.Vector3(), _g = new THREE.Vector3(), _qa = new THREE.Quaternion();
+const _right = new THREE.Vector3(), _up = new THREE.Vector3(), _fwd = new THREE.Vector3();
 
 function cueStick() {
   const g = new THREE.Group();
-  const LEN = 1.3;
+  const LEN = CUE_LEN;
   const mk = (r1, r2, len, z0, color) => {
     const geo = new THREE.CylinderGeometry(r2, r1, len, 12).rotateX(-Math.PI / 2).translate(0, 0, z0 - len / 2);
     const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
@@ -421,6 +551,9 @@ class PoolRenderer {
     this.stickHit = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 8).rotateX(-Math.PI / 2).translate(0, 0, -0.65), new THREE.MeshBasicMaterial({ visible: false }));
     this.stick.add(this.stickHit);
     this.group.add(this.stick);
+    this.cueTpl = cueStick(); // stik di tangan tiap pemain (geometri & material dipakai bersama)
+    this.hands = new Map();
+    this.holders = new Map();
     this.guides = new Guides(this.group);
     this.guides.set([]);
     this.sim = null;
@@ -442,7 +575,7 @@ class PoolRenderer {
   ball(id) {
     let m = this.meshes.get(id);
     if (!m) {
-      m = new THREE.Mesh(this.ballGeo, ballMaterial(id));
+      m = new THREE.Mesh(this.ballGeo, ballMaterial(colorOfBall(id)));
       m.castShadow = true;
       m.userData.ballId = id;
       m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
@@ -496,6 +629,7 @@ class PoolRenderer {
     for (const b of balls) {
       seen.add(b.id);
       const mesh = this.ball(b.id);
+      mesh.material = ballMaterial(colorIn(m, b.id)); // 3–4 pemain: warna menurut pembagian grup
       let x = b.x, z = b.z;
       if (b.id === 0 && this.aimView?.place) {
         x = this.aimView.place.x;
@@ -583,7 +717,7 @@ class PoolRenderer {
     }
   }
 
-  /** Stik & garis bantu untuk pemain yang sedang giliran. */
+  /** Stik & garis bantu untuk pemain yang sedang giliran; stik di tangan semua pemain. */
   updateStick(dt, m, viewerId) {
     const shooter = m.players?.[m.turn];
     const cueB = (m.balls || []).find((b) => b.id === 0);
@@ -615,16 +749,24 @@ class PoolRenderer {
       this.strike += dt;
       if (this.strike > 0.35) this.strike = 0;
     }
-    const show = aim && !(aim.place && aim.placing);
-    if (show) {
+    const aimOn = aim && !(aim.place && aim.placing);
+    if (aimOn) {
       this.lastAim = aim;
       const cx = aim.cx ?? cueB.x, cz = aim.cz ?? cueB.z;
       const back = R + 0.012 + (aim.pull || 0) * 0.42;
       this.stick.position.set(cx - aim.dx * back, R + 0.004, cz - aim.dz * back);
       this.stick.lookAt(this._v.set(this.group.position.x + cx + aim.dx, this.group.position.y + R + 0.004, this.group.position.z + cz + aim.dz));
       this.stick.rotateX(0.07);
-      this.stick.visible = true;
-    } else if (this.strike > 0 && this.lastAim) {
+      // posisi bidik disimpan untuk transisi stik: dari tangan → garis bidik & kembali
+      const h = this.handCue(shooter.id);
+      h.aimQ.copy(this.stick.quaternion);
+      h.aimGrip.copy(this.stick.position).addScaledVector(_dir.set(0, 0, 1).applyQuaternion(this.stick.quaternion), -CUE_GRIP);
+      h.hasAim = true;
+    }
+    const k = aimOn ? this.updateHands(dt, m, viewerId, shooter.id) : this.updateHands(dt, m, viewerId, null);
+    // stik di garis bidik tampil setelah transisi dari tangan selesai
+    if (aimOn && k >= 0.995) this.stick.visible = true;
+    else if (this.strike > 0 && this.lastAim) {
       const t = this.strike;
       const a = this.lastAim;
       const cx = a.cx ?? cueB?.x ?? 0, cz = a.cz ?? cueB?.z ?? 0;
@@ -637,7 +779,107 @@ class PoolRenderer {
     else this.guides.set([]);
   }
 
+  /** Stik milik pemain (dipegang saat berjalan, berpindah ke garis bidik saat membungkuk). */
+  handCue(pid) {
+    let h = this.hands.get(pid);
+    if (!h) {
+      const mesh = this.cueTpl.clone();
+      mesh.visible = false;
+      this.group.add(mesh);
+      h = { mesh, k: 0, aimGrip: new THREE.Vector3(), aimQ: new THREE.Quaternion(), hasAim: false };
+      this.hands.set(pid, h);
+    }
+    return h;
+  }
+
+  /** Pegangan & arah stik di tangan kanan karakter: tegak di samping badan, ujung sedikit condong ke depan. */
+  handPose(ch, grip, q) {
+    ch.arms[0].userData.hand.getWorldPosition(grip).sub(this.group.position);
+    const f = ch.root.rotation.y, fx = Math.sin(f), fz = Math.cos(f);
+    _dir.set(fx * 0.14 - fz * 0.1, 1, fz * 0.14 + fx * 0.1).normalize();
+    q.setFromUnitVectors(_Z, _dir);
+    const ground = this.table.ground - this.table.y + 0.02;
+    const butt = grip.y - _dir.y * (CUE_LEN - CUE_GRIP);
+    if (butt < ground) grip.y += ground - butt;
+  }
+
+  placeCue(h, grip, q) {
+    h.mesh.quaternion.copy(q);
+    h.mesh.position.copy(grip).addScaledVector(_dir.set(0, 0, 1).applyQuaternion(q), CUE_GRIP);
+    h.mesh.visible = true;
+  }
+
+  /** Semua pemain memegang stik. Kembalikan nilai transisi penembak (1 = stik sudah di garis bidik). */
+  updateHands(dt, m, viewerId, shooterId) {
+    const seen = new Set();
+    let shooterK = 0;
+    if (m.phase === 'play') {
+      for (const p of m.players) {
+        const ch = this.ctx.characterOf(p.id);
+        if (!ch) continue;
+        seen.add(p.id);
+        ch.cueHold = 1;
+        this.holders.set(p.id, ch);
+        const h = this.handCue(p.id);
+        const aiming = p.id === shooterId;
+        const target = aiming ? clamp(ch.cuePose || 0, 0, 1) : 0;
+        // setelah memukul, stik menahan posisi sampai hentakan selesai lalu kembali ke tangan
+        if (!(this.strike > 0 && this.lastShooter === p.id)) h.k += clamp(target - h.k, -dt / 0.45, dt / 0.45);
+        if (aiming) {
+          shooterK = h.k;
+          this.lastShooter = p.id;
+        }
+        if (p.id === viewerId) {
+          h.mesh.visible = false; // stik sendiri ditaruh mengikuti kamera (afterCamera)
+          continue;
+        }
+        if (!ch.root.visible || (aiming && h.k >= 0.995) || (this.strike > 0 && this.lastShooter === p.id)) {
+          h.mesh.visible = false;
+          continue;
+        }
+        this.handPose(ch, _g, _qa);
+        const e = h.k * h.k * (3 - 2 * h.k);
+        if (e > 0 && h.hasAim) {
+          _g.lerp(h.aimGrip, e);
+          _qa.slerp(h.aimQ, e);
+        }
+        this.placeCue(h, _g, _qa);
+      }
+    }
+    for (const [pid, h] of this.hands) if (!seen.has(pid)) h.mesh.visible = false;
+    for (const [pid, ch] of this.holders) {
+      if (seen.has(pid)) continue;
+      ch.cueHold = 0;
+      this.holders.delete(pid);
+    }
+    return shooterK;
+  }
+
+  /** Stik sendiri dalam pandangan orang pertama: dipegang di kanan bawah saat berjalan, turun ke garis bidik saat membungkuk. */
+  placeViewCue(viewerId, cam, show) {
+    const h = this.hands.get(viewerId);
+    if (!h) return;
+    if (!show || (h.k >= 0.995 && this.stick.visible) || (this.strike > 0 && this.lastShooter === viewerId)) {
+      h.mesh.visible = false;
+      return;
+    }
+    _right.set(1, 0, 0).applyQuaternion(cam.quaternion);
+    _up.set(0, 1, 0).applyQuaternion(cam.quaternion);
+    _fwd.set(0, 0, -1).applyQuaternion(cam.quaternion);
+    _g.copy(cam.position).sub(this.group.position).addScaledVector(_right, 0.27).addScaledVector(_fwd, 0.34).addScaledVector(_up, -0.55);
+    _dir.copy(_up).multiplyScalar(0.92).addScaledVector(_fwd, 0.34).addScaledVector(_right, 0.05).normalize();
+    _qa.setFromUnitVectors(_Z, _dir);
+    const e = h.k * h.k * (3 - 2 * h.k);
+    if (e > 0 && h.hasAim) {
+      _g.lerp(h.aimGrip, e);
+      _qa.slerp(h.aimQ, e);
+    }
+    this.placeCue(h, _g, _qa);
+  }
+
   dispose() {
+    for (const ch of this.holders.values()) ch.cueHold = 0;
+    this.holders.clear();
     this.group.removeFromParent();
   }
 
@@ -655,7 +897,7 @@ class PoolRenderer {
     this.botSpots ||= new Map();
     if (m.phase === 'play' && m.players[m.turn]?.id === pid && m.botAim && cueB && m.stage !== 'roll') {
       const cx = m.botAim.cx ?? cueB.x, cz = m.botAim.cz ?? cueB.z;
-      const p = standSpot(cx, cz, m.botAim.dx, m.botAim.dz);
+      const p = standSpot(cx, cz, m.botAim.dx, m.botAim.dz, this.ctx.characterOf(pid)?.look?.body);
       const pose = { x: t.x + p.x, z: t.z + p.z, y: t.ground, rot: Math.atan2(m.botAim.dx, m.botAim.dz), cue: 1 };
       this.botSpots.set(pid, pose);
       return pose;
@@ -668,10 +910,10 @@ class PoolRenderer {
   }
 }
 
-/** Titik berdiri di luar meja, di belakang bola putih searah garis bidik. */
+/** Titik di garis bidik, `pad` di luar tepi kain (untuk kamera membungkuk). */
 const STAND = 0.42;
-function standSpot(cx, cz, dx, dz) {
-  const ex = L / 2 + STAND, ez = W / 2 + STAND;
+function lineSpot(cx, cz, dx, dz, pad = STAND) {
+  const ex = L / 2 + pad, ez = W / 2 + pad;
   let t = Infinity;
   if (dx > 1e-6) t = Math.min(t, (cx + ex) / dx);
   if (dx < -1e-6) t = Math.min(t, (cx - ex) / dx);
@@ -681,9 +923,39 @@ function standSpot(cx, cz, dx, dz) {
   return { x: cx - dx * t, z: cz - dz * t };
 }
 
+// Jejak badan saat membidik (x = kiri, z = depan; diukur dari model chibi pada setinggi rel meja,
+// termasuk topi & pakaian terbesar). Dipakai agar kepala, lengan & badan tidak masuk ke dalam meja.
+const AIM_HULL = {
+  normal: [[-0.35, 0.01], [-0.17, -0.25], [0.17, -0.25], [0.35, 0.07], [0.24, 0.39], [0.13, 0.46], [-0.18, 0.39], [-0.34, 0.08]],
+  tall: [[-0.17, -0.24], [0.17, -0.24], [0.22, -0.1], [0.26, 0.27], [0.18, 0.51], [0.08, 0.54], [-0.18, 0.42], [-0.25, 0.23]],
+  short: [[-0.37, 0.04], [-0.29, -0.19], [-0.07, -0.31], [0.29, -0.19], [0.37, 0.04], [0.3, 0.38], [0.09, 0.45], [-0.3, 0.38]],
+  chubby: [[-0.47, 0], [-0.24, -0.33], [0.24, -0.33], [0.46, -0.02], [0.36, 0.41], [0.23, 0.5], [-0.28, 0.41], [-0.47, 0.09]],
+};
+const RAIL_X = L / 2 + 0.19, RAIL_Z = W / 2 + 0.19; // tepi luar rel kayu + sedikit jarak
+const CUE_SIDE = 0.25; // badan di kiri garis stik: stik lewat di sisi kanan kepala, dipegang tangan kanan
+
+/** Tempat berdiri saat membidik: mundur di belakang bola putih sampai seluruh badan di luar meja. */
+function standSpot(cx, cz, dx, dz, body = 'normal') {
+  const hull = AIM_HULL[body] || AIM_HULL.normal;
+  const lx = dz, lz = -dx; // arah kiri karakter
+  for (let t = 0.2; t < 4.5; t += 0.02) {
+    const px = cx - dx * t + lx * CUE_SIDE, pz = cz - dz * t + lz * CUE_SIDE;
+    let ok = true;
+    for (const [hx, hz] of hull) {
+      const wx = px + hx * dz + hz * dx, wz = pz - hx * dx + hz * dz;
+      if (Math.abs(wx) < RAIL_X && Math.abs(wz) < RAIL_Z) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return { x: px, z: pz };
+  }
+  return lineSpot(cx, cz, dx, dz, 0.8);
+}
+
 // ---------- Jalur karakter memutari meja (tidak menembus meja) ----------
 // Kotak terlarang (koordinat meja): karakter selalu di luar tepi meja + jarak badan.
-const BOX_X = L / 2 + 0.33, BOX_Z = W / 2 + 0.33;
+const BOX_X = L / 2 + 0.55, BOX_Z = W / 2 + 0.55; // tepi rel + setengah lebar badan chibi
 const CORNERS = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([sx, sz]) => ({ x: sx * (BOX_X + 0.08), z: sz * (BOX_Z + 0.08) }));
 
 function pushOut(p) {
@@ -767,7 +1039,7 @@ const $ = (id) => document.getElementById(id);
 
 const EYE_STAND = 1.62; // berdiri & berjalan: setinggi mata orang dewasa (sedikit di atas kepala chibi)
 const WALK_SPEED = 1.5;
-const KEEP = 0.34; // jarak minimal dari tepi kain (tidak bisa menembus meja)
+const KEEP = 0.55; // jarak minimal dari tepi kain (badan tidak menembus meja)
 const BASE_FOV = 62;
 const BODY_SPEED = 2.6; // kecepatan badan berpindah tempat (memutari meja)
 const ROAM = 2.4; // seberapa jauh boleh berjalan dari meja
@@ -865,7 +1137,7 @@ class PoolControls {
     }
     if (this.mode === 'bend' && cue) {
       // berdiri lagi di tempat membungkuk tadi, memandang searah bidikan
-      this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim));
+      this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim), this.bodyType());
       this.look = { yaw: this.aim, pitch: -0.55 };
     }
     this.mode = mode;
@@ -1001,7 +1273,7 @@ class PoolControls {
       this.placing = false;
       this.ctx.audio.play('click');
       const cue = this.place;
-      this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim));
+      this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim), this.bodyType());
       this.mode = 'walk';
       this.setMode('bend', true);
     });
@@ -1087,6 +1359,11 @@ class PoolControls {
   // ---------- Logika per frame ----------
   myTurn(m) {
     return !!m && m.phase === 'play' && m.players[m.turn]?.id === this.ctx.myId;
+  }
+
+  /** Bentuk tubuh karakter sendiri (menentukan jarak berdiri saat membidik). */
+  bodyType() {
+    return this.ctx.local()?.character?.look?.body || 'normal';
   }
 
   cueBall(m) {
@@ -1189,7 +1466,7 @@ class PoolControls {
     if (local && t && this.pos) {
       let goal, facing;
       if (this.mode === 'bend' && c) {
-        goal = standSpot(c.x, c.z, Math.cos(this.aim), Math.sin(this.aim));
+        goal = standSpot(c.x, c.z, Math.cos(this.aim), Math.sin(this.aim), this.bodyType());
         facing = Math.atan2(Math.cos(this.aim), Math.sin(this.aim));
       } else {
         goal = this.pos;
@@ -1211,11 +1488,11 @@ class PoolControls {
   initAim(m) {
     const cue = this.place || this.cueBall(m);
     const g = m.groups?.[this.ctx.myId];
-    const onEight = g && !(m.balls || []).some((b) => !b.in && colorOfBall(b.id) === g);
+    const onEight = g && !(m.balls || []).some((b) => !b.in && colorIn(m, b.id) === g);
     let best = null, bd = Infinity;
     for (const b of m.balls || []) {
       if (b.in || b.id === 0) continue;
-      const ok = onEight ? b.id === 8 : g ? colorOfBall(b.id) === g : b.id !== 8;
+      const ok = onEight ? b.id === 8 : g ? colorIn(m, b.id) === g : b.id !== 8;
       if (!ok) continue;
       const d = (b.x - cue.x) ** 2 + (b.z - cue.z) ** 2;
       if (d < bd) {
@@ -1265,9 +1542,9 @@ class PoolControls {
 
   isLegal(m, id) {
     const g = m.groups?.[this.ctx.myId];
-    const onEight = g && !(m.balls || []).some((b) => !b.in && colorOfBall(b.id) === g);
+    const onEight = g && !(m.balls || []).some((b) => !b.in && colorIn(m, b.id) === g);
     if (m.brk) return true;
-    return onEight ? id === 8 : g ? colorOfBall(id) === g : id !== 8;
+    return onEight ? id === 8 : g ? colorIn(m, id) === g : id !== 8;
   }
 
   /** Peringatan bila bidikan mengenai bola lawan lebih dulu. */
@@ -1280,7 +1557,7 @@ class PoolControls {
     if (m.phase !== 'play') return '';
     const g = m.groups?.[p.id];
     if (!g) return '<span class="cp-balls" title="Meja terbuka"><i class="split"></i></span>';
-    const left = (m.balls || []).filter((b) => !b.in && colorOfBall(b.id) === g).length;
+    const left = (m.balls || []).filter((b) => !b.in && colorIn(m, b.id) === g).length;
     if (!left) return '<span class="cp-balls" title="Tinggal bola 8"><i style="background:#141414"></i>8</span>';
     return `<span class="cp-balls" title="Bola ${GROUP_NAME[g]}"><i style="background:${GROUP_COLOR[g]}"></i>${left}</span>`;
   }
@@ -1304,7 +1581,7 @@ class PoolControls {
     if (this.mode === 'bend' && cue) {
       // POV membungkuk di belakang stik (+ menoleh)
       const dx = Math.cos(this.aim), dz = Math.sin(this.aim);
-      const p = standSpot(cue.x, cue.z, dx, dz);
+      const p = lineSpot(cue.x, cue.z, dx, dz);
       // mata karakter: condong paling jauh 0,3 m dari tempat berdiri (di atas bantalan), tidak masuk ke atas meja
       const reach = Math.hypot(cue.x - p.x, cue.z - p.z);
       const lean = clamp(reach - 0.4, 0, 0.3);
@@ -1381,6 +1658,13 @@ class PoolControls {
     }
   }
 
+  /** Setelah kamera diletakkan: stik sendiri (pandangan orang pertama) mengikuti kamera. */
+  afterCamera(cam) {
+    const m = this.m;
+    if (!m) return;
+    this.ctx.renderer(m)?.placeViewCue(this.ctx.myId, cam, m.phase === 'play' && !this.placing && this.topK < 0.05);
+  }
+
   applyLook({ yaw, pitch, zoom = 0 }) {
     if (this.dragCue !== null && this.dragCue !== undefined) return;
     if (this.stickDrag || this.placing) return;
@@ -1424,9 +1708,15 @@ class PoolControls {
     }
     el.hidden = false;
     const n = m.opts?.balls === 9 ? 9 : 15;
-    const sig = `${n}|${isHost}`;
+    const multi = m.players.length >= 3;
+    const sig = `${n}|${isHost}|${multi}`;
     if (el.dataset.sig === sig) return;
     el.dataset.sig = sig;
+    if (multi) {
+      // 3–4 pemain: tiap pemain punya warna bola sendiri
+      el.innerHTML = `<span class="cu-opt-label">Warna bola per pemain</span><div class="cu-opt-note">${m.players.map((p, i) => `<span class="cp-balls"><i style="background:${GROUP_COLOR[MULTI_GROUPS[i]]}"></i></span>`).join('')} Habiskan warnamu, lalu masukkan bola 8</div>`;
+      return;
+    }
     el.innerHTML = `<span class="cu-opt-label">Jumlah bola</span><div class="cu-seg">
       <button type="button" data-n="15" class="${n === 15 ? 'on' : ''}" ${isHost ? '' : 'disabled'}>15 bola</button>
       <button type="button" data-n="9" class="${n === 9 ? 'on' : ''}" ${isHost ? '' : 'disabled'}>9 bola</button></div>`;
@@ -1445,7 +1735,9 @@ class PoolControls {
 
   onEvent(ev, m) {
     const name = this.ctx.playerName;
-    if (ev.k === 'foul') this.ctx.flash(`Foul: ${ev.why}. ${ev.to === this.ctx.myId ? 'Bola di tangan untukmu' : `${name(ev.to)} dapat bola di tangan`}`);
+    const g = m.groups?.[this.ctx.myId];
+    if (ev.k === 'start' && m.multi && g) this.ctx.flash(`Bolamu warna ${GROUP_NAME[g]}`);
+    else if (ev.k === 'foul') this.ctx.flash(`Foul: ${ev.why}. ${ev.to === this.ctx.myId ? 'Bola di tangan untukmu' : `${name(ev.to)} dapat bola di tangan`}`);
     else if (ev.k === 'again') this.ctx.flash(ev.assigned ? `${name(ev.p)} memakai bola ${GROUP_NAME[ev.assigned]}` : ev.p === this.ctx.myId ? 'Masuk! Pukul lagi' : `${name(ev.p)} lanjut`);
     else if (ev.k === 'switch' && m.players[m.turn]?.id === this.ctx.myId) this.ctx.flash('Giliranmu');
   }
@@ -1454,6 +1746,7 @@ class PoolControls {
     const ev = m.ev;
     const name = this.ctx.playerName;
     if (ev.why === 'resign') return `${name(ev.by)} menyerah`;
+    if (m.multi) return ev.why === 'eightLose' ? `${name(ev.p)} memasukkan bola 8 ${ev.foul ? 'sambil foul' : 'terlalu cepat'}` : null;
     if (ev.why === 'eight') return m.winner === this.ctx.myId ? 'Bola 8 masuk — kamu menang!' : `${name(m.winner)} memasukkan bola 8 dan menang`;
     if (ev.why === 'eightLose') return `${name(ev.p)} memasukkan bola 8 ${ev.foul ? 'sambil foul' : 'terlalu cepat'} — ${m.winner === this.ctx.myId ? 'kamu menang!' : m.winner ? `${name(m.winner)} menang` : 'coba lagi!'}`;
     return null;
@@ -1466,11 +1759,11 @@ export default {
   icon: 'pool',
   art: 'radial-gradient(circle at 35% 40%, #f8f6ef 0 12%, transparent 13%), radial-gradient(circle at 62% 55%, #141414 0 12%, transparent 13%), radial-gradient(circle at 50% 30%, #e03131 0 10%, transparent 11%), radial-gradient(circle at 70% 30%, #1c7ed6 0 10%, transparent 11%), #1f8a4c',
   min: 1, // bisa main solo (latihan)
-  max: 2,
+  max: 4, // 3–4 pemain: warna bola per pemain
   venue: 'pool',
   stand: true,
   cams: [],
-  seatOrder: [0, 1],
+  seatOrder: [0, 1, 2, 3],
   topView: false,
   Host: PoolHost,
   Renderer: PoolRenderer,

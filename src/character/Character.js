@@ -323,6 +323,9 @@ const ease = (t) => t * t * (3 - 2 * t);
 const _reach = new THREE.Vector3();
 const seg = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
 
+/** Tekukan badan saat membidik pool (rad). Kecil karena kepala chibi besar: kepala tidak boleh masuk meja. */
+export const CUE_BEND = 0.3;
+
 /** Karakter chibi low poly. API sama dengan karakter kapsul lama. */
 export class Character {
   constructor({ name = 'Pemain', color = '#4dabf7', look = DEFAULT_LOOK, showName = true } = {}) {
@@ -624,14 +627,26 @@ export class Character {
       }
     }
 
-    // pose membidik bola pool: badan membungkuk, tangan kiri jadi sandaran stik, tangan kanan memegang pangkal
-    if (this.cuePose && !s.sitting && !s.swimming) {
-      const k = this.cuePose;
-      lean += 0.5 * k;
-      armLx = lerp(armLx, -1.45, k);
-      armLz = lerp(armLz, -0.15, k);
-      armRx = lerp(armRx, -0.75, k);
-      armRz = lerp(armRz, 0.25, k);
+    // pose membidik bola pool: tekuk di pinggul (kaki tetap tegak di luar meja), pinggul mundur,
+    // kepala menatap ke depan; tangan kiri lurus ke depan (sandaran stik), tangan kanan di pangkal stik
+    let bend = 0, hipBack = 0;
+    const cue = this.cuePose && !s.sitting && !s.swimming ? this.cuePose : 0;
+    if (cue) {
+      bend = CUE_BEND * cue;
+      hipBack = 0.07 * cue;
+      bodyY -= 0.03 * cue;
+      legL = lerp(legL, -0.2, cue);
+      legR = lerp(legR, 0.1, cue);
+      armLx = lerp(armLx, -1.0 - CUE_BEND, cue); // sudut lengan relatif badan yang sudah menunduk
+      armLz = lerp(armLz, -0.28, cue);
+      armRx = lerp(armRx, -0.75 - CUE_BEND, cue);
+      armRz = lerp(armRz, 0.3, cue);
+    }
+    // memegang stik pool sambil berjalan / menunggu: tangan kanan sedikit ke depan, ayunan kecil
+    const hold = this.cueHold && !s.sitting && !s.swimming ? 1 - cue : 0;
+    if (hold > 0) {
+      armRx = lerp(armRx, -0.3 + armRx * 0.25, hold);
+      armRz = lerp(armRz, -0.1, hold);
     }
 
     // pose memegang item
@@ -698,7 +713,9 @@ export class Character {
     sy *= 1 - this.squash;
     const b = this.body;
     b.position.y = damp(b.position.y, bodyY, 18, dt);
+    b.position.z = damp(b.position.z, -hipBack, 10, dt);
     b.rotation.x = damp(b.rotation.x, lean, 10, dt);
+    this.torso.rotation.x = damp(this.torso.rotation.x, bend, 10, dt);
     b.rotation.z = damp(b.rotation.z, sway, 10, dt);
     const sxz = 1 / Math.sqrt(sy);
     b.scale.set(damp(b.scale.x, sxz, 18, dt), damp(b.scale.y, sy, 18, dt), damp(b.scale.z, sxz, 18, dt));
@@ -709,14 +726,14 @@ export class Character {
     this.arms[0].rotation.y = damp(this.arms[0].rotation.y, armRy, 14, dt);
     this.arms[1].rotation.x = damp(this.arms[1].rotation.x, armLx, 14, dt);
     this.arms[1].rotation.z = damp(this.arms[1].rotation.z, armLz, 14, dt);
-    if (this.held) this.held.visible = !(this.holdCards && s.sitting) && !this.cuePose;
+    if (this.held) this.held.visible = !(this.holdCards && s.sitting) && !this.cuePose && !this.cueHold;
     if (this.held && item !== 'guitar') {
       this.held.rotation.x = damp(this.held.rotation.x, itemRx, 20, dt);
       this.held.rotation.y = damp(this.held.rotation.y, itemRy, 20, dt);
     }
     this.head.rotation.y = damp(this.head.rotation.y, this.gaze.yaw, 10, dt);
     // saat memegang kartu kepala tidak menunduk, supaya kipas kartu tidak tertutup kepala
-    const headX = this.holdCards && s.sitting ? Math.min(-this.gaze.pitch, 0.16) : -this.gaze.pitch;
+    const headX = (this.holdCards && s.sitting ? Math.min(-this.gaze.pitch, 0.16) : -this.gaze.pitch) - bend * 0.85;
     this.head.rotation.x = damp(this.head.rotation.x, headX, 10, dt);
 
     if (this.backAnim.cape) {
