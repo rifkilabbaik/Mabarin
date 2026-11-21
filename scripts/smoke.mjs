@@ -14,6 +14,7 @@ const GAMES = [
   // id, nama di menu, jumlah bot (meja penuh supaya jalur 3–4 pemain ikut teruji)
   ['kilat', 'Kartu Kilat', 3],
   ['domino', 'Domino', 3],
+  ['juragan', 'Juragan', 3],
   ['catur', 'Catur', 1],
   ['dam', 'Dam', 1],
   ['ludo', 'Ludo', 3],

@@ -382,6 +382,27 @@ const SFX = {
   win(a, out, t) {
     [523.3, 659.3, 784, 1046.5, 784, 1046.5].forEach((f, i) => a.tone('triangle', f, 0, t + i * 0.11, 0.4, 0.09, out));
   },
+  // pembayaran lewat HP: "tung" lalu "ting"
+  tungting(a, out, t) {
+    a.tone('sine', 523.3, 0, t, 0.24, 0.13, out);
+    a.tone('triangle', 523.3, 0, t, 0.16, 0.04, out);
+    a.tone('sine', 1568, 0, t + 0.17, 0.5, 0.12, out);
+    a.tone('triangle', 3136, 0, t + 0.17, 0.25, 0.025, out);
+  },
+  // uang masuk: koin bergemerincing "kencring"
+  kencring(a, out, t) {
+    for (let i = 0; i < 7; i++) {
+      const f = 2300 + Math.random() * 2800;
+      const at = t + i * 0.042 + Math.random() * 0.018;
+      a.tone('triangle', f, f * 0.97, at, 0.2, 0.05, out);
+      a.tone('sine', f * 1.51, 0, at, 0.12, 0.022, out);
+    }
+    a.hiss(t, 0.28, 0.05, out, 'highpass', 6500);
+  },
+  // HP bergetar (tawaran masuk)
+  buzz(a, out, t) {
+    for (let i = 0; i < 2; i++) a.tone('square', 150, 140, t + i * 0.24, 0.17, 0.035, out);
+  },
   turn(a, out, t) {
     a.tone('sine', 988, 0, t, 0.12, 0.08, out);
     a.tone('sine', 1318.5, 0, t + 0.09, 0.16, 0.07, out);

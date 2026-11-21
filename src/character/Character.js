@@ -577,6 +577,12 @@ export class Character {
         armLz = -0.36;
         armRz = 0.36;
       }
+      if (this.holdPhone) {
+        // memegang HP di depan dada dengan dua tangan sambil menunduk (terlihat pemain lain)
+        armLx = armRx = -1.25;
+        armLz = -0.42;
+        armRz = 0.42;
+      }
       sy = 1 + Math.sin(this.time * 2) * 0.01;
     } else if (s.swimming) {
       bodyY = -(d.hipY + d.torsoH * 0.85) + Math.sin(this.time * 2.2) * 0.05;
@@ -726,7 +732,13 @@ export class Character {
     this.arms[0].rotation.y = damp(this.arms[0].rotation.y, armRy, 14, dt);
     this.arms[1].rotation.x = damp(this.arms[1].rotation.x, armLx, 14, dt);
     this.arms[1].rotation.z = damp(this.arms[1].rotation.z, armLz, 14, dt);
-    if (this.held) this.held.visible = !(this.holdCards && s.sitting) && !this.cuePose && !this.cueHold;
+    if (this.held) this.held.visible = !(this.holdCards && s.sitting) && !(this.holdPhone && s.sitting) && !this.cuePose && !this.cueHold;
+    const phoneOn = !!this.holdPhone && !!s.sitting;
+    if (phoneOn && !this.phoneMesh) {
+      this.phoneMesh = handPhone();
+      this.arms[0].userData.hand.add(this.phoneMesh);
+    }
+    if (this.phoneMesh) this.phoneMesh.visible = phoneOn;
     if (this.held && item !== 'guitar') {
       this.held.rotation.x = damp(this.held.rotation.x, itemRx, 20, dt);
       this.held.rotation.y = damp(this.held.rotation.y, itemRy, 20, dt);
@@ -762,4 +774,21 @@ export class Character {
     if (this.held) this.held.traverse((o) => o.isMesh && o.geometry.dispose());
     this.root.removeFromParent();
   }
+}
+
+/** HP kecil di tangan kanan (layar menghadap wajah saat lengan terangkat ke depan). */
+let handPhoneKit = null;
+function handPhone() {
+  handPhoneKit ||= {
+    body: new THREE.BoxGeometry(0.085, 0.165, 0.012),
+    screen: new THREE.PlaneGeometry(0.075, 0.15).rotateY(Math.PI).translate(0, 0, -0.0065),
+    bodyMat: new THREE.MeshLambertMaterial({ color: '#1f2430' }),
+    screenMat: new THREE.MeshBasicMaterial({ color: '#74c0fc' }),
+  };
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(handPhoneKit.body, handPhoneKit.bodyMat), new THREE.Mesh(handPhoneKit.screen, handPhoneKit.screenMat));
+  g.rotation.x = 1.25 - 0.35; // membatalkan putaran lengan, layar sedikit menengadah ke wajah
+  g.position.set(0.04, -0.13, 0.03); // di ujung tangan, di depan dada (tidak tertutup kepala)
+  g.scale.setScalar(1.35);
+  return g;
 }

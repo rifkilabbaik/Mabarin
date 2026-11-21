@@ -36,7 +36,7 @@ export class TableGames {
     this.onEnter = onEnter;
     this.onExit = onExit;
     // meja bundar (kartu & papan) + meja pool (venue khusus, pemain berdiri)
-    this.tables = [...world.props.markers.cardTables, ...(world.props.markers.poolTables || [])];
+    this.tables = [...world.props.markers.cardTables, ...(world.props.markers.poolTables || []), ...(world.props.markers.squareTables || [])];
     this.tableState = this.tables.map(() => ({ game: null, renderer: null, bots: new Map(), marker: null }));
     this.host = null;
     this.active = null;
@@ -824,6 +824,11 @@ export class TableGames {
     if (this.remotes) for (const rp of this.remotes.values()) rp.character.holdCards = holders.has(rp.id);
     // karakter sendiri ikut memegang kipas kartunya (terlihat di kamera bebas)
     if (this.local) this.local.character.holdCards = holders.has(this.myId) && !!this.controls?.hand;
+    // pemain yang sedang membuka HP (Juragan) mengangkat HP ke wajah
+    const phoners = new Set();
+    for (const m of matches) if (m.phase === 'play' && m.phone) for (const id of Object.keys(m.phone)) if (m.phone[id]) phoners.add(id);
+    if (this.remotes) for (const rp of this.remotes.values()) rp.character.holdPhone = phoners.has(rp.id);
+    if (this.local) this.local.character.holdPhone = phoners.has(this.myId);
     this.tables.forEach((t, i) => {
       const ts = this.tableState[i];
       const m = byTable.get(i) || null;
@@ -877,6 +882,7 @@ export class TableGames {
         b.root.rotation.y = s.rot;
         b.setGaze(0, -0.5);
         b.holdCards = holders.has(p.id);
+        b.holdPhone = phoners.has(p.id);
         b.animate(dt, { speed: 0, grounded: true, swimming: false, vy: 0, sitting: true });
       });
       for (const [id, b] of ts.bots) {

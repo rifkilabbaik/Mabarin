@@ -52,6 +52,7 @@ export const CONFIG = {
     },
     plazaTables: [[0, -19.5], [8, -19.5], [16, -19.5], [24, -19.5]],
     poolTables: [[33, -26.5]], // meja pool (panjang searah sumbu x)
+    squareTables: [[-9, -19.5], [-18, -19.5]], // meja persegi besar (Juragan)
   },
 
   // Pemain yang tidak menyentuh kontrol selama ini dikeluarkan agar room tidak penuh.

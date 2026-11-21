@@ -324,10 +324,12 @@ export class JuraganHost extends HostBase {
     const s = this.state;
     const from = s.pos[pid];
     const to = (((from + steps) % 40) + 40) % 40;
-    s.mv = { n: ++this.seq, pid, from, to, steps, kind: steps < 0 ? 'back' : 'walk' };
+    // langkah jauh (kartu) dipercepat: paling lama ±3 detik berjalan
+    const hop = Math.min(HOP_MS, Math.round(3000 / Math.max(1, Math.abs(steps))));
+    s.mv = { n: ++this.seq, pid, from, to, steps, hop, kind: steps < 0 ? 'back' : 'walk' };
     s.pos[pid] = to;
     this.stageTo('move');
-    this.pending = { at: Date.now() + Math.abs(steps) * HOP_MS + 450, fn: () => this.land(pid, { ...ctx, salary: steps > 0 && from + steps >= 40 }) };
+    this.pending = { at: Date.now() + Math.abs(steps) * hop + 450, fn: () => this.land(pid, { ...ctx, salary: steps > 0 && from + steps >= 40 }) };
     this.push();
   }
 

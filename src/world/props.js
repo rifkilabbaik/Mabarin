@@ -510,16 +510,57 @@ function buildPoolTables(world, markers) {
   }
 }
 
+// ---------- Meja persegi besar (Juragan): papan 1,2 m, HP & kartu hak milik di tepi meja ----------
+export const SQUARE_HALF = 0.95; // setengah sisi daun meja
+function buildSquareTables(world, markers) {
+  const H = SQUARE_HALF;
+  const top = merge([
+    prep(new THREE.BoxGeometry(H * 2, 0.07, H * 2).translate(0, 0.755, 0), '#9a6331'),
+    prep(new THREE.BoxGeometry(H * 2 - 0.12, 0.006, H * 2 - 0.12).translate(0, 0.791, 0), '#2d5e46'),
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => prep(new THREE.BoxGeometry(0.09, 0.72, 0.09).translate(sx * (H - 0.12), 0.36, sz * (H - 0.12)), '#6b4226')),
+    prep(new THREE.BoxGeometry(H * 2 - 0.2, 0.06, 0.05).translate(0, 0.66, H - 0.12), '#6b4226'),
+    prep(new THREE.BoxGeometry(H * 2 - 0.2, 0.06, 0.05).translate(0, 0.66, -H + 0.12), '#6b4226'),
+  ]);
+  const stool = merge([
+    prep(new THREE.CylinderGeometry(0.24, 0.22, 0.08, 8).translate(0, 0.42, 0), '#c08552'),
+    prep(new THREE.CylinderGeometry(0.06, 0.08, 0.4, 5).translate(0, 0.2, 0), '#6b4226'),
+  ]);
+  const mat = lambert();
+  for (const [cx, cz] of CONFIG.sports.squareTables || []) {
+    const y = world.getHeight(cx, cz);
+    const t = new THREE.Mesh(top, mat);
+    t.position.set(cx, y, cz);
+    t.castShadow = t.receiveShadow = true;
+    world.scene.add(t);
+    world.colliders.add(cx, cz, H + 0.05, y + 0.8);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) world.colliders.add(cx + sx * (H - 0.3), cz + sz * (H - 0.3), 0.42, y + 0.8);
+    const seats = [];
+    // kursi di tengah tiap sisi; urutan memutar (kursi 0 & 2 berhadapan)
+    for (const [dx, dz] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+      const sx = cx + dx * (H + 0.38), sz = cz + dz * (H + 0.38);
+      const sy = world.getHeight(sx, sz);
+      const m = new THREE.Mesh(stool, mat);
+      m.position.set(sx, sy, sz);
+      m.castShadow = m.receiveShadow = true;
+      world.scene.add(m);
+      seats.push({ x: sx, z: sz, y: sy + 0.46, rot: Math.atan2(cx - sx, cz - sz), locked: true });
+    }
+    const index = markers.cardTables.length + markers.poolTables.length + markers.squareTables.length;
+    markers.squareTables.push({ index, kind: 'square', x: cx, z: cz, y: y + 0.794, half: H, seats });
+  }
+}
+
 export function buildProps(world, rand) {
   const cfg = CONFIG.world;
   const scene = world.scene;
   const shadows = world.quality !== 'low';
 
   // Penanda untuk peta (src/ui/MapView.js)
-  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], cardTables: [], poolTables: [], campfire: { x: 0, z: 0 } };
+  const markers = { pines: [], rounds: [], rocks: [], tents: [], benches: [], cardTables: [], poolTables: [], squareTables: [], campfire: { x: 0, z: 0 } };
   const campfire = buildCampfire(world, rand, markers);
   buildCardTables(world, markers);
   buildPoolTables(world, markers);
+  buildSquareTables(world, markers);
 
   // Pohon (punya collider batang)
   const pines = scatter(world, rand, cfg.trees.pine, { minH: 2, maxH: 14, maxSlope: 0.75, avoidSpawn: 14, collider: 0.45 });

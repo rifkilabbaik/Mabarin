@@ -126,9 +126,10 @@ test('jalan, beli, sewa ke pemilik, lewat MULAI', () => {
 test('dadu kembar: lempar lagi; tiga kali kembar: masuk penjara', () => {
   const { h, s, ids } = game();
   const A = ids[0];
-  s.own[4] = undefined;
+  h.decks.kas = [6, ...h.decks.kas.filter((x) => x !== 6)]; // kartu Kas RT: terima Rp100
   rollAs(h, A, 1, 1); // petak 2 (Kas RT) → kartu
-  assert.ok(['roll', 'act', 'buy', 'debt'].includes(s.stage));
+  assert.equal(s.stage, 'roll', 'kembar: lempar lagi');
+  assert.equal(h.cur().id, A);
   s.pos[A] = 0;
   s.doubles = 2;
   h.stageTo('roll');

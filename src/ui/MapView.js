@@ -101,6 +101,13 @@ export class MapView {
       ctx.fillStyle = '#1f8a4c';
       ctx.fillRect(toPx(t.x) - 3.5, toPx(t.z) - 1.8, 7, 3.6);
     }
+    // meja persegi (Juragan)
+    for (const t of m.squareTables || []) {
+      ctx.fillStyle = '#9a6331';
+      ctx.fillRect(toPx(t.x) - 3.2, toPx(t.z) - 3.2, 6.4, 6.4);
+      ctx.fillStyle = '#2d5e46';
+      ctx.fillRect(toPx(t.x) - 2.2, toPx(t.z) - 2.2, 4.4, 4.4);
+    }
     // kompleks olahraga
     const F = CONFIG.sports.fields;
     const court = (f, fill, run) => {
