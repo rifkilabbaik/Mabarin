@@ -696,7 +696,7 @@ export class TableGames {
       const w = m.players.find((p) => p.id === m.winner);
       // menang / kalah / seri (penonton: siapa yang menang)
       const playing = m.players.some((p) => p.id === this.myId);
-      const kind = m.winner === this.myId ? 'win' : m.winner && playing ? 'lose' : m.winner ? 'other' : 'draw';
+      const kind = m.winner === this.myId ? 'win' : (m.winner || m.players.length === 1) && playing ? 'lose' : m.winner ? 'other' : 'draw';
       const head = { win: 'Kamu menang!', lose: 'Kamu kalah', other: `${w?.name || 'Pemain'} menang`, draw: 'Seri' }[kind];
       $('cu-end-banner').dataset.kind = kind;
       $('cu-end-icon').innerHTML = icon(kind === 'lose' ? 'flag' : kind === 'draw' ? 'users' : 'crown');

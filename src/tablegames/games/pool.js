@@ -13,7 +13,7 @@ const round6 = (v) => Math.round(v * 1e6) / 1e6;
 // ======================================================================
 class PoolHost extends HostBase {
   constructor(o) {
-    super({ ...o, game: 'pool', min: 2, max: 2, turnMs: 45000 });
+    super({ ...o, game: 'pool', min: 1, max: 2, turnMs: 45000 }); // 1 pemain = latihan solo
     Object.assign(this.state, { opts: { balls: 15 }, balls: rack(15), stage: 'lobby', groups: {}, shot: null, kitchen: true, brk: true, botAim: null, starter: 1, bend: {} });
     this.forfeitOnLeave = true;
     this.push();
@@ -37,7 +37,7 @@ class PoolHost extends HostBase {
     s.brk = true;
     s.botAim = null;
     s.bend = {};
-    s.starter = s.starter ? 0 : 1;
+    s.starter = s.players.length < 2 ? 0 : s.starter ? 0 : 1;
     this.pending = null;
     this.botPlan = null;
     this.setTurn(s.starter);
@@ -142,24 +142,26 @@ class PoolHost extends HostBase {
     // meja terbuka: pemain yang pertama memasukkan bola mengunci warnanya
     const colored = sim.pots.filter((id) => id !== 0 && id !== 8);
     let assigned = null;
-    if (!g && colored.length && !foul && opp) {
+    if (!g && colored.length && !foul) {
       assigned = colorOfBall(colored[0]);
       s.groups[by] = assigned;
-      s.groups[opp.id] = assigned === RED ? BLUE : RED;
+      if (opp) s.groups[opp.id] = assigned === RED ? BLUE : RED;
     }
+    // solo: giliran tetap pada pemain yang sama
+    const nextIdx = this.index((opp || s.players.find((p) => p.id === by)).id);
     const mine = s.groups[by];
     const ownPot = mine ? colored.some((id) => colorOfBall(id) === mine) : false;
     if (foul) {
       if (cuePot) this.respotCue();
-      this.setTurn(this.index(opp.id));
-      s.stage = 'place'; // bola di tangan untuk lawan
-      this.push({ k: 'foul', p: by, why: foul, to: opp.id, pots: sim.pots });
+      this.setTurn(nextIdx);
+      s.stage = 'place'; // bola di tangan untuk lawan (solo: untuk diri sendiri)
+      this.push({ k: 'foul', p: by, why: foul, to: opp?.id || by, pots: sim.pots });
     } else if (ownPot || assigned) {
       s.stage = 'aim';
       s.turnAt = Date.now();
       this.push({ k: 'again', p: by, pots: sim.pots, assigned });
     } else {
-      this.setTurn(this.index(opp.id));
+      this.setTurn(nextIdx);
       s.stage = 'aim';
       this.push({ k: 'switch', p: by, pots: sim.pots });
     }
@@ -650,11 +652,17 @@ class PoolRenderer {
   botPose(m, idx, pid) {
     const t = this.table;
     const cueB = (m.balls || []).find((b) => b.id === 0);
+    this.botSpots ||= new Map();
     if (m.phase === 'play' && m.players[m.turn]?.id === pid && m.botAim && cueB && m.stage !== 'roll') {
       const cx = m.botAim.cx ?? cueB.x, cz = m.botAim.cz ?? cueB.z;
       const p = standSpot(cx, cz, m.botAim.dx, m.botAim.dz);
-      return { x: t.x + p.x, z: t.z + p.z, y: t.ground, rot: Math.atan2(m.botAim.dx, m.botAim.dz), cue: 1 };
+      const pose = { x: t.x + p.x, z: t.z + p.z, y: t.ground, rot: Math.atan2(m.botAim.dx, m.botAim.dz), cue: 1 };
+      this.botSpots.set(pid, pose);
+      return pose;
     }
+    // setelah menembak: tetap di tempat (menonton bola), lalu langsung berjalan ke posisi tembak berikutnya
+    const last = m.phase === 'play' && this.botSpots.get(pid);
+    if (last) return { ...last, rot: Math.atan2(t.x - last.x, t.z - last.z), cue: 0 };
     const s = t.seats[idx] || t.seats[0];
     return { x: s.x, z: s.z, y: t.ground, rot: Math.atan2(t.x - s.x, t.z - s.z), cue: 0 };
   }
@@ -1447,7 +1455,7 @@ class PoolControls {
     const name = this.ctx.playerName;
     if (ev.why === 'resign') return `${name(ev.by)} menyerah`;
     if (ev.why === 'eight') return m.winner === this.ctx.myId ? 'Bola 8 masuk — kamu menang!' : `${name(m.winner)} memasukkan bola 8 dan menang`;
-    if (ev.why === 'eightLose') return `${name(ev.p)} memasukkan bola 8 ${ev.foul ? 'sambil foul' : 'terlalu cepat'} — ${m.winner === this.ctx.myId ? 'kamu menang!' : `${name(m.winner)} menang`}`;
+    if (ev.why === 'eightLose') return `${name(ev.p)} memasukkan bola 8 ${ev.foul ? 'sambil foul' : 'terlalu cepat'} — ${m.winner === this.ctx.myId ? 'kamu menang!' : m.winner ? `${name(m.winner)} menang` : 'coba lagi!'}`;
     return null;
   }
 }
@@ -1457,7 +1465,7 @@ export default {
   name: 'Pool',
   icon: 'pool',
   art: 'radial-gradient(circle at 35% 40%, #f8f6ef 0 12%, transparent 13%), radial-gradient(circle at 62% 55%, #141414 0 12%, transparent 13%), radial-gradient(circle at 50% 30%, #e03131 0 10%, transparent 11%), radial-gradient(circle at 70% 30%, #1c7ed6 0 10%, transparent 11%), #1f8a4c',
-  min: 2,
+  min: 1, // bisa main solo (latihan)
   max: 2,
   venue: 'pool',
   stand: true,
