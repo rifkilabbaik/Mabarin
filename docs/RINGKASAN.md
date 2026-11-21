@@ -19,6 +19,10 @@ Game PWA multiplayer Three.js (Vite), di-deploy ke GitHub Pages. Repo: `rifkilab
 | Lemari kustomisasi | `src/ui/CustomizePanel.js` |
 | HUD gaya B, kamera 1st/3rd (tombol P), anti-zoom iPhone | `src/ui/UI.js`, `src/camera/ThirdPersonCamera.js`, `src/ui/zoomGuard.js` |
 | Lokasi meja & tempat tunggu (pool 4 tempat) | `src/world/props.js` |
+| Olahraga: Sepak Bola (1v1, 2v2, adu penalti) & Tenis (1v1, ganda); `SPORT_DEFS`, bandar & tim | `src/sports/SportHost.js` |
+| Olahraga: tampilan, kontrol (tendang/pukul/oper), bot | `src/sports/Sports.js` |
+| Olahraga: fisika bola, logika sepak bola, lapangan 3D | `src/sports/physics.js`, `football.js`, `fields.js` |
+| Tes unit (Node `node:test`) & smoke test browser | `tests/*.test.js`, `scripts/smoke.mjs` |
 
 ## Fitur terbaru (sudah live)
 - **Peringkat 3–4 pemain** (Kilat, Ludo, Pool): Juara 1, 2, 3, Terakhir.
@@ -38,7 +42,15 @@ Game PWA multiplayer Three.js (Vite), di-deploy ke GitHub Pages. Repo: `rifkilab
 - TURN server opsional: user mengisi repo secret `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL`, `TURN_API`.
 
 ## Cara uji
-- Server dev: `npx vite --host 127.0.0.1 --port 5173 --strictPort`.
+- **`npm test`**: tes unit aturan game (< 1 detik), juga dijalankan workflow deploy sebelum build (gagal = tidak deploy).
+  - `tests/hostbase.test.js`: lobi, `next()`, peringkat (`finish`/`knockOut`/`end`), pemain keluar.
+  - `tests/kilat.test.js`: `refill()`, lewat, simulasi permainan bot 2–4 pemain sampai selesai (kartu harus utuh).
+  - `tests/pool.test.js`: `rack`/`rackMulti`, `ShotSim` deterministik, aturan 2 pemain, solo, & 3–4 pemain (`resolveMulti`).
+  - `tests/mancala.test.js`: tabur, tangkap, akhir permainan, bot.
+  - Bantuan: `tests/helpers.js` (`makeHost`, `addHuman`, `withSeed` untuk acak berbenih).
+- **`npm run smoke`** (atau `npm run smoke -- pool ludo`): buka tiap game meja di Chromium dengan meja penuh bot, semua pemain dimainkan bot ±8 detik, gagal bila ada error konsol/halaman atau state tidak bergerak. Tangkapan layar gagal di `/tmp/mabarin-smoke/`. Butuh Playwright (sudah ada di sesi cloud; di komputer lain: `npm i -D playwright && npx playwright install chromium`). ±2 menit.
+- Jalankan keduanya sebelum push ke `main`.
+- Server dev manual: `npx vite --host 127.0.0.1 --port 5173 --strictPort`.
 - Playwright + Chromium: `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`.
 - Alur:
   1. Buka `?q=low`, isi `#name-input`, klik `#btn-offline`.

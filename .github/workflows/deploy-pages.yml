@@ -27,6 +27,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Tes unit aturan game (beberapa detik). Gagal = tidak di-deploy.
+      - run: npm test
       - run: npm run build
         env:
           # Opsional: server TURN agar pemain di jaringan ketat (data seluler/CGNAT) tetap tersambung.
