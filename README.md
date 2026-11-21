@@ -8,7 +8,7 @@ Tanpa akun, tanpa server sendiri, **tanpa kuota**: game di-host gratis di **GitH
 
 - **Pulau low poly prosedural** (seed tetap, dunia identik di semua pemain): bukit, gunung bersalju, pantai, laut beranimasi, hutan, api unggun, tenda, plaza meja game, dan **kompleks olahraga**.
 - **Karakter chibi halus** (bentuk bulat, sudut membulat, shading halus — tidak bersegi) dengan animasi jalan, lari, lompat, berenang, duduk, dash, sleding, tendang, pukul raket. Kepala mengikuti arah pandang saat duduk di meja game.
-- **Kustomisasi karakter**: bentuk tubuh (normal / tinggi / pendek / gempal), warna kulit, 8 gaya rambut + warna, 4 gaya mata, atasan / bawahan / sepatu + warna, topi, kacamata, ransel / sayap / jubah, syal / dasi.
+- **Kustomisasi karakter (Lemari)**: panel kanan saat layar mendatar, panel bawah saat tegak; tab kategori dengan **thumbnail bergambar** yang dirender dari karakter sendiri (item yang dipilih langsung terlihat di badanmu). Pilihan: bentuk tubuh (normal / tinggi / pendek / gempal), warna kulit, 8 gaya rambut + warna, 4 gaya mata, atasan / bawahan / sepatu + warna, topi, kacamata, ransel / sayap / jubah, syal / dasi.
 - **Hotbar properti**: Tangan, Palu Bonk, Pedang Kayu, Pistol Air, Kursi, Gitar. Senjata bersifat "bonk" (terpental & pusing, tanpa nyawa). Pemain yang sedang main game tidak bisa di-bonk.
 - **Game meja**: Kartu Kilat, Catur, Dam, Ludo, Empat Sejajar & Mancala dengan tiga pilihan kamera (kepala, bebas, atas).
 - **Pool** di meja biliar area olahraga: tampilan POV, berjalan memutari meja saat membidik.
@@ -77,13 +77,12 @@ Logika berjalan di perangkat pembuat meja (bandar): state disiarkan lewat player
 
 Meja biliar **9 kaki** (bidang main 2,54 × 1,27 m) bergaya klasik — bingkai kayu oak, tutup lubang hitam, kain hijau, kaki meruncing berkaki krom — ada di area olahraga (dekat lapangan tenis, juga tampil di peta). Buka **Game → Pool**, undang teman atau tambah bot. Di lobi, bandar memilih **15 bola** (7 merah, 7 biru, 1 hitam) atau **9 bola** (4 + 4 + 1, ronde cepat). Bola putih = bola tembak.
 
-- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Kolom kanan (dari atas): gear → rekam suara → chat → tiga ikon mode → tombol efek bola putih → bar stik. Ikon mode:
-  - **Berdiri** — berdiri tegak, pandangan lebih tinggi & luas ke meja. Geser layar untuk menoleh (kiri/kanan, atas/bawah).
+- **Tampilan POV dari mata karakter, tanpa kamera bebas.** Kolom kanan (dari atas): gear → rekam suara → chat → dua ikon mode → tombol efek bola putih → bar stik. Ikon mode:
   - **Membungkuk** — membungkuk di belakang stik untuk menembak (hanya saat giliranmu). Pindah dari berdiri ke membungkuk (dan sebaliknya) memakai transisi halus kamera & badan. Bidikan awal mengarah dari tempatmu berdiri ke bola putih; saat bidikan diputar, karakter ikut memutari meja. Karakter selalu berdiri **di luar meja** — bila bola putih jauh di tengah, karakter tetap di tepi meja (pandangan condong sedikit di atas bantalan); cubit / scroll = zoom lensa untuk melihat bola yang jauh.
   - **Berjalan** — berjalan mengelilingi meja dengan joystick yang tampil di kiri bawah (sentuh atau mouse) atau WASD / panah (PC) untuk mencari posisi menembak. Tidak bisa menembus meja — harus memutar untuk pindah ke seberang. Saat karakter (atau bot) berpindah tempat menembak, ia berjalan memutari meja lewat sudut-sudutnya, tidak pernah menembus meja. Bisa dipakai juga sambil menunggu lawan.
-  - Setelah menembak, karakter otomatis **berdiri** supaya pandangan lebih luas dan kamera bisa digeser. Pemain lain melihatmu berjalan, berdiri, atau membungkuk memegang stik.
+  - Setelah menembak, karakter otomatis kembali ke mode **berjalan** (bisa langsung berkeliling & menoleh). Pemain lain melihatmu berjalan atau membungkuk memegang stik.
 - **Geser stik vs geser layar** — saat membungkuk, menggeser **stik** membuat stik ikut bergerak (bidikan berputar di sekitar bola putih); menggeser bagian lain layar memutar pandangan seperti mata.
-- **Bidik** — geser stik, atau ketuk bola yang ingin dituju. Garis bantu, bola bayangan, dan stik hanya tampil saat **membungkuk** — sebelum membungkuk tidak terlihat. Tinggi pandangan saat berdiri dan berjalan sama.
+- **Bidik** — geser stik, atau ketuk bola yang ingin dituju. Garis bantu, bola bayangan, dan stik hanya tampil saat **membungkuk** — sebelum membungkuk tidak terlihat. Garis & cincin bola bayangan menebal mengikuti jarak, jadi tetap jelas walau bola jauh.
 - **Garis lintasan dinamis** — garis dari bola putih ke titik sentuh (lingkaran bola hantu), arah bola sasaran setelah dipukul (makin lurus makin panjang), dan arah pantulan bola putih (ikut berubah oleh efek atas/bawah). Bila mengenai bantalan, tampil arah pantulannya. Peringatan muncul bila sasaran bukan bolamu.
 - **Pemilih efek** — ketuk bola kecil di kanan bawah, lalu pilih titik pukul di bola besar: atas = bola putih ikut maju, bawah = bola putih tertarik mundur, kiri/kanan = efek saat memantul di bantalan.
 - **Power tarik-lepas** — bar stik di kolom kanan (setengah tinggi layar, di bawah tombol efek): tarik ke bawah (stik di meja ikut mundur), lepaskan untuk memukul. Tarik kembali ke atas untuk batal.

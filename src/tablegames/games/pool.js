@@ -352,30 +352,49 @@ class Guides {
     this.pos = new Float32Array(this.max * 6 * 3);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
-    this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+    // tetap terlihat jelas dari jauh: tebal garis mengikuti jarak kamera, tidak tertimbun kain (polygon offset)
+    const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.renderOrder = 3;
     this.mesh.frustumCulled = false;
     parent.add(this.mesh);
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(R * 0.86, R, 28), this.mesh.material);
+    this.parent = parent;
+    this.ringK = -1;
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(R * 0.86, R, 32), mat);
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.renderOrder = 3;
     parent.add(this.ring);
+    this._c = new THREE.Vector3();
   }
 
-  set(segs, ring) {
+  /** `cam`: posisi kamera dunia — garis jauh dilebarkan supaya tetap ±3 piksel di layar. */
+  set(segs, ring, cam) {
     this.pos.fill(0);
+    const c = cam ? this.parent.worldToLocal(this._c.copy(cam)) : null;
+    const px = (x, z, w) => (c ? Math.max(w, Math.hypot(x - c.x, c.y, z - c.z) * 0.0024) : w);
     segs.slice(0, this.max).forEach(([x1, z1, x2, z2, w], i) => {
       let dx = x2 - x1, dz = z2 - z1;
       const d = Math.sqrt(dx * dx + dz * dz) || 1;
-      const nx = (-dz / d) * w, nz = (dx / d) * w;
-      const y = 0.002;
-      const v = [x1 + nx, y, z1 + nz, x1 - nx, y, z1 - nz, x2 + nx, y, z2 + nz, x2 + nx, y, z2 + nz, x1 - nx, y, z1 - nz, x2 - nx, y, z2 - nz];
+      const w1 = px(x1, z1, w), w2 = px(x2, z2, w);
+      const ux = -dz / d, uz = dx / d;
+      const y = 0.003;
+      const v = [x1 + ux * w1, y, z1 + uz * w1, x1 - ux * w1, y, z1 - uz * w1, x2 + ux * w2, y, z2 + uz * w2, x2 + ux * w2, y, z2 + uz * w2, x1 - ux * w1, y, z1 - uz * w1, x2 - ux * w2, y, z2 - uz * w2];
       this.pos.set(v, i * 18);
     });
     this.mesh.geometry.attributes.position.needsUpdate = true;
     this.mesh.visible = segs.length > 0;
     this.ring.visible = !!ring;
-    if (ring) this.ring.position.set(ring.x, 0.0025, ring.z);
+    if (ring) {
+      this.ring.position.set(ring.x, 0.0035, ring.z);
+      // cincin bola bayangan ikut menebal dari jauh (geometri dibuat ulang hanya saat tingkatnya berubah)
+      const th = Math.min(0.6, px(ring.x, ring.z, R * 0.14) / R);
+      const k = Math.round(th * 20);
+      if (k !== this.ringK) {
+        this.ringK = k;
+        this.ring.geometry.dispose();
+        this.ring.geometry = new THREE.RingGeometry(R * (1 - k / 20), R * 1.04, 32);
+      }
+    }
   }
 }
 
@@ -612,7 +631,7 @@ class PoolRenderer {
       this.stick.visible = t < 0.3;
     } else this.stick.visible = false;
     // garis lintasan hanya untuk pemain yang membidik
-    if (aim && aim.guides) this.guides.set(aim.guides.segs, aim.guides.ring);
+    if (aim && aim.guides) this.guides.set(aim.guides.segs, aim.guides.ring, this.ctx.camera?.position);
     else this.guides.set([]);
   }
 
@@ -748,7 +767,7 @@ const ROAM = 2.4; // seberapa jauh boleh berjalan dari meja
 class PoolControls {
   constructor(ctx) {
     this.ctx = ctx;
-    this.mode = 'stand'; // 'stand' | 'bend' | 'walk'
+    this.mode = 'walk'; // 'walk' (berjalan & menoleh) | 'bend' (membungkuk menembak)
     this.pos = null; // posisi berdiri (koordinat meja)
     this.look = { yaw: 0, pitch: -0.5 };
     this.lookOff = { yaw: 0, pitch: 0 };
@@ -798,7 +817,6 @@ class PoolControls {
         <div class="pl-track"><div class="pl-fill" id="pl-fill"></div><div class="pl-stick" id="pl-handle"></div></div>
       </div>
       <div class="pl-modes" id="pl-modes">
-        <button type="button" class="icon-btn" data-mode="stand" title="Berdiri" aria-label="Berdiri">${icon('stand')}</button>
         <button type="button" class="icon-btn" data-mode="bend" title="Membungkuk (menembak)" aria-label="Membungkuk">${icon('bend')}</button>
         <button type="button" class="icon-btn" data-mode="walk" title="Berjalan" aria-label="Berjalan">${icon('walk')}</button>
       </div>
@@ -844,7 +862,7 @@ class PoolControls {
     }
     this.mode = mode;
     this.joy = { x: 0, y: 0, id: null };
-    $('pl-joy').hidden = mode !== 'walk';
+    $('pl-joy').hidden = mode !== 'walk' || this.placing;
     $('pool-ui')?.classList.toggle('walking', mode === 'walk');
     if (!quiet) this.ctx.audio.play('click');
     this.renderModes();
@@ -976,7 +994,7 @@ class PoolControls {
       this.ctx.audio.play('click');
       const cue = this.place;
       this.pos = standSpot(cue.x, cue.z, Math.cos(this.aim), Math.sin(this.aim));
-      this.mode = 'stand';
+      this.mode = 'walk';
       this.setMode('bend', true);
     });
     // geser bola putih (bola di tangan) & geser stik
@@ -1112,7 +1130,7 @@ class PoolControls {
       if (m.stage === 'place') {
         this.placing = true;
         this.place = { x: cue.x, z: cue.z };
-        if (this.mode === 'bend') this.setMode('stand', true);
+        if (this.mode === 'bend') this.setMode('walk', true);
         this.ctx.flash(m.brk ? 'Taruh bola putih, lalu Selesai' : 'Bola di tangan');
       } else {
         this.placing = false;
@@ -1124,7 +1142,7 @@ class PoolControls {
       this.placing = false;
       if (m.stage === 'roll') this.place = null;
     }
-    if (this.mode === 'bend' && !this.bendAllowed(m)) this.setMode('stand', true);
+    if (this.mode === 'bend' && !this.bendAllowed(m)) this.setMode('walk', true);
     if (this.mode === 'walk' && this.pos) this.walk(dt);
     this.canAim = this.mode === 'bend' && this.bendAllowed(m);
     this.canShoot = this.canAim;
@@ -1140,6 +1158,8 @@ class PoolControls {
     $('pl-spin').hidden = !this.canAim;
     $('pl-done').hidden = !(mine && this.placing);
     $('pl-modes').hidden = this.placing;
+    $('pl-joy').hidden = this.mode !== 'walk' || this.placing;
+    this.ui.classList.toggle('walking', this.mode === 'walk' && !this.placing);
     $('pl-fill').style.height = `${this.power * 100}%`;
     $('pl-handle').style.transform = `translateY(${this.power * 52}%)`;
     $('pl-cap').textContent = this.power > 0.04 ? `${Math.round(this.power * 100)}%` : 'Tarik';
@@ -1263,7 +1283,7 @@ class PoolControls {
     this.renderSpin();
     $('pl-spinpanel').hidden = true;
     // setelah menembak: otomatis berdiri agar pandangan luas & kamera bebas menoleh
-    this.setMode('stand', true);
+    this.setMode('walk', true); // setelah menembak: langsung bisa berjalan
     this.sentBend = false;
   }
 
