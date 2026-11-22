@@ -33,14 +33,18 @@ Game PWA multiplayer Three.js (Vite), di-deploy ke GitHub Pages. Repo: `rifkilab
 | Tes unit (Node `node:test`) & smoke test browser | `tests/*.test.js`, `scripts/smoke.mjs` |
 
 ## Fitur terbaru (sudah live)
-- **Juragan** (2–4 pemain, game jual-beli tanah; mekanik klasik, nama & tampilan orisinal — user minta tiruan persis Monopoly, tidak boleh dibuat):
-  - Meja persegi baru di plaza (x −9 & −18, z −19.5), papan 1,2 m tebal 4,5 cm, 40 petak jalan/kota Indonesia, harga & sewa klasik.
-  - Bidak logam orisinal (becak, pinisi, ayam jago, ontel, peci, kendi) dipilih di lobi; lama main: bangkrut / 30 / 45 / 60 menit (kekayaan terbesar menang).
-  - Aturan: lewat MULAI +200, penjara (3× kembar, bayar 50, kartu bebas, gagal 3×), kartu Peluang & Kas RT, beli/lelang, sewa dobel satu kelompok, bangun merata, stok 32 rumah/12 hotel, gadai (+10% tebus), nego (tanah digadai: bunga 10%), utang → jual/gadai atau bangkrut.
-  - HP: di meja depan tiap pemain; diketuk / tombol HP di bawah tombol kamera → melayang ke wajah lalu layar HTML (saldo, beli/lelang, aset & bangun/gadai, nego, mutasi, pemain). Terbuka otomatis saat perlu keputusan. Pemain yang membuka HP terlihat memegang HP di depan dada (`Character.holdPhone`, `state.phone`).
-  - Suara uang pemain lokal: bayar `tungting`, masuk `kencring`, tawaran `buzz` (`AudioManager`). Pengumuman kartu instruksi & hak milik baru di atas layar; kartu hak milik melayang ke depan pemiliknya, kartu bebas penjara di samping HP.
-  - Kamera atas jadi bawaan saat masuk meja Juragan.
-  - Uji di browser: `window.__game.cards.host` (`drawCard`, `startAuction`, `state.own`), `window.__game.cards.controls.setOpen(true)`.
+- **Juragan** (2–4 pemain, game jual-beli tanah; mekanik klasik, nama & tampilan orisinal — tiruan persis Monopoly tidak boleh dibuat):
+  - Meja persegi di plaza (x −9 & −18, z −19.5), papan 1,2 m tebal 4,5 cm; tekstur papan HD 4096 px (2048 di `?q=low` / memori kecil), teks petak otomatis muat (`lines`/`fitText`).
+  - 22 petak negara (Nepal … Singapura) dalam 8 warna, Perusahaan Listrik/Air, transportasi (5 Stasiun Kereta Api, 15 Terminal Bus, 25 Bandara Pesawat, 35 Pelabuhan Kapal), pajak; harga & sewa klasik dalam **dolar** (`fmt` → `$1.500`).
+  - Kartu **Takdir** (pengganti Chance, ikon "?", petak 7/22/36) & **Kebijakan** (pengganti Community Chest, ikon buku, petak 2/17/33); efek klasik, teks sendiri. Tumpukan di atas & bawah logo serong, seukuran petak.
+  - Alur `stage`: `roll` → (ketuk dadu) `dice` 1,15 dtk → `move` → (petak kartu) `draw` (ketuk tumpukan bergaris kuning; otomatis 15 dtk) → `card` → `buy`/`auction` → `act`. Utang: `debt`.
+  - Dadu besar di depan pemain yang giliran (bergaris kuning bila giliran kita), dilempar ke tengah, lalu pindah ke pemain berikutnya. Tidak ada tombol lempar dadu.
+  - Bidak berwarna pemain (becak, pinisi, ayam jago, ontel, peci, kendi) dipilih di lobi; lama main bangkrut / 30 / 45 / 60 menit.
+  - Penanda petak milik: bingkai + warna tipis pemilik (abu-abu bila digadai). Jeruji besi 3D muncul di sel penjara bila ada yang dipenjara. Kartu di meja 1:2 HD (hak milik ditelungkupkan bila digadai); kartu bebas penjara (per tumpukan, `state.jhold`) di samping HP.
+  - HP: tombol HP di bawah tombol kamera / ketuk HP di meja / terbuka otomatis saat perlu keputusan. Karakter pose selfie (`Character.holdPhone`, HP `lookAt` wajah), lalu layar muncul dari HP ke **tengah layar**. Beranda: avatar + ikon bidak. Tab: Aset (galeri kartu per set, stempel serong TERSEDIA / DIMILIKI + nama / DIGADAI), Mutasi, Pemain. Ketuk kartu orang lain → **Nego** (uang) / **Barter** (tukar kartu); penerima bisa **Tawar balik** (`counter`, `offer.round`), bot juga bisa tawar balik.
+  - Notifikasi: kartu Takdir/Kebijakan & aset (beli, lelang, pindah tangan, gadai, tebus, bangun) berupa gambar kartu + detail di bawah (atas tengah); pembayaran simpel (bawah tengah, maks. 3, "+n lainnya") dari `state.log`.
+  - Suara uang pemain lokal: bayar `tungting`, masuk `kencring`, tawaran `buzz`.
+  - Uji di browser: `window.__game.cards.host` (`walk`, `drawCard`, `startAuction`, `state.own`), `window.__game.cards.controls.setOpen(true)`; dadu/tumpukan bisa diklik lewat proyeksi `renderer.diceHit` / `renderer.decks[...]`.
 - **Domino** (2–4 pemain, gaya gaple):
   - 28 kartu, 7 per pemain; 2–3 pemain sisanya disisihkan (bertumpuk di sudut meja, tidak dipakai).
   - Babak pertama dibuka pemegang balak tertinggi (`must`); "Ulangi" dibuka pemenang sebelumnya bebas.
@@ -70,7 +74,7 @@ Game PWA multiplayer Three.js (Vite), di-deploy ke GitHub Pages. Repo: `rifkilab
   - `tests/kilat.test.js`: `refill()`, lewat, simulasi permainan bot 2–4 pemain sampai selesai (kartu harus utuh).
   - `tests/pool.test.js`: `rack`/`rackMulti`, `ShotSim` deterministik, aturan 2 pemain, solo, & 3–4 pemain (`resolveMulti`).
   - `tests/mancala.test.js`: tabur, tangkap, akhir permainan, bot.
-  - `tests/juragan.test.js`: papan, sewa, bangun/gadai, jalan & beli, penjara, kartu, lelang, nego, utang, bangkrut, batas waktu, simulasi bot 2–4 pemain.
+  - `tests/juragan.test.js`: papan, sewa, bangun/gadai, dadu berguling dulu, jalan & beli, penjara, kartu manual, lelang, nego & tawar balik, kartu bebas penjara, utang, bangkrut, batas waktu, simulasi bot 2–4 pemain.
   - `tests/domino.test.js`: aturan, rantai tidak bertumpuk/putus, lewat otomatis, buntu, pemain keluar, simulasi 2–4 pemain.
   - Bantuan: `tests/helpers.js` (`makeHost`, `addHuman`, `withSeed` untuk acak berbenih).
 - **`npm run smoke`** (atau `npm run smoke -- pool ludo`): buka tiap game meja di Chromium dengan meja penuh bot, semua pemain dimainkan bot ±8 detik, gagal bila ada error konsol/halaman atau state tidak bergerak. Tangkapan layar gagal di `/tmp/mabarin-smoke/`. Butuh Playwright (sudah ada di sesi cloud; di komputer lain: `npm i -D playwright && npx playwright install chromium`). ±2 menit.

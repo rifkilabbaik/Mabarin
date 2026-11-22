@@ -578,10 +578,9 @@ export class Character {
         armRz = 0.36;
       }
       if (this.holdPhone) {
-        // memegang HP di depan dada dengan dua tangan sambil menunduk (terlihat pemain lain)
-        armLx = armRx = -1.25;
-        armLz = -0.42;
-        armRz = 0.42;
+        // pose selfie: satu tangan terulur ke depan-samping mengangkat HP, layar menghadap wajah (terlihat pemain lain)
+        armRx = -1.95;
+        armRz = -0.62;
       }
       sy = 1 + Math.sin(this.time * 2) * 0.01;
     } else if (s.swimming) {
@@ -738,7 +737,14 @@ export class Character {
       this.phoneMesh = handPhone();
       this.arms[0].userData.hand.add(this.phoneMesh);
     }
-    if (this.phoneMesh) this.phoneMesh.visible = phoneOn;
+    if (this.phoneMesh) {
+      this.phoneMesh.visible = phoneOn;
+      if (phoneOn) {
+        // layar selalu menghadap wajah
+        this.root.updateMatrixWorld(true);
+        this.phoneMesh.lookAt(this.head.getWorldPosition(_phoneLook));
+      }
+    }
     if (this.held && item !== 'guitar') {
       this.held.rotation.x = damp(this.held.rotation.x, itemRx, 20, dt);
       this.held.rotation.y = damp(this.held.rotation.y, itemRy, 20, dt);
@@ -776,19 +782,19 @@ export class Character {
   }
 }
 
-/** HP kecil di tangan kanan (layar menghadap wajah saat lengan terangkat ke depan). */
+/** HP kecil di tangan kanan (layar di sisi +z; diarahkan ke wajah tiap frame). */
+const _phoneLook = new THREE.Vector3();
 let handPhoneKit = null;
 function handPhone() {
   handPhoneKit ||= {
     body: new THREE.BoxGeometry(0.085, 0.165, 0.012),
-    screen: new THREE.PlaneGeometry(0.075, 0.15).rotateY(Math.PI).translate(0, 0, -0.0065),
+    screen: new THREE.PlaneGeometry(0.075, 0.15).translate(0, 0, 0.0065),
     bodyMat: new THREE.MeshLambertMaterial({ color: '#1f2430' }),
     screenMat: new THREE.MeshBasicMaterial({ color: '#74c0fc' }),
   };
   const g = new THREE.Group();
   g.add(new THREE.Mesh(handPhoneKit.body, handPhoneKit.bodyMat), new THREE.Mesh(handPhoneKit.screen, handPhoneKit.screenMat));
-  g.rotation.x = 1.25 - 0.35; // membatalkan putaran lengan, layar sedikit menengadah ke wajah
-  g.position.set(0.04, -0.13, 0.03); // di ujung tangan, di depan dada (tidak tertutup kepala)
+  g.position.set(0, -0.1, 0); // di ujung tangan yang terulur (arah layar diatur tiap frame: menghadap wajah)
   g.scale.setScalar(1.35);
   return g;
 }

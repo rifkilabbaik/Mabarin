@@ -6,8 +6,11 @@ import { SPACES, GROUPS, fmt } from './rules.js';
 export const BOARD = 1.2; // sisi papan (m) — jauh lebih besar dari Ludo (0,72 m)
 export const BOARD_H = 0.045; // papan tebal, tidak menempel tipis di meja
 const UNITS = 13; // sudut 2 satuan + 9 petak × 1 satuan + sudut 2 satuan
-const PX = 2048;
-const U = PX / UNITS;
+// tekstur papan HD (4096 px); mode hemat (?q=low) / perangkat bermemori kecil: 2048 px
+const HD = !/[?&]q=low/.test(globalThis.location?.search || '') && (globalThis.navigator?.deviceMemory ?? 8) >= 4;
+const PX = HD ? 4096 : 2048;
+const BASE = 2048; // semua gambar papan ditulis dalam koordinat 2048 lalu diskalakan
+const U = BASE / UNITS;
 
 /** Kotak petak dalam satuan papan (0..13), sisi luar untuk arah tulisan. */
 export function spaceRect(i) {
@@ -48,8 +51,11 @@ export function spaceAt(local) {
 }
 
 // tempat dua tumpukan kartu di tengah papan (satuan papan & putaran)
-export const DECK_SPOTS = { peluang: { x: 8.7, y: 4.3, rot: -Math.PI / 4 }, kas: { x: 4.3, y: 8.7, rot: -Math.PI / 4 } };
-const DECK_COLOR = { peluang: '#f08c1a', kas: '#2f80ed' };
+// tumpukan kartu di atas (Takdir) & bawah (Kebijakan) logo yang serong, sejajar logo; seukuran petak (2×1 satuan)
+const DECK_OFF = 2.35 * Math.SQRT1_2;
+export const DECK_SPOTS = { takdir: { x: 6.5 - DECK_OFF, y: 6.5 - DECK_OFF, rot: -Math.PI / 4 }, kebijakan: { x: 6.5 + DECK_OFF, y: 6.5 + DECK_OFF, rot: -Math.PI / 4 } };
+export const DECK_COLOR = { takdir: '#f08c1a', kebijakan: '#2f80ed' };
+export const SPACE_M = BOARD / UNITS; // satu satuan petak dalam meter
 
 // ---------- Ikon sederhana di canvas ----------
 function icon(g, kind, s, color = '#2b2118') {
@@ -157,7 +163,7 @@ function icon(g, kind, s, color = '#2b2118') {
       g.font = `900 ${s * 0.34}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText('Rp', 0, s * 0.02);
+      g.fillText('$', 0, s * 0.04);
       break;
     case 'gem':
       g.beginPath();
@@ -177,6 +183,29 @@ function icon(g, kind, s, color = '#2b2118') {
       g.textBaseline = 'middle';
       g.fillText('?', 0, s * 0.04);
       break;
+    case 'book': {
+      // buku terbuka
+      g.beginPath();
+      g.moveTo(0, -s * 0.24);
+      g.bezierCurveTo(-s * 0.14, -s * 0.34, -s * 0.34, -s * 0.34, -s * 0.46, -s * 0.28);
+      g.lineTo(-s * 0.46, s * 0.3);
+      g.bezierCurveTo(-s * 0.34, s * 0.24, -s * 0.14, s * 0.24, 0, s * 0.34);
+      g.bezierCurveTo(s * 0.14, s * 0.24, s * 0.34, s * 0.24, s * 0.46, s * 0.3);
+      g.lineTo(s * 0.46, -s * 0.28);
+      g.bezierCurveTo(s * 0.34, -s * 0.34, s * 0.14, -s * 0.34, 0, -s * 0.24);
+      g.fill();
+      g.strokeStyle = '#f3ead2';
+      g.lineWidth = s * 0.05;
+      g.beginPath();
+      g.moveTo(0, -s * 0.2);
+      g.lineTo(0, s * 0.3);
+      for (const k of [-1, 1]) for (const y of [-0.12, 0, 0.12]) {
+        g.moveTo(k * s * 0.1, y * s);
+        g.lineTo(k * s * 0.36, y * s - s * 0.02);
+      }
+      g.stroke();
+      break;
+    }
     case 'chest':
       rr(-s * 0.38, -s * 0.18, s * 0.76, s * 0.5, s * 0.06);
       g.fill();
@@ -205,10 +234,24 @@ function wrap(g, text, maxW) {
   return lines;
 }
 
-function lines(g, text, y, maxW, size, weight = 800) {
-  g.font = `${weight} ${size}px system-ui, sans-serif`;
-  const ls = wrap(g, text, maxW);
+/** Tulis teks terbungkus maks. `maxLines` baris; ukuran huruf mengecil sampai muat lebar petak. */
+function lines(g, text, y, maxW, size, weight = 800, maxLines = 2) {
+  let ls = [];
+  for (; size > 8; size -= 1) {
+    g.font = `${weight} ${size}px system-ui, sans-serif`;
+    ls = wrap(g, text, maxW);
+    if (ls.length <= maxLines && ls.every((l) => g.measureText(l).width <= maxW)) break;
+  }
   ls.forEach((l, k) => g.fillText(l, 0, y + (k - (ls.length - 1) / 2) * size * 1.08));
+}
+
+/** Satu baris teks yang mengecil bila terlalu panjang. */
+function fitText(g, text, x, y, maxW, size, weight = 700) {
+  for (; size > 8; size -= 1) {
+    g.font = `${weight} ${size}px system-ui, sans-serif`;
+    if (g.measureText(text).width <= maxW) break;
+  }
+  g.fillText(text, x, y);
 }
 
 // ---------- Gambar papan ----------
@@ -239,48 +282,44 @@ function drawSpace(g, i) {
     g.stroke();
     g.fillStyle = INK;
     lines(g, sp.name.toUpperCase(), top + fh * 0.45, fw * 0.86, 25);
-    g.font = `700 26px system-ui, sans-serif`;
-    g.fillText(fmt(sp.price), 0, top + fh * 0.87);
+    fitText(g, fmt(sp.price), 0, top + fh * 0.87, fw * 0.86, 26);
   } else if (sp.type === 'rail' || sp.type === 'util') {
     lines(g, sp.name.toUpperCase(), top + fh * 0.16, fw * 0.86, 23);
     icon(g, sp.icon, fw * 0.75);
-    g.font = `700 26px system-ui, sans-serif`;
-    g.fillText(fmt(sp.price), 0, top + fh * 0.87);
+    fitText(g, fmt(sp.price), 0, top + fh * 0.87, fw * 0.86, 26);
   } else if (sp.type === 'tax') {
     lines(g, sp.name.toUpperCase(), top + fh * 0.18, fw * 0.86, 23);
     g.save();
     g.translate(0, fh * 0.02);
     icon(g, sp.amount > 100 ? 'coin' : 'gem', fw * 0.7);
     g.restore();
-    g.font = `700 24px system-ui, sans-serif`;
-    g.fillText(`Bayar ${fmt(sp.amount)}`, 0, top + fh * 0.86);
-  } else if (sp.type === 'peluang' || sp.type === 'kas') {
-    const kas = sp.type === 'kas';
-    lines(g, kas ? 'KAS RT' : 'PELUANG', top + fh * 0.16, fw * 0.9, 27, 900);
+    fitText(g, `Bayar ${fmt(sp.amount)}`, 0, top + fh * 0.86, fw * 0.86, 24);
+  } else if (sp.type === 'takdir' || sp.type === 'kebijakan') {
+    const keb = sp.type === 'kebijakan';
+    g.fillStyle = keb ? '#1c4fa0' : '#e8590c';
+    lines(g, keb ? 'KEBIJAKAN' : 'TAKDIR', top + fh * 0.16, fw * 0.88, 26, 900, 1);
     g.save();
     g.translate(0, fh * 0.08);
-    icon(g, kas ? 'chest' : 'question', fw * 0.8, kas ? '#2f80ed' : '#f08c1a');
+    icon(g, keb ? 'book' : 'question', fw * 0.8, keb ? '#2f80ed' : '#f08c1a');
     g.restore();
   } else if (sp.type === 'go') {
+    // tulisan MULAI di bagian atas-kiri (serong), panah arah jalan terpisah di bawah
     g.save();
+    g.translate(-fw * 0.1, -fh * 0.1);
     g.rotate(-Math.PI / 4);
-    g.font = `900 92px system-ui, sans-serif`;
+    g.font = `900 84px system-ui, sans-serif`;
     g.fillStyle = '#c92a2a';
-    g.fillText('MULAI', 0, -8);
-    g.fillStyle = INK;
-    g.font = `700 24px system-ui, sans-serif`;
-    g.fillText(`terima ${fmt(200)} setiap lewat`, 0, -78);
+    g.fillText('MULAI', 0, 0);
     g.restore();
-    // panah arah jalan (ke kiri)
     g.fillStyle = '#c92a2a';
     g.beginPath();
-    g.moveTo(-fw * 0.42, fh * 0.32);
-    g.lineTo(-fw * 0.1, fh * 0.16);
-    g.lineTo(-fw * 0.1, fh * 0.26);
-    g.lineTo(fw * 0.35, fh * 0.26);
-    g.lineTo(fw * 0.35, fh * 0.38);
-    g.lineTo(-fw * 0.1, fh * 0.38);
-    g.lineTo(-fw * 0.1, fh * 0.48);
+    g.moveTo(-fw * 0.4, fh * 0.37);
+    g.lineTo(-fw * 0.16, fh * 0.25);
+    g.lineTo(-fw * 0.16, fh * 0.32);
+    g.lineTo(fw * 0.4, fh * 0.32);
+    g.lineTo(fw * 0.4, fh * 0.42);
+    g.lineTo(-fw * 0.16, fh * 0.42);
+    g.lineTo(-fw * 0.16, fh * 0.49);
     g.closePath();
     g.fill();
   } else if (sp.type === 'jail') {
@@ -367,7 +406,7 @@ function drawSpace(g, i) {
 
 function drawBoard(g) {
   g.fillStyle = PAPER;
-  g.fillRect(0, 0, PX, PX);
+  g.fillRect(0, 0, BASE, BASE);
   // tengah papan
   const grd = g.createLinearGradient(2 * U, 2 * U, 11 * U, 11 * U);
   grd.addColorStop(0, '#d7ecd9');
@@ -403,29 +442,21 @@ function drawBoard(g) {
   g.textBaseline = 'middle';
   g.font = `900 150px Georgia, 'Times New Roman', serif`;
   g.fillText('JURAGAN', 0, -6);
-  g.fillStyle = '#2b2118';
-  g.font = `800 40px system-ui, sans-serif`;
-  g.fillText('TUAN TANAH NUSANTARA', 0, 140);
   g.restore();
-  // tempat tumpukan kartu
+  // tempat tumpukan kartu (garis putus-putus seukuran petak, tanpa tulisan)
   for (const [deck, d] of Object.entries(DECK_SPOTS)) {
     g.save();
     g.translate(d.x * U, d.y * U);
     g.rotate(d.rot);
-    g.setLineDash([22, 14]);
+    g.setLineDash([20, 12]);
     g.strokeStyle = DECK_COLOR[deck];
-    g.lineWidth = 8;
-    g.strokeRect(-1.35 * U, -0.95 * U, 2.7 * U, 1.9 * U);
-    g.setLineDash([]);
-    g.fillStyle = DECK_COLOR[deck];
-    g.font = `900 46px system-ui, sans-serif`;
-    g.textAlign = 'center';
-    g.fillText(deck === 'kas' ? 'KAS RT' : 'PELUANG', 0, 1.25 * U);
+    g.lineWidth = 6;
+    g.strokeRect(-1.12 * U, -0.62 * U, 2.24 * U, 1.24 * U);
     g.restore();
   }
   g.strokeStyle = INK;
   g.lineWidth = 8;
-  g.strokeRect(4, 4, PX - 8, PX - 8);
+  g.strokeRect(4, 4, BASE - 8, BASE - 8);
   g.strokeRect(2 * U, 2 * U, 9 * U, 9 * U);
 }
 
@@ -434,10 +465,12 @@ export function makeBoard() {
   const group = new THREE.Group();
   const c = document.createElement('canvas');
   c.width = c.height = PX;
-  drawBoard(c.getContext('2d'));
+  const g2 = c.getContext('2d');
+  g2.scale(PX / BASE, PX / BASE);
+  drawBoard(g2);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
+  tex.anisotropy = 16;
   const side = new THREE.MeshLambertMaterial({ color: '#5a3a22' });
   const base = new THREE.Mesh(new THREE.BoxGeometry(BOARD + 0.03, BOARD_H, BOARD + 0.03), side);
   base.position.y = BOARD_H / 2;
@@ -452,8 +485,7 @@ export function makeBoard() {
   return group;
 }
 
-// ---------- Bidak orisinal (logam mengilap di atas alas warna pemain) ----------
-const pewter = () => new THREE.MeshPhongMaterial({ color: '#c6cbd2', specular: '#ffffff', shininess: 80 });
+// ---------- Bidak orisinal berwarna pemain (plastik mengilap) ----------
 const cyl = (rt, rb, h, seg = 12) => new THREE.CylinderGeometry(rt, rb, h, seg);
 const at = (geo, x, y, z, rx = 0, ry = 0, rz = 0) => geo.rotateX(rx).rotateY(ry).rotateZ(rz).translate(x, y, z);
 const wheel = (r, x, y, z, ry = Math.PI / 2) => at(new THREE.TorusGeometry(r, r * 0.22, 6, 16), x, y, z, 0, ry, 0);
@@ -509,17 +541,18 @@ export function makeToken(id, color) {
     tokenCache.set(id, geo);
   }
   const g = new THREE.Group();
-  const body = new THREE.Mesh(geo, pewter());
+  const body = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color, specular: '#ffffff', shininess: 90 }));
   body.position.y = 0.004;
   body.scale.setScalar(1.6);
   body.castShadow = true;
-  const base = new THREE.Mesh(cyl(0.022, 0.024, 0.005, 20), new THREE.MeshLambertMaterial({ color }));
+  const base = new THREE.Mesh(cyl(0.022, 0.024, 0.005, 20), new THREE.MeshPhongMaterial({ color: new THREE.Color(color).multiplyScalar(0.6), shininess: 40 }));
   base.position.y = 0.0025;
   g.add(base, body);
   return g;
 }
 
 // ---------- Dadu ----------
+export const DIE = 0.046;
 function diceFace(n) {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -543,7 +576,7 @@ export const DICE_UP = { 1: [0, 0], 6: [Math.PI, 0], 2: [-Math.PI / 2, 0], 5: [M
 let diceMats = null;
 export function makeDie() {
   diceMats ||= FACE_NUM.map((n) => new THREE.MeshLambertMaterial({ map: diceFace(n) }));
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.032, 0.032), diceMats);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(DIE, DIE, DIE), diceMats);
   m.castShadow = true;
   return m;
 }
@@ -576,104 +609,261 @@ export function makeHouse(hotel = false) {
   return g;
 }
 
-// ---------- Kartu kecil di meja (hak milik, bebas penjara, tumpukan kartu) ----------
+// ---------- Kartu (1:2 seukuran petak): hak milik, Takdir/Kebijakan, bebas penjara ----------
+const CW = 256, CH = 512; // tekstur kartu HD
 const cardTex = new Map();
-function cardTexture(key, draw) {
+function cardTexture(key, draw, bg = '#fffdf6') {
   let t = cardTex.get(key);
   if (!t) {
     const c = document.createElement('canvas');
-    c.width = 160;
-    c.height = 224;
+    c.width = CW;
+    c.height = CH;
     const g = c.getContext('2d');
-    g.fillStyle = '#fffdf6';
+    g.fillStyle = bg;
     g.beginPath();
-    g.roundRect(0, 0, 160, 224, 14);
+    g.roundRect(0, 0, CW, CH, 22);
     g.fill();
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     draw(g);
     t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
     cardTex.set(key, t);
   }
   return t;
 }
 
+/** Muka kartu hak milik: pita warna, nama, tabel sewa, harga. */
 export function deedTexture(i) {
   return cardTexture(`d${i}`, (g) => {
     const sp = SPACES[i];
     const color = sp.type === 'prop' ? GROUPS[sp.group].color : '#495057';
+    g.strokeStyle = INK;
+    g.lineWidth = 5;
+    g.beginPath();
+    g.roundRect(6, 6, CW - 12, CH - 12, 18);
+    g.stroke();
     g.fillStyle = color;
-    g.fillRect(10, 10, 140, 70);
-    g.fillStyle = sp.type === 'prop' && ['kuning', 'biruMuda'].includes(sp.group) ? INK : '#fff';
-    g.font = '700 15px system-ui, sans-serif';
-    g.fillText('HAK MILIK', 80, 30);
-    g.font = '900 19px system-ui, sans-serif';
-    const ls = wrap(g, sp.name.toUpperCase(), 130);
-    ls.forEach((l, k) => g.fillText(l, 80, 56 + (k - (ls.length - 1) / 2) * 20));
+    g.beginPath();
+    g.roundRect(18, 18, CW - 36, 120, 12);
+    g.fill();
+    const light = sp.type === 'prop' && ['kuning', 'biruMuda'].includes(sp.group);
+    g.fillStyle = light ? INK : '#fff';
+    g.font = '800 20px system-ui, sans-serif';
+    g.fillText('HAK MILIK', CW / 2, 44);
+    g.save();
+    g.translate(CW / 2, 96);
+    lines(g, sp.name.toUpperCase(), 0, CW - 56, 32, 900);
+    g.restore();
     g.fillStyle = INK;
-    if (sp.type !== 'prop') {
+    const rows = sp.type === 'prop'
+      ? [['Sewa', sp.rent[0]], ['1 rumah', sp.rent[1]], ['2 rumah', sp.rent[2]], ['3 rumah', sp.rent[3]], ['4 rumah', sp.rent[4]], ['Hotel', sp.rent[5]]]
+      : sp.type === 'rail' ? [[ '1 transportasi', 25], ['2 transportasi', 50], ['3 transportasi', 100], ['4 transportasi', 200]] : null;
+    if (rows) {
+      rows.forEach(([k, v], r) => {
+        const y = 178 + r * 40;
+        g.textAlign = 'left';
+        g.font = '600 21px system-ui, sans-serif';
+        g.fillText(k, 30, y);
+        g.textAlign = 'right';
+        g.font = '800 21px system-ui, sans-serif';
+        g.fillText(fmt(v), CW - 30, y);
+      });
+      g.textAlign = 'center';
+    } else {
       g.save();
-      g.translate(80, 140);
+      g.translate(CW / 2, 220);
+      icon(g, sp.icon, 120);
+      g.restore();
+      g.font = '600 20px system-ui, sans-serif';
+      g.fillText('1 utilitas: 4× dadu', CW / 2, 330);
+      g.fillText('2 utilitas: 10× dadu', CW / 2, 362);
+    }
+    if (sp.type !== 'util' && sp.type !== 'prop') {
+      g.save();
+      g.translate(CW / 2, 380);
       icon(g, sp.icon, 90);
       g.restore();
-    } else {
-      g.font = '600 15px system-ui, sans-serif';
-      g.fillText(`Sewa ${fmt(sp.rent[0])}`, 80, 112);
-      g.fillText(`Hotel ${fmt(sp.rent[5])}`, 80, 140);
     }
-    g.font = '800 18px system-ui, sans-serif';
-    g.fillText(fmt(sp.price), 80, 196);
+    g.strokeStyle = '#c9bfa8';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(30, 430);
+    g.lineTo(CW - 30, 430);
+    g.stroke();
+    g.font = '900 34px system-ui, sans-serif';
+    g.fillText(fmt(sp.price), CW / 2, 468);
   });
 }
 
-export function freeCardTexture() {
-  return cardTexture('free', (g) => {
-    g.fillStyle = '#f08c1a';
-    g.fillRect(10, 10, 140, 204);
-    g.fillStyle = '#fff';
-    g.font = '900 22px system-ui, sans-serif';
-    g.fillText('BEBAS', 80, 70);
-    g.fillText('PENJARA', 80, 98);
-    g.font = '600 14px system-ui, sans-serif';
-    g.fillText('simpan atau', 80, 150);
-    g.fillText('jual ke pemain', 80, 168);
-  });
-}
-
-export function deckTexture(deck) {
-  return cardTexture(`k${deck}`, (g) => {
-    g.fillStyle = DECK_COLOR[deck];
-    g.fillRect(8, 8, 144, 208);
-    g.fillStyle = '#fff';
-    g.font = `900 ${deck === 'kas' ? 30 : 26}px system-ui, sans-serif`;
+/** Punggung kartu hak milik (terlihat saat digadai / tertutup). */
+export function deedBackTexture() {
+  return cardTexture('dback', (g) => {
+    g.strokeStyle = '#f5c518';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.roundRect(14, 14, CW - 28, CH - 28, 16);
+    g.stroke();
     g.save();
-    g.translate(80, 112);
+    g.translate(CW / 2, CH / 2);
     g.rotate(-Math.PI / 2);
-    g.fillText(DECK_NAME_UP[deck], 0, 0);
+    g.fillStyle = '#fff4e0';
+    g.font = `900 64px Georgia, 'Times New Roman', serif`;
+    g.fillText('JURAGAN', 0, 0);
     g.restore();
-  });
+  }, '#9c1c1c');
 }
-const DECK_NAME_UP = { peluang: 'PELUANG', kas: 'KAS RT' };
 
-export const CARD_W = 0.05, CARD_L = 0.07;
-const cardGeo = new THREE.PlaneGeometry(CARD_W, CARD_L).rotateX(-Math.PI / 2);
-export function makeCardMesh(tex) {
-  const m = new THREE.Mesh(cardGeo, new THREE.MeshLambertMaterial({ map: tex }));
-  m.receiveShadow = true;
+/** Kartu Takdir/Kebijakan berwarna penuh: judul, ikon, teks (atau punggung bila teks kosong). */
+export function instructionTexture(deck, text = '') {
+  return cardTexture(`k${deck}:${text}`, (g) => {
+    g.strokeStyle = 'rgba(255,255,255,0.55)';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.roundRect(12, 12, CW - 24, CH - 24, 16);
+    g.stroke();
+    g.fillStyle = '#fff';
+    g.font = '900 30px system-ui, sans-serif';
+    g.fillText(deck === 'kebijakan' ? 'KEBIJAKAN' : 'TAKDIR', CW / 2, 60);
+    g.save();
+    g.translate(CW / 2, text ? 150 : 250);
+    icon(g, deck === 'kebijakan' ? 'book' : 'question', text ? 130 : 190, '#fff');
+    g.restore();
+    if (text) {
+      g.font = '700 24px system-ui, sans-serif';
+      const ls = wrap(g, text, CW - 50);
+      ls.forEach((l, k) => g.fillText(l, CW / 2, 270 + k * 31));
+    }
+  }, DECK_COLOR[deck]);
+}
+
+/** Kartu bebas penjara (warna tumpukan asalnya). */
+export function freeCardTexture(deck = 'takdir') {
+  return cardTexture(`free${deck}`, (g) => {
+    g.strokeStyle = 'rgba(255,255,255,0.55)';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.roundRect(12, 12, CW - 24, CH - 24, 16);
+    g.stroke();
+    g.fillStyle = '#fff';
+    g.font = '800 22px system-ui, sans-serif';
+    g.fillText(deck === 'kebijakan' ? 'KEBIJAKAN' : 'TAKDIR', CW / 2, 54);
+    // jeruji terbuka
+    g.strokeStyle = '#fff';
+    g.lineWidth = 9;
+    for (let k = 0; k < 4; k++) {
+      g.beginPath();
+      g.moveTo(80 + k * 32, 130);
+      g.lineTo(80 + k * 32, 250);
+      g.stroke();
+    }
+    g.strokeRect(66, 124, 124, 132);
+    g.font = '900 38px system-ui, sans-serif';
+    g.fillText('BEBAS', CW / 2, 320);
+    g.fillText('PENJARA', CW / 2, 364);
+    g.font = '600 19px system-ui, sans-serif';
+    g.fillText('simpan atau jual', CW / 2, 430);
+  }, DECK_COLOR[deck]);
+}
+
+export const CARD_W = SPACE_M * 0.94, CARD_L = SPACE_M * 1.88;
+let cardGeo = null;
+/** Kartu dua sisi (muka ke atas, punggung ke bawah). Group; userData.front/back = mesh. */
+export function makeCardMesh(front, back = deedBackTexture()) {
+  cardGeo ||= new THREE.PlaneGeometry(CARD_W, CARD_L).rotateX(-Math.PI / 2);
+  const g = new THREE.Group();
+  const f = new THREE.Mesh(cardGeo, new THREE.MeshLambertMaterial({ map: front }));
+  const b = new THREE.Mesh(cardGeo, new THREE.MeshLambertMaterial({ map: back }));
+  b.rotation.z = Math.PI;
+  b.position.y = -0.0004;
+  f.receiveShadow = b.receiveShadow = true;
+  g.add(f, b);
+  g.userData.front = f;
+  g.userData.back = b;
+  return g;
+}
+
+/** Tumpukan kartu Takdir / Kebijakan seukuran petak (memanjang sejajar logo). */
+export function makeDeck(deck) {
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(CARD_L, 0.016, CARD_W), new THREE.MeshLambertMaterial({ color: '#f1ead8' }));
+  box.position.y = 0.008;
+  box.castShadow = true;
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_L).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: instructionTexture(deck) }));
+  top.position.y = 0.0165;
+  top.rotation.y = Math.PI / 2;
+  g.add(box, top);
+  g.userData.box = box;
+  return g;
+}
+
+/** Garis kuning berdenyut (tekstur bingkai membulat) untuk dadu / tumpukan yang harus diketuk. */
+let glowTex = null;
+export function makeGlow(w, l) {
+  if (!glowTex) {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const g = c.getContext('2d');
+    g.strokeStyle = '#ffe066';
+    g.shadowColor = '#ffd43b';
+    g.shadowBlur = 14;
+    g.lineWidth = 12;
+    g.beginPath();
+    g.roundRect(14, 14, 100, 100, 22);
+    g.stroke();
+    glowTex = new THREE.CanvasTexture(c);
+  }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }));
+  m.renderOrder = 2;
   return m;
 }
 
-/** Tumpukan kartu Peluang / Kas RT di tengah papan. */
-export function makeDeck(deck) {
-  const g = new THREE.Group();
-  const box = new THREE.Mesh(new THREE.BoxGeometry(0.108, 0.014, 0.076), new THREE.MeshLambertMaterial({ color: '#f1ead8' }));
-  box.position.y = 0.007;
-  const top = new THREE.Mesh(new THREE.PlaneGeometry(0.072, 0.104).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: deckTexture(deck) }));
-  top.position.y = 0.0145;
-  top.rotation.y = Math.PI / 2;
-  g.add(box, top);
-  return g;
+/** Lapisan penanda pemilik di atas petak: bingkai + warna tipis (warna diatur lewat material.color). */
+let ownTex = null;
+export function makeOwnerMark() {
+  if (!ownTex) {
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(255,255,255,0.26)';
+    g.fillRect(0, 0, 64, 128);
+    g.strokeStyle = '#fff';
+    g.lineWidth = 9;
+    g.strokeRect(4.5, 4.5, 55, 119);
+    ownTex = new THREE.CanvasTexture(c);
+  }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(SPACE_M, SPACE_M * 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: ownTex, transparent: true, depthWrite: false }));
+  m.renderOrder = 1;
+  return m;
+}
+
+/** Jeruji besi di atas sel penjara (muncul saat ada pemain dipenjara). */
+export function makeJailBars(size) {
+  const parts = [];
+  const h = 0.07, r = 0.0022;
+  const n = 7;
+  for (let side = 0; side < 4; side++) {
+    for (let k = 0; k < n; k++) {
+      const t = -size / 2 + (k * size) / (n - 1);
+      const [x, z] = side === 0 ? [t, -size / 2] : side === 1 ? [size / 2, t] : side === 2 ? [-t, size / 2] : [-size / 2, -t];
+      parts.push(new THREE.CylinderGeometry(r, r, h, 6).translate(x, h / 2, z));
+    }
+  }
+  for (const y of [0.004, h]) {
+    for (const [w, d, x, z] of [[size, 0.006, 0, -size / 2], [size, 0.006, 0, size / 2], [0.006, size, -size / 2, 0], [0.006, size, size / 2, 0]]) {
+      parts.push(new THREE.BoxGeometry(w + 0.006, 0.006, d + 0.006).translate(x, y, z));
+    }
+  }
+  const geo = mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)).map((p) => {
+    p.deleteAttribute('uv');
+    return p;
+  }));
+  const m = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color: '#868e96', specular: '#ffffff', shininess: 70 }));
+  m.castShadow = true;
+  return m;
 }
 
 // ---------- HP ----------
@@ -690,8 +880,8 @@ function phoneScreen(color) {
   g.fillRect(0, 0, 128, 256);
   g.fillStyle = '#fff';
   g.textAlign = 'center';
-  g.font = '800 30px system-ui, sans-serif';
-  g.fillText('Rp', 64, 112);
+  g.font = '800 40px system-ui, sans-serif';
+  g.fillText('$', 64, 112);
   g.font = '700 13px system-ui, sans-serif';
   g.fillText('Bank Juragan', 64, 140);
   g.fillStyle = 'rgba(255,255,255,0.6)';

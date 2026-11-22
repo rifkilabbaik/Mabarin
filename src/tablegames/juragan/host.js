@@ -23,7 +23,9 @@ const shuffled = (n) => {
   }
   return a;
 };
-const FREE_CARD = { peluang: CARDS.peluang.findIndex((c) => c.free), kas: CARDS.kas.findIndex((c) => c.free) };
+const FREE_CARD = { takdir: CARDS.takdir.findIndex((c) => c.free), kebijakan: CARDS.kebijakan.findIndex((c) => c.free) };
+const DICE_MS = 1150; // dadu berguling dulu, baru bidak berjalan
+const DRAW_MS = 15000; // kartu Takdir/Kebijakan diambil otomatis bila pemain diam
 
 /**
  * Bandar Juragan. Alur giliran (state.stage):
@@ -35,7 +37,7 @@ export class JuraganHost extends HostBase {
     super({ ...o, game: 'juragan', min: 2, max: 4, turnMs: 45000 });
     this.ranked = true; // bangkrut = gugur; lanjut sampai tersisa satu
     Object.assign(this.state, {
-      opts: { limit: 0 }, tok: {}, cash: {}, pos: {}, own: {}, jail: {}, jfree: {}, bank: { h: BANK_HOUSES, H: BANK_HOTELS },
+      opts: { limit: 0 }, tok: {}, cash: {}, pos: {}, own: {}, jail: {}, jfree: {}, jhold: { takdir: null, kebijakan: null }, drawDeck: null, bank: { h: BANK_HOUSES, H: BANK_HOTELS },
       stage: 'lobby', dice: [3, 4], rollN: 0, doubles: 0, again: false, mv: null, card: null, auction: null, offer: null, debt: null,
       log: [], logN: 0, phone: {}, endsAt: 0, why: null,
     });
@@ -96,13 +98,15 @@ export class JuraganHost extends HostBase {
     s.pos = {};
     s.jail = {};
     s.jfree = {};
+    s.jhold = { takdir: null, kebijakan: null };
+    s.drawDeck = null;
     s.own = {};
     s.bank = { h: BANK_HOUSES, H: BANK_HOTELS };
     for (const p of s.players) {
       s.cash[p.id] = START_CASH;
       s.pos[p.id] = 0;
     }
-    this.decks = { peluang: shuffled(CARDS.peluang.length), kas: shuffled(CARDS.kas.length) };
+    this.decks = { takdir: shuffled(CARDS.takdir.length), kebijakan: shuffled(CARDS.kebijakan.length) };
     Object.assign(s, { dice: [3, 4], doubles: 0, again: false, mv: null, card: null, auction: null, offer: null, debt: null, log: [], phone: {}, why: null });
     s.endsAt = s.opts.limit ? Date.now() + s.opts.limit * 60000 : 0;
     this.pending = null;
@@ -116,6 +120,25 @@ export class JuraganHost extends HostBase {
   onTurn() {
     this.state.doubles = 0;
     this.state.again = false;
+  }
+
+  /** Hitung ulang jumlah kartu bebas penjara tiap pemain dari pemegang kartunya. */
+  syncJail() {
+    const s = this.state;
+    s.jfree = {};
+    for (const pid of Object.values(s.jhold)) if (pid) s.jfree[pid] = (s.jfree[pid] || 0) + 1;
+  }
+
+  /** Pindahkan n kartu bebas penjara milik `from` ke `to` (null = kembali ke tumpukan). */
+  moveJailCards(from, to, n = 99) {
+    const s = this.state;
+    for (const deck of ['takdir', 'kebijakan']) {
+      if (n <= 0 || s.jhold[deck] !== from) continue;
+      s.jhold[deck] = to;
+      if (!to) this.decks[deck].push(FREE_CARD[deck]);
+      n--;
+    }
+    this.syncJail();
   }
 
   stageTo(stage) {
@@ -189,12 +212,9 @@ export class JuraganHost extends HostBase {
       if (creditor) o.by = creditor;
       else delete s.own[i]; // kembali ke bank, bisa dibeli lagi
     }
-    if (creditor) {
-      if (cash > 0) this.transfer(null, creditor, cash, 'Harta pemain bangkrut');
-      s.jfree[creditor] = (s.jfree[creditor] || 0) + (s.jfree[pid] || 0);
-    }
+    if (creditor && cash > 0) this.transfer(null, creditor, cash, 'Harta pemain bangkrut');
+    this.moveJailCards(pid, creditor);
     s.cash[pid] = 0;
-    s.jfree[pid] = 0;
     delete s.jail[pid];
     delete s.phone[pid];
     if (s.offer && (s.offer.from === pid || s.offer.to === pid)) s.offer = null;
@@ -263,6 +283,8 @@ export class JuraganHost extends HostBase {
     const i = a.i | 0;
     switch (a.a) {
       case 'roll': return this.roll(from);
+      case 'draw': return this.draw(from);
+      case 'counter': return this.makeOffer(from, a, true);
       case 'buy': return this.buy(from);
       case 'noBuy': return this.decline(from); // bukan 'decline' (dipakai lobi untuk menolak undangan)
       case 'end': return this.endTurn(from);
@@ -290,34 +312,44 @@ export class JuraganHost extends HostBase {
     s.rollN++;
     const dbl = d[0] === d[1];
     const sum = d[0] + d[1];
+    const ev = { k: 'roll', p: pid, d };
+    let after;
     if (s.jail[pid] !== undefined) {
       if (dbl) {
         delete s.jail[pid];
         s.again = false; // keluar penjara dengan dadu kembar: jalan, tanpa lempar lagi
-        this.push({ k: 'roll', p: pid, d, free: true });
-        return this.walk(pid, sum);
-      }
-      s.jail[pid]++;
-      if (s.jail[pid] >= 3) {
+        ev.free = true;
+        after = () => this.walk(pid, sum);
+      } else if (++s.jail[pid] >= 3) {
         // percobaan ketiga gagal: wajib bayar denda lalu jalan
         delete s.jail[pid];
-        this.transfer(pid, null, JAIL_FINE, 'Denda penjara');
-        this.push({ k: 'roll', p: pid, d, fine: true });
-        return this.walk(pid, sum);
+        ev.fine = true;
+        after = () => {
+          this.transfer(pid, null, JAIL_FINE, 'Denda penjara');
+          this.walk(pid, sum);
+        };
+      } else {
+        ev.stay = true;
+        after = () => {
+          this.stageTo('act');
+          this.push();
+          this.settle();
+        };
       }
-      this.push({ k: 'roll', p: pid, d, stay: true });
-      this.stageTo('act');
-      return this.settle();
+    } else if (dbl && ++s.doubles >= 3) {
+      ev.triple = true;
+      after = () => {
+        this.toJail(pid);
+        this.stageTo('act');
+        this.push();
+      };
+    } else {
+      s.again = dbl;
+      after = () => this.walk(pid, sum);
     }
-    if (dbl && ++s.doubles >= 3) {
-      this.push({ k: 'roll', p: pid, d, triple: true });
-      this.toJail(pid);
-      this.stageTo('act');
-      return this.push();
-    }
-    s.again = dbl;
-    this.push({ k: 'roll', p: pid, d });
-    this.walk(pid, sum);
+    this.stageTo('dice');
+    this.push(ev);
+    this.pending = { at: Date.now() + DICE_MS, fn: after };
   }
 
   walk(pid, steps, ctx = {}) {
@@ -365,8 +397,12 @@ export class JuraganHost extends HostBase {
     } else if (sp.type === 'tax') {
       this.transfer(pid, null, sp.amount, sp.name);
       this.push({ k: 'tax', p: pid, amt: sp.amount, i });
-    } else if (sp.type === 'peluang' || sp.type === 'kas') {
-      return this.drawCard(pid, sp.type);
+    } else if (sp.type === 'takdir' || sp.type === 'kebijakan') {
+      s.drawDeck = sp.type;
+      this.stageTo('draw');
+      this.push({ k: 'mustDraw', p: pid, deck: sp.type });
+      this.pending = { at: Date.now() + DRAW_MS, fn: () => this.draw(pid) };
+      return;
     } else if (sp.type === 'gojail') {
       this.toJail(pid);
     }
@@ -389,6 +425,15 @@ export class JuraganHost extends HostBase {
   }
 
   // ---------- Kartu ----------
+  /** Pemain mengetuk tumpukan kartu yang bergaris kuning. */
+  draw(pid) {
+    const s = this.state;
+    if (!this.isTurn(pid) || s.stage !== 'draw' || !s.drawDeck) return;
+    const deck = s.drawDeck;
+    s.drawDeck = null;
+    this.drawCard(pid, deck);
+  }
+
   drawCard(pid, deck) {
     const s = this.state;
     const d = this.decks[deck];
@@ -407,8 +452,9 @@ export class JuraganHost extends HostBase {
     if (!this.active(pid)) return;
     const why = DECK_NAME[deck];
     if (c.free) {
-      s.jfree[pid] = (s.jfree[pid] || 0) + 1;
-      this.push({ k: 'keep', p: pid });
+      s.jhold[deck] = pid;
+      this.syncJail();
+      this.push({ k: 'keep', p: pid, deck });
     } else if (c.cash > 0) this.transfer(null, pid, c.cash, why);
     else if (c.cash < 0) this.transfer(pid, null, -c.cash, why);
     else if (c.each) {
@@ -445,11 +491,8 @@ export class JuraganHost extends HostBase {
   useCard(pid) {
     const s = this.state;
     if (!this.isTurn(pid) || s.stage !== 'roll' || s.jail[pid] === undefined || !(s.jfree[pid] > 0)) return;
-    s.jfree[pid]--;
     delete s.jail[pid];
-    // kembalikan ke tumpukan yang sedang tidak punya kartu bebas penjara
-    const deck = this.decks.peluang.includes(FREE_CARD.peluang) ? 'kas' : 'peluang';
-    this.decks[deck].push(FREE_CARD[deck]);
+    this.moveJailCards(pid, null, 1); // kartu kembali ke bawah tumpukannya
     this.push({ k: 'free', p: pid, how: 'card' });
   }
 
@@ -585,15 +628,18 @@ export class JuraganHost extends HostBase {
     return { c, p, j };
   }
 
-  makeOffer(from, a) {
+  /** Kirim tawaran (nego uang / barter kartu). `counter`: penerima tawaran membalas dengan tawaran baru. */
+  makeOffer(from, a, counter = false) {
     const s = this.state;
-    if (s.offer || s.stage === 'auction' || !this.active(from) || !this.active(a.to) || a.to === from) return this.deny(from, 'Tawaran tidak bisa dikirim sekarang');
+    const prev = s.offer;
+    if (counter ? prev?.to !== from || a.to !== prev.from : prev) return this.deny(from, 'Tawaran tidak bisa dikirim sekarang');
+    if (s.stage === 'auction' || !this.active(from) || !this.active(a.to) || a.to === from) return this.deny(from, 'Tawaran tidak bisa dikirim sekarang');
     const give = this.cleanSide(a.give, from);
     const get = this.cleanSide(a.get, a.to);
     if (!give || !get) return this.deny(from, 'Isi tawaran tidak sah');
     if (!give.c && !give.p.length && !give.j && !get.c && !get.p.length && !get.j) return this.deny(from, 'Tawaran masih kosong');
-    s.offer = { n: ++this.seq, from, to: a.to, give, get, until: Date.now() + OFFER_MS };
-    this.push({ k: 'offer', p: from, to: a.to });
+    s.offer = { n: ++this.seq, from, to: a.to, give, get, until: Date.now() + OFFER_MS, round: counter ? (prev.round || 0) + 1 : 0, kind: a.kind === 'barter' ? 'barter' : 'nego' };
+    this.push({ k: 'offer', p: from, to: a.to, counter });
   }
 
   respond(pid, yes) {
@@ -612,14 +658,11 @@ export class JuraganHost extends HostBase {
         // tanah yang masih digadai: penerima membayar bunga 10%
         if (s.own[i].m) this.transfer(to, null, Math.round(mortgageValue(i) * 0.1), `Bunga gadai ${SPACES[i].name}`);
       }
-      if (side.j) {
-        s.jfree[from] -= side.j;
-        s.jfree[to] = (s.jfree[to] || 0) + side.j;
-      }
+      if (side.j) this.moveJailCards(from, to, side.j);
     };
     swap(give, o.from, o.to);
     swap(get, o.to, o.from);
-    this.push({ k: 'trade', p: o.from, to: o.to, give, get });
+    this.push({ k: 'trade', p: o.from, to: o.to, give, get, kind: o.kind });
     this.settle();
   }
 
@@ -649,6 +692,7 @@ export class JuraganHost extends HostBase {
     this.debtQueue = this.debtQueue.filter((d) => d.pid !== pid);
     const debtBack = s.debt?.pid === pid ? s.debt.back : null;
     if (debtBack) s.debt = null;
+    this.moveJailCards(pid, null);
     for (const k of ['cash', 'pos', 'jail', 'jfree', 'phone', 'tok']) delete s[k][pid];
     super.onLeave(pid, idx);
     if (wasTurn && s.phase === 'play') {
@@ -720,6 +764,7 @@ export class JuraganHost extends HostBase {
     if (s.stage === 'roll') this.roll(p.id);
     else if (s.stage === 'buy') this.decline(p.id);
     else if (s.stage === 'act') this.endTurn(p.id);
+    else if (s.stage === 'draw') this.draw(p.id);
     else s.turnAt = Date.now();
   }
 
@@ -734,6 +779,7 @@ export class JuraganHost extends HostBase {
       }
       return this.roll(pid);
     }
+    if (s.stage === 'draw') return this.draw(pid);
     if (s.stage === 'buy') {
       const i = s.pos[pid];
       const price = SPACES[i].price;
@@ -820,6 +866,12 @@ export class JuraganHost extends HostBase {
       if (SPACES[i].type === 'prop' && ownsGroup(own, bot.id, SPACES[i].group)) gain -= SPACES[i].price * 3;
     }
     this.usePhone(bot.id);
-    this.respond(bot.id, gain > 0 && s.cash[bot.id] - o.get.c >= 0);
+    if (gain > 0 && s.cash[bot.id] - o.get.c >= 0) return this.respond(bot.id, true);
+    // hampir sepakat: tawar balik dengan minta tambahan uang
+    const extra = Math.ceil((-gain + 20) / 10) * 10;
+    if (gain > -250 && (o.round || 0) < 2 && o.give.c + extra <= s.cash[o.from]) {
+      return this.makeOffer(bot.id, { to: o.from, give: o.get, get: { ...o.give, c: o.give.c + extra }, kind: o.kind }, true);
+    }
+    this.respond(bot.id, false);
   }
 }

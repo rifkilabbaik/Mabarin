@@ -13,8 +13,8 @@ test('papan: 40 petak, 28 bisa dimiliki, 8 kelompok warna + 4 transportasi + 2 u
   const sizes = Object.fromEntries(Object.entries(GROUP_SPACES).map(([g, l]) => [g, l.length]));
   assert.deepEqual(sizes, { cokelat: 2, biruMuda: 3, pink: 3, oranye: 3, merah: 3, kuning: 3, hijau: 3, biruTua: 2, rail: 4, util: 2 });
   assert.deepEqual([0, 10, 20, 30].map((i) => SPACES[i].type), ['go', 'jail', 'free', 'gojail']);
-  assert.equal(CARDS.peluang.length, 16);
-  assert.equal(CARDS.kas.length, 16);
+  assert.equal(CARDS.takdir.length, 16);
+  assert.equal(CARDS.kebijakan.length, 16);
   assert.equal(nearest(7, 'rail'), 15);
   assert.equal(nearest(36, 'rail'), 5);
   assert.equal(nearest(22, 'util'), 28);
@@ -126,8 +126,8 @@ test('jalan, beli, sewa ke pemilik, lewat MULAI', () => {
 test('dadu kembar: lempar lagi; tiga kali kembar: masuk penjara', () => {
   const { h, s, ids } = game();
   const A = ids[0];
-  h.decks.kas = [6, ...h.decks.kas.filter((x) => x !== 6)]; // kartu Kas RT: terima Rp100
-  rollAs(h, A, 1, 1); // petak 2 (Kas RT) → kartu
+  h.decks.kebijakan = [6, ...h.decks.kebijakan.filter((x) => x !== 6)]; // kartu Kebijakan: terima $100
+  rollAs(h, A, 1, 1); // petak 2 (Kebijakan) → kartu
   assert.equal(s.stage, 'roll', 'kembar: lempar lagi');
   assert.equal(h.cur().id, A);
   s.pos[A] = 0;
@@ -148,10 +148,14 @@ test('penjara: bayar denda, pakai kartu, gagal 3x lalu wajib bayar', () => {
   assert.equal(s.jail[A], undefined);
   assert.equal(s.cash[A], 1450);
   h.toJail(A);
-  s.jfree[A] = 1;
+  s.jhold.takdir = A;
+  h.syncJail();
+  h.decks.takdir = h.decks.takdir.filter((x) => x !== 7);
   h.handle({ a: 'useCard' }, A);
   assert.equal(s.jail[A], undefined);
-  assert.equal(s.jfree[A], 0);
+  assert.equal(s.jfree[A] || 0, 0);
+  assert.equal(s.jhold.takdir, null);
+  assert.ok(h.decks.takdir.includes(7), 'kartu kembali ke tumpukan Takdir');
   h.toJail(A);
   s.jail[A] = 2;
   h.stageTo('roll');
@@ -173,14 +177,14 @@ test('masuk petak "Masuk Penjara" → ke penjara', () => {
 test('kartu: maju ke MULAI, bayar ke tiap pemain, kartu bebas penjara disimpan', () => {
   const { h, s, ids } = game(2);
   const [A, B, C] = ids;
-  h.decks.peluang = [0, ...h.decks.peluang.filter((x) => x !== 0)];
+  h.decks.takdir = [0, ...h.decks.takdir.filter((x) => x !== 0)];
   s.pos[A] = 3;
-  rollAs(h, A, 1, 3); // petak 7 Peluang → maju ke MULAI
+  rollAs(h, A, 1, 3); // petak 7 Takdir → maju ke MULAI
   assert.equal(s.pos[A], 0);
   assert.equal(s.cash[A], 1700);
   h.setTurn(0);
   h.stageTo('roll');
-  h.decks.peluang = [14, ...h.decks.peluang.filter((x) => x !== 14)];
+  h.decks.takdir = [14, ...h.decks.takdir.filter((x) => x !== 14)];
   s.pos[A] = 3;
   rollAs(h, A, 1, 3);
   assert.equal(s.cash[A], 1600);
@@ -188,11 +192,12 @@ test('kartu: maju ke MULAI, bayar ke tiap pemain, kartu bebas penjara disimpan',
   assert.equal(s.cash[C], 1550);
   h.setTurn(0);
   h.stageTo('roll');
-  h.decks.kas = [4, ...h.decks.kas.filter((x) => x !== 4)];
+  h.decks.kebijakan = [4, ...h.decks.kebijakan.filter((x) => x !== 4)];
   s.pos[A] = 0;
-  rollAs(h, A, 1, 1); // petak 2 Kas RT
+  rollAs(h, A, 1, 1); // petak 2 Kebijakan
   assert.equal(s.jfree[A], 1);
-  assert.ok(!h.decks.kas.includes(4), 'kartu tidak kembali ke tumpukan selama disimpan');
+  assert.equal(s.jhold.kebijakan, A);
+  assert.ok(!h.decks.kebijakan.includes(4), 'kartu tidak kembali ke tumpukan selama disimpan');
 });
 
 test('lelang: menolak beli → lelang, tawaran tertinggi membayar', () => {
@@ -374,3 +379,68 @@ for (const players of [2, 3, 4]) {
     }
   });
 }
+
+test('dadu berguling dulu, bidak baru jalan setelah dadu berhenti', () => {
+  const { h, s, ids } = game();
+  const A = ids[0];
+  const orig = Math.random;
+  const seq = [0.2, 0.5];
+  Math.random = () => (seq.length ? seq.shift() : orig());
+  try {
+    h.handle({ a: 'roll' }, A);
+  } finally {
+    Math.random = orig;
+  }
+  assert.equal(s.stage, 'dice');
+  assert.equal(s.pos[A], 0, 'belum jalan');
+  h.onTick(h.pending.at + 1);
+  assert.equal(s.stage, 'move');
+  assert.equal(s.pos[A], 6);
+});
+
+test('kartu Takdir/Kebijakan diambil manual (atau otomatis bila diam)', () => {
+  const { h, s, ids } = game();
+  const [A, B] = ids;
+  h.decks.kebijakan = [6, ...h.decks.kebijakan.filter((x) => x !== 6)];
+  s.pos[A] = 0;
+  h.walk(A, 2);
+  h.onTick(h.pending.at + 1);
+  assert.equal(s.stage, 'draw');
+  assert.equal(s.drawDeck, 'kebijakan');
+  h.handle({ a: 'draw' }, B);
+  assert.equal(s.stage, 'draw', 'hanya pemain yang berhenti di petak kartu');
+  h.handle({ a: 'draw' }, A);
+  assert.equal(s.stage, 'card');
+  assert.equal(s.card.deck, 'kebijakan');
+  flush(h);
+  assert.equal(s.cash[A], 1600);
+});
+
+test('tawar balik: penerima mengirim tawaran baru, lalu disepakati', () => {
+  const { h, s, ids } = game();
+  const [A, B] = ids;
+  s.own[11] = { by: B, h: 0, m: false };
+  h.handle({ a: 'offer', to: B, give: { c: 100 }, get: { p: [11] }, kind: 'nego' }, A);
+  assert.equal(s.offer.round, 0);
+  h.handle({ a: 'counter', to: A, give: { p: [11] }, get: { c: 180 }, kind: 'nego' }, A);
+  assert.equal(s.offer.from, A, 'pengirim tidak boleh membalas tawarannya sendiri');
+  h.handle({ a: 'counter', to: A, give: { p: [11] }, get: { c: 180 }, kind: 'nego' }, B);
+  assert.equal(s.offer.from, B);
+  assert.equal(s.offer.round, 1);
+  h.handle({ a: 'accept' }, A);
+  assert.equal(s.own[11].by, A);
+  assert.equal(s.cash[A], 1320);
+  assert.equal(s.cash[B], 1680);
+});
+
+test('barter kartu bebas penjara ikut pindah tangan', () => {
+  const { h, s, ids } = game();
+  const [A, B] = ids;
+  s.jhold.kebijakan = A;
+  h.syncJail();
+  h.handle({ a: 'offer', to: B, give: { j: 1 }, get: { c: 40 } }, A);
+  h.handle({ a: 'accept' }, B);
+  assert.equal(s.jhold.kebijakan, B);
+  assert.equal(s.jfree[B], 1);
+  assert.equal(s.cash[A], 1540);
+});
