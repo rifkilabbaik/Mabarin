@@ -9,7 +9,8 @@ export const HOP_MS = 230; // lama bidak melompat satu petak (sama dengan animas
 const CARD_MS = 2800; // kartu diumumkan dulu sebelum efeknya berlaku
 const AUCTION_MS = 10000;
 const BID_MS = 6000; // setiap tawaran memperpanjang lelang
-const OFFER_MS = 40000;
+const OFFER_MS = 20000; // tawaran tidak dijawab 20 dtk = batal
+export const ASK_MORE = 50; // "Minta lebih" = tawaran + $50
 const DEBT_MS = 45000;
 const LOG_MAX = 60;
 const LIMITS = [0, 30, 45, 60]; // menit; 0 = sampai bangkrut
@@ -301,6 +302,13 @@ export class JuraganHost extends HostBase {
       case 'reject': return this.respond(from, false);
       case 'cancel': return this.cancelOffer(from);
       case 'bankrupt': if (s.debt?.pid === from) this.bankrupt(from, s.debt.to); return;
+      case 'autopay':
+        // lunasi otomatis: jual bangunan / gadai kartu termurah dulu
+        if (s.debt?.pid !== from) return;
+        this.autoLiquidate(from);
+        if (s.cash[from] < 0) this.bankrupt(from, s.debt.to);
+        else this.debtCheck(from);
+        return;
     }
   }
 
@@ -632,7 +640,7 @@ export class JuraganHost extends HostBase {
   makeOffer(from, a, counter = false) {
     const s = this.state;
     const prev = s.offer;
-    if (counter ? prev?.to !== from || a.to !== prev.from : prev) return this.deny(from, 'Tawaran tidak bisa dikirim sekarang');
+    if (counter ? prev?.to !== from || a.to !== prev.from || (prev.round || 0) > 0 : prev) return this.deny(from, 'Tawaran tidak bisa dikirim sekarang');
     if (s.stage === 'auction' || !this.active(from) || !this.active(a.to) || a.to === from) return this.deny(from, 'Tawaran tidak bisa dikirim sekarang');
     const give = this.cleanSide(a.give, from);
     const get = this.cleanSide(a.get, a.to);
@@ -867,9 +875,9 @@ export class JuraganHost extends HostBase {
     }
     this.usePhone(bot.id);
     if (gain > 0 && s.cash[bot.id] - o.get.c >= 0) return this.respond(bot.id, true);
-    // hampir sepakat: tawar balik dengan minta tambahan uang
-    const extra = Math.ceil((-gain + 20) / 10) * 10;
-    if (gain > -250 && (o.round || 0) < 2 && o.give.c + extra <= s.cash[o.from]) {
+    // hampir sepakat: minta tambahan uang (kelipatan $50), hanya sekali
+    const extra = Math.max(ASK_MORE, Math.ceil((-gain + 10) / ASK_MORE) * ASK_MORE);
+    if (gain > -200 && !o.round && o.give.c + extra <= s.cash[o.from]) {
       return this.makeOffer(bot.id, { to: o.from, give: o.get, get: { ...o.give, c: o.give.c + extra }, kind: o.kind }, true);
     }
     this.respond(bot.id, false);

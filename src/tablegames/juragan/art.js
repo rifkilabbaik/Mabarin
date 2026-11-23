@@ -809,9 +809,13 @@ export function makeGlow(w, l) {
     g.strokeStyle = '#ffe066';
     g.shadowColor = '#ffd43b';
     g.shadowBlur = 14;
-    g.lineWidth = 12;
+    g.lineWidth = 16;
     g.beginPath();
     g.roundRect(14, 14, 100, 100, 22);
+    g.stroke();
+    g.shadowBlur = 0;
+    g.strokeStyle = '#fff3bf';
+    g.lineWidth = 5;
     g.stroke();
     glowTex = new THREE.CanvasTexture(c);
   }

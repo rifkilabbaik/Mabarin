@@ -444,3 +444,34 @@ test('barter kartu bebas penjara ikut pindah tangan', () => {
   assert.equal(s.jfree[B], 1);
   assert.equal(s.cash[A], 1540);
 });
+
+test('tawar balik hanya sekali; penawar awal cuma bisa terima/tolak', () => {
+  const { h, s, ids } = game();
+  const [A, B] = ids;
+  s.own[11] = { by: B, h: 0, m: false };
+  h.handle({ a: 'offer', to: B, give: { c: 150 }, get: { p: [11] } }, A);
+  h.handle({ a: 'counter', to: A, give: { p: [11] }, get: { c: 200 } }, B);
+  assert.equal(s.offer.round, 1);
+  h.handle({ a: 'counter', to: B, give: { c: 250 }, get: { p: [11] } }, A);
+  assert.equal(s.offer.from, B, 'tidak boleh tawar balik lagi');
+  h.handle({ a: 'reject' }, A);
+  assert.equal(s.offer, null);
+  assert.equal(s.own[11].by, B);
+});
+
+test('lunasi otomatis: jual/gadai sampai saldo tidak minus', () => {
+  const { h, s, ids } = game();
+  const [A, B] = ids;
+  for (const i of [6, 8, 9]) s.own[i] = { by: A, h: 1, m: false };
+  s.bank.h -= 3;
+  s.own[39] = { by: B, h: 5, m: false };
+  s.own[37] = { by: B, h: 5, m: false };
+  s.cash[A] = 1800;
+  s.pos[A] = 35;
+  rollAs(h, A, 1, 3);
+  assert.equal(s.stage, 'debt');
+  h.handle({ a: 'autopay' }, A);
+  assert.equal(s.debt, null);
+  assert.ok(s.cash[A] >= 0);
+  assert.equal(s.out.length, 0);
+});

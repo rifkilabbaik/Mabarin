@@ -41,10 +41,12 @@ Game PWA multiplayer Three.js (Vite), di-deploy ke GitHub Pages. Repo: `rifkilab
   - Dadu besar di depan pemain yang giliran (bergaris kuning bila giliran kita), dilempar ke tengah, lalu pindah ke pemain berikutnya. Tidak ada tombol lempar dadu.
   - Bidak berwarna pemain (becak, pinisi, ayam jago, ontel, peci, kendi) dipilih di lobi; lama main bangkrut / 30 / 45 / 60 menit.
   - Penanda petak milik: bingkai + warna tipis pemilik (abu-abu bila digadai). Jeruji besi 3D muncul di sel penjara bila ada yang dipenjara. Kartu di meja 1:2 HD (hak milik ditelungkupkan bila digadai); kartu bebas penjara (per tumpukan, `state.jhold`) di samping HP.
-  - HP: tombol HP di bawah tombol kamera / ketuk HP di meja / terbuka otomatis saat perlu keputusan. Karakter pose selfie (`Character.holdPhone`, HP `lookAt` wajah), lalu layar muncul dari HP ke **tengah layar**. Beranda: avatar + ikon bidak. Tab: Aset (galeri kartu per set, stempel serong TERSEDIA / DIMILIKI + nama / DIGADAI), Mutasi, Pemain. Ketuk kartu orang lain → **Nego** (uang) / **Barter** (tukar kartu); penerima bisa **Tawar balik** (`counter`, `offer.round`), bot juga bisa tawar balik.
-  - Notifikasi: kartu Takdir/Kebijakan & aset (beli, lelang, pindah tangan, gadai, tebus, bangun) berupa gambar kartu + detail di bawah (atas tengah); pembayaran simpel (bawah tengah, maks. 3, "+n lainnya") dari `state.log`.
+  - **Tanpa layar HP** (disederhanakan): keputusan di **panel aksi bawah** (Beli/Lelang, +10/+50/+100/Lewat, Tolak/Minta +$50/Terima, Bayar/Pakai kartu, Lunasi otomatis/Bangkrut, Selesai giliran; petunjuk "Ketuk kartu Takdir" saat harus ambil kartu). **Laci aset** di paling bawah (tutup: saldo + warna kartu; buka: galeri per set dengan stempel TERSEDIA / nama pemilik / DIGADAI). Ketuk kartu (di laci atau petak di papan) → lembar aksi: milikmu = Bangun/Jual/Gadai/Tebus + tabel sewa; milik orang = beli seharga ×1 / ×1,5 / ×2 atau tukar dengan satu kartumu (sekali ketuk terkirim); kartu bebas penjara $50/$75/$100. HP 3D di meja diketuk = buka laci.
+  - Nego maks. 2 langkah: penerima Terima / Tolak / Minta +$50 (`counter`, hanya `round` 0); penawar lalu cuma Terima/Tolak. Tawaran batal bila tidak dijawab 20 dtk. Bot bisa minta lebih (kelipatan $50).
+  - Karakter **mengangkat HP = sedang memutuskan** (panel keputusan, laci/lembar aksi terbuka; bot ±2 dtk) lewat `state.phone` + `Character.holdPhone` (pose selfie, HP `lookAt` wajah).
+  - Notifikasi **satu baris tanpa angka** di tengah atas (maks. 3, "+n lainnya"), mis. "Bayu membeli Filipina", "Bayu ambil kartu Takdir: …". Jumlah uang keluar/masuk muncul ±2,4 dtk **di sebelah baris pemain** di daftar kiri atas (`playerBadge` + `.jg-delta`).
   - Suara uang pemain lokal: bayar `tungting`, masuk `kencring`, tawaran `buzz`.
-  - Uji di browser: `window.__game.cards.host` (`walk`, `drawCard`, `startAuction`, `state.own`), `window.__game.cards.controls.setOpen(true)`; dadu/tumpukan bisa diklik lewat proyeksi `renderer.diceHit` / `renderer.decks[...]`.
+  - Uji di browser: `window.__game.cards.host` (`walk`, `drawCard`, `startAuction`, `makeOffer`, `state.own`); laci `.jg-dbar`, panel `.jg-panel [data-act=…]`; dadu/tumpukan diklik lewat proyeksi `renderer.diceHit` / `renderer.decks[...]`.
 - **Domino** (2–4 pemain, gaya gaple):
   - 28 kartu, 7 per pemain; 2–3 pemain sisanya disisihkan (bertumpuk di sudut meja, tidak dipakai).
   - Babak pertama dibuka pemegang balak tertinggi (`must`); "Ulangi" dibuka pemenang sebelumnya bebas.
@@ -74,7 +76,7 @@ Game PWA multiplayer Three.js (Vite), di-deploy ke GitHub Pages. Repo: `rifkilab
   - `tests/kilat.test.js`: `refill()`, lewat, simulasi permainan bot 2–4 pemain sampai selesai (kartu harus utuh).
   - `tests/pool.test.js`: `rack`/`rackMulti`, `ShotSim` deterministik, aturan 2 pemain, solo, & 3–4 pemain (`resolveMulti`).
   - `tests/mancala.test.js`: tabur, tangkap, akhir permainan, bot.
-  - `tests/juragan.test.js`: papan, sewa, bangun/gadai, dadu berguling dulu, jalan & beli, penjara, kartu manual, lelang, nego & tawar balik, kartu bebas penjara, utang, bangkrut, batas waktu, simulasi bot 2–4 pemain.
+  - `tests/juragan.test.js`: papan, sewa, bangun/gadai, dadu berguling dulu, jalan & beli, penjara, kartu manual, lelang, nego & tawar balik (sekali), lunasi otomatis, kartu bebas penjara, utang, bangkrut, batas waktu, simulasi bot 2–4 pemain.
   - `tests/domino.test.js`: aturan, rantai tidak bertumpuk/putus, lewat otomatis, buntu, pemain keluar, simulasi 2–4 pemain.
   - Bantuan: `tests/helpers.js` (`makeHost`, `addHuman`, `withSeed` untuk acak berbenih).
 - **`npm run smoke`** (atau `npm run smoke -- pool ludo`): buka tiap game meja di Chromium dengan meja penuh bot, semua pemain dimainkan bot ±8 detik, gagal bila ada error konsol/halaman atau state tidak bergerak. Tangkapan layar gagal di `/tmp/mabarin-smoke/`. Butuh Playwright (sudah ada di sesi cloud; di komputer lain: `npm i -D playwright && npx playwright install chromium`). ±2 menit.

@@ -48,7 +48,8 @@ export class JuraganRenderer {
       d.userData.box.userData.deck = deck;
       this.group.add(d);
       this.decks[deck] = d;
-      const glow = makeGlow(SPACE_M * 2.35, SPACE_M * 1.4);
+      d.userData.baseY = d.position.y;
+      const glow = makeGlow(SPACE_M * 2.7, SPACE_M * 1.75);
       glow.position.copy(d.position).setY(BOARD_H + 0.003);
       glow.rotation.y = -spot.rot;
       glow.visible = false;
@@ -322,8 +323,18 @@ export class JuraganRenderer {
   // ---------- Tumpukan kartu & kartu yang dibalik ----------
   updateDecks(dt, m, viewerId) {
     for (const [deck, glow] of Object.entries(this.deckGlow)) {
-      glow.visible = m.phase === 'play' && m.stage === 'draw' && m.drawDeck === deck;
-      if (glow.visible) glow.material.opacity = 0.65 + Math.sin(this.time * 5) * 0.35;
+      // harus diambil: garis kuning tebal berdenyut & tumpukan terangkat sedikit
+      const on = m.phase === 'play' && m.stage === 'draw' && m.drawDeck === deck;
+      glow.visible = on;
+      const d = this.decks[deck];
+      const lift = on ? 0.012 + Math.sin(this.time * 4) * 0.004 : 0;
+      d.position.y += (d.userData.baseY + lift - d.position.y) * Math.min(1, dt * 10);
+      if (on) {
+        const k = 1 + Math.sin(this.time * 5) * 0.06;
+        glow.scale.set(k, 1, k);
+        glow.material.opacity = 0.75 + Math.sin(this.time * 5) * 0.25;
+        glow.position.y = d.position.y + 0.004;
+      }
     }
     if (m.card && m.card.n !== this.lastCard) {
       if (this.lastCard !== -1 || m.stage === 'card') {
